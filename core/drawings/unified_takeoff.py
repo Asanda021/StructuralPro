@@ -65,16 +65,21 @@ class UnifiedDrawingTakeoff:
 
     def candidates_to_rows(self,inspection,confirmations=None):
         confirmations=confirmations or {}
-        out=[]
+        out=[]; seen_sources=set()
         for i,row in enumerate(inspection.get("candidates",[]) or [],1):
             if confirmations and not confirmations.get(i,False):
                 continue
-            if float(row.get("quantity",0) or 0)<0:
-                raise ValueError("drawing quantity cannot be negative")
+            source=str(row.get("source") or f"drawing:{i}").strip()
+            if source in seen_sources:
+                raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source}")
+            seen_sources.add(source)
+            quantity=float(row.get("quantity",0) or 0)
+            if not math.isfinite(quantity) or quantity < 0:
+                raise ValueError("drawing quantity must be finite and non-negative")
             out.append({
-                "source":row.get("source","drawing"),
+                "source":source,
                 "description":row.get("description",""),
-                "quantity":float(row.get("quantity",0) or 0),
+                "quantity":quantity,
                 "unit":row.get("unit",""),
                 "needs_confirmation":row.get("needs_confirmation",True),
             })
