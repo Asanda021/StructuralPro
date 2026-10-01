@@ -519,13 +519,22 @@ class StructuralProApp:
                 return str(item.get("id"))
         return None
 
+    def _next_counterparty_id(self, records: list[dict[str, Any]]) -> str:
+        numbers = []
+        for item in records:
+            raw = str(item.get("id", ""))
+            if raw.upper().startswith("CP") and raw[2:].isdigit():
+                numbers.append(int(raw[2:]))
+        return f"CP{max(numbers, default=0) + 1:04d}"
+
     def add_project_counterparty(self, project_id: str, name: str, *, role: str = "", notes: str = "") -> dict[str, Any]:
-        """Create a normalized project counterparty master record."""
+        """Create a normalized active project counterparty master record."""
         p = self.store.get(project_id)
         if p is None:
             raise KeyError(project_id)
         name = " ".join(str(name).strip().split())
         role = " ".join(str(role).strip().split())
+        notes = " ".join(str(notes).strip().split())
         if not name:
             raise ValueError("counterparty name cannot be empty")
         records = list(p.get("counterparties", []))
@@ -533,21 +542,25 @@ class StructuralProApp:
         if any(str(x.get("name", "")).strip().casefold() == key for x in records):
             raise ValueError("counterparty already exists")
         record = {
-            "id": f"CP{len(records)+1:04d}",
+            "id": self._next_counterparty_id(records),
             "name": name,
             "role": role,
-            "notes": str(notes).strip(),
+            "notes": notes,
+            "active": True,
         }
         records.append(record)
         p["counterparties"] = records
         self.store.save(project_id, p)
         return record
 
-    def project_counterparties(self, project_id: str) -> list[dict[str, Any]]:
+    def project_counterparties(self, project_id: str, *, active_only: bool = False) -> list[dict[str, Any]]:
         p = self.store.get(project_id)
         if p is None:
             raise KeyError(project_id)
-        return list(p.get("counterparties", []))
+        records = list(p.get("counterparties", []))
+        if active_only:
+            return [x for x in records if x.get("active", True)]
+        return records
 
     def find_project_counterparty(self, project_id: str, name: str) -> dict[str, Any] | None:
         p = self.store.get(project_id)
@@ -556,7 +569,53 @@ class StructuralProApp:
         key = " ".join(str(name).strip().split()).casefold()
         if not key:
             return None
-        return next((x for x in p.get("counterparties", []) if str(x.get("name", "")).casefold() == key), None)
+        return next((x for x in p.get("counterparties", []) if str(x.get("name", "")).strip().casefold() == key), None)
+
+    def find_project_counterparty_by_id(self, project_id: str, counterparty_id: str) -> dict[str, Any] | None:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        key = str(counterparty_id).strip()
+        if not key:
+            return None
+        return next((x for x in p.get("counterparties", []) if str(x.get("id", "")).strip() == key), None)
+
+    def update_project_counterparty(self, project_id: str, counterparty_id: str, *, name: str | None = None,
+                                    role: str | None = None, notes: str | None = None) -> dict[str, Any]:
+        """Update master data without changing linked financial records."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        records = list(p.get("counterparties", []))
+        target = next((x for x in records if str(x.get("id", "")) == str(counterparty_id).strip()), None)
+        if target is None:
+            raise KeyError(counterparty_id)
+        new_name = " ".join(str(target.get("name", "") if name is None else name).strip().split())
+        new_role = " ".join(str(target.get("role", "") if role is None else role).strip().split())
+        new_notes = " ".join(str(target.get("notes", "") if notes is None else notes).strip().split())
+        if not new_name:
+            raise ValueError("counterparty name cannot be empty")
+        key = new_name.casefold()
+        if any(x is not target and str(x.get("name", "")).strip().casefold() == key for x in records):
+            raise ValueError("counterparty already exists")
+        target.update({"name": new_name, "role": new_role, "notes": new_notes})
+        p["counterparties"] = records
+        self.store.save(project_id, p)
+        return target
+
+    def set_project_counterparty_active(self, project_id: str, counterparty_id: str, active: bool) -> dict[str, Any]:
+        """Activate/deactivate a counterparty while preserving historical links."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        records = list(p.get("counterparties", []))
+        target = next((x for x in records if str(x.get("id", "")) == str(counterparty_id).strip()), None)
+        if target is None:
+            raise KeyError(counterparty_id)
+        target["active"] = bool(active)
+        p["counterparties"] = records
+        self.store.save(project_id, p)
+        return target
 
 
     def project_counterparty_summary(self, project_id: str) -> dict[str, Any]:
