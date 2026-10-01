@@ -76,3 +76,26 @@ def test_project_financial_control_calculates_cost_variance(tmp_path):
     assert control["cost_variance"] == 2000
     assert control["schedule_variance"] == pytest.approx(6000 - (5000 * (6000 / 36000)))
     assert control["cost_performance_index"] == pytest.approx(1.5)
+
+
+def test_project_cost_ledger_persists_and_feeds_financial_control(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("دفتر هزینه", "C1")
+    app.add_takeoff(
+        "C1", "building", "wall",
+        length=10, width=0.2, height=3,
+        price_code="W001", unit_price=1200,
+    )
+    app.open_project("C1")["boq"][0]["current_quantity"] = 5
+    p = app.open_project("C1")
+    p["boq"][0]["current_quantity"] = 5
+    app.store.save("C1", p)
+    first = app.add_project_cost("C1", "مصالح", 1500, description="خرید سیمان", date="1405/07/09")
+    second = app.add_project_cost("C1", "دستمزد", 500)
+    summary = app.project_cost_summary("C1")
+    assert first["id"] == 1 and second["id"] == 2
+    assert summary["entry_count"] == 2
+    assert summary["actual_cost"] == 2000
+    assert summary["by_category"]["مصالح"] == 1500
+    control = app.project_financial_control("C1")
+    assert control["actual_cost"] == 2000
