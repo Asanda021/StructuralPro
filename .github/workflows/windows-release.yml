@@ -44,6 +44,13 @@ jobs:
         run: |
           $v=(Get-Content VERSION -Raw).Trim()
           if (-not (Test-Path "dist/StructuralPro-$v-Setup.exe")) { throw "Installer missing" }
+      - name: Generate dependency inventory
+        shell: pwsh
+        run: |
+          python -m pip freeze | Out-File -Encoding utf8 dist/StructuralPro-pip-freeze.txt
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: ./packaging/generate_sha256.ps1
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -51,3 +58,5 @@ jobs:
           path: |
             dist/StructuralPro/
             dist/StructuralPro-*-Setup.exe
+            dist/StructuralPro-SHA256SUMS.txt
+            dist/StructuralPro-pip-freeze.txt

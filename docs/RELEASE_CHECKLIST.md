@@ -34,6 +34,8 @@
 - [ ] No private signing key or credential is embedded in source/package.
 - [ ] Third-party dependency/model/converter/catalog licensing evidence is recorded.
 - [ ] Code-signing policy and certificate provisioning are defined when required.
+- [ ] Third-party compliance inventory and exact dependency inventory are reviewed.
+- [ ] Release artifact SHA-256 checksums are generated and retained.
 
 ## Documentation
 - [ ] User Guide is current.
