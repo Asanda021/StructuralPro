@@ -65,11 +65,22 @@ class FinanceLedger:
         _text(party.name,"party name",True); self.parties.append(party); return party
 
     def add_document(self,document):
-        self.documents.append(document); self.validate(); return document
+        old=list(self.documents)
+        self.documents.append(document)
+        try: self.validate()
+        except Exception:
+            self.documents=old
+            raise
+        return document
 
     def _add(self,target,entry,label):
         if any(x.id==entry.id for x in target): raise ValueError(f"duplicate {label} id")
-        target.append(entry); self.validate(); return entry
+        target.append(entry)
+        try: self.validate()
+        except Exception:
+            target.pop()
+            raise
+        return entry
     def add_obligation(self,entry): return self._add(self.obligations,entry,"obligation")
     def add_cost(self,entry): return self._add(self.costs,entry,"cost")
     def add_receipt(self,entry): return self._add(self.receipts,entry,"receipt")
