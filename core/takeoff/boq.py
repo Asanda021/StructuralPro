@@ -24,12 +24,9 @@ def _read(r: Any, name: str, default=None):
 def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) -> list[dict[str, Any]]:
     if not math.isfinite(float(factor)) or float(factor) < 0:
         raise ValueError("factor must be finite and non-negative")
-    raw=[]; seen_sources=set()
+    raw=[]
     for r in rows:
         source=str(_read(r,"source","") or "").strip()
-        if source and source in seen_sources:
-            raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source}")
-        if source: seen_sources.add(source)
         q=float(_read(r,"quantity",0) or 0)
         if not math.isfinite(q) or q < 0:
             raise ValueError("quantity must be finite and non-negative")
