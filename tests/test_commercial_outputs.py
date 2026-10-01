@@ -86,3 +86,35 @@ def test_statement_export_contains_period_columns(tmp_path):
     assert "این دوره" in values
     assert "تجمعی" in values
     assert "مبلغ این دوره" in values
+
+def test_statement_periods_roll_previous_quantities_forward(tmp_path):
+    app = _seed(tmp_path)
+    p = app.open_project("R1")
+    p["boq"][0]["current_quantity"] = 2
+    app.store.save("R1", p)
+    first = app.save_statement_period("R1", retention_rate=0.05)
+    assert first["number"] == 1
+    assert first["lines"][0]["previous_quantity"] == 0
+    assert first["lines"][0]["current_quantity"] == 2
+    assert first["lines"][0]["cumulative_quantity"] == 2
+
+    p = app.open_project("R1")
+    p["boq"][0]["current_quantity"] = 3
+    app.store.save("R1", p)
+    second = app.save_statement_period("R1", retention_rate=0.05)
+    assert second["number"] == 2
+    assert second["lines"][0]["previous_quantity"] == 2
+    assert second["lines"][0]["current_quantity"] == 3
+    assert second["lines"][0]["cumulative_quantity"] == 5
+    assert len(app.statement_periods("R1")) == 2
+
+
+def test_statement_period_accepts_explicit_quantities_and_rejects_duplicate(tmp_path):
+    app = _seed(tmp_path)
+    first = app.save_statement_period("R1", current_quantities={"W001": 1.5})
+    assert first["lines"][0]["current_quantity"] == 1.5
+    try:
+        app.save_statement_period("R1", period_no=1)
+        assert False, "duplicate period should fail"
+    except ValueError as exc:
+        assert "unique" in str(exc)
