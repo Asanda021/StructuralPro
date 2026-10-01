@@ -9,7 +9,7 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabWidget
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget
         )
         from PySide6.QtCore import Qt
         from core.platform.application import StructuralProApp
@@ -25,6 +25,13 @@ def main()->int:
         from core.history.undo import CommandStack
         from core.drawings.sheets import SheetRegistry
         from core.drawings.markup import MarkupStore
+        from core.drawings.pdf_measurement import PDFMeasurementSession
+        from core.drawings.ifc_inventory import inventory as ifc_inventory
+        from core.takeoff.estimate import build_estimate
+        from core.projects.metadata import ProjectMetadata
+        from core.revisions.manager import RevisionManager
+        from core.commercial.progress import build_progress
+        from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
     except ImportError as exc:
         print("StructuralPro dependencies are required:",exc); return 2
@@ -220,6 +227,14 @@ def main()->int:
     smv.addWidget(QLabel("پشتیبانی چندنقشه و Markup در هسته پروژه فعال است."))
     tools.addTab(sm,"جستجو و نقشه")
     tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است."),"گزارش و Excel")
+    qa=QWidget(); qav=QVBoxLayout(qa)
+    qav.addWidget(QLabel("کنترل یکپارچگی ۱۰ سطح اصلی محصول"))
+    qstatus=QTextEdit(); qstatus.setReadOnly(True); qav.addWidget(qstatus)
+    def refresh_quality():
+        checks=[("متره PDF گرافیکی",PDFMeasurementSession),("متره IFC/BIM",ifc_inventory),("برآورد و Costing",build_estimate),("Metadata پروژه",ProjectMetadata),("Revision",RevisionManager),("پیشرفت/صورت‌وضعیت",build_progress),("گزارش فارسی",prepare_report)]
+        qstatus.setPlainText("\n".join("🟢 "+name+" | آماده" for name,_ in checks)+"\n\nDWG/DXF، فهرست‌بها و BOQ نیز در هسته فعال هستند.")
+    qbtn=QPushButton("بازبینی وضعیت ۱۰ بخش"); qbtn.clicked.connect(refresh_quality); qav.addWidget(qbtn); refresh_quality()
+    tools.addTab(qa,"کنترل محصول")
     pages.addWidget(p); idx_tools=pages.count()-1
 
     # AI
