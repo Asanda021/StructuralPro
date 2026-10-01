@@ -12,7 +12,7 @@ from core.platform.application import StructuralProApp
 
 def _fake_converter(tmp_path):
     exe=tmp_path/"fake-dwg2dxf"
-    exe.write_text("#!/bin/sh\\ncp \"$1\" \"$2\"\\n",encoding="utf-8")
+    exe.write_text("#!/bin/sh" + chr(10) + "cp \"$1\" \"$2\"" + chr(10),encoding="utf-8")
     exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
     return exe
 
@@ -65,7 +65,7 @@ def test_graphical_pdf_geometry():
     m=GraphicalPDFTakeoff.line(1,0,0,3,4,0.01)
     assert m.quantity==0.05
     a=GraphicalPDFTakeoff.polygon(1,[(0,0),(10,0),(10,10),(0,10)],0.1)
-    assert a.quantity==1
+    assert round(a.quantity,10)==1
 
 def test_ai_manifest_and_hardware(tmp_path):
     p=tmp_path/"manifest.json"
@@ -100,7 +100,7 @@ def test_price_source_registry():
 
 def test_windows_shared_application_workflow(tmp_path):
     app=StructuralProApp(tmp_path)
-    app.create_project("P1","پروژه")
+    app.create_project("پروژه","P1")
     app.add_takeoff("P1","building","slab",length=2,width=3,height=0.2,price_code="S1",unit_price=100)
     app.add_takeoff("P1","building","wall",length=4,height=3,price_code="W1",unit_price=50)
     p=app.open_project("P1")
