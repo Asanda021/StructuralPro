@@ -27,7 +27,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
         code=_read(r,"price_code",None)
         desc=str(_read(r,"description","") or "").strip()
         f=float(_read(r,"factor",factor) or factor)
-        total=None if price is None else q*price*f
+        total=None if price is None else round(q*price*f, 10)
         warning="" if q >= 0 and unit else "missing_quantity_or_unit"
         if price == 0: warning = (warning+";" if warning else "")+"zero_price"
         raw.append({"source":str(_read(r,"source","") or ""), "description":desc,
