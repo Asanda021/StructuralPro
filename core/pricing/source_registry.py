@@ -12,6 +12,7 @@ class PriceSource:
 class PriceSourceRegistry:
     def __init__(self): self._sources={}
     def register(self,source:PriceSource): self._sources[(source.year,source.discipline,source.source_id)]=source
+    def add(self,source:PriceSource): self.register(source); return source
     def get(self,year,discipline,source_id):
         return self._sources.get((int(year),discipline,source_id))
     def all(self): return [asdict(x) for x in self._sources.values()]
