@@ -9,6 +9,7 @@ from core.takeoff.estimate import build_estimate
 from core.commercial.progress import build_progress
 from core.reports.project_report import build_report
 from core.ai.qa_engine import ProjectQA
+from core.ai.engineering_assistant import EngineeringAssistant
 from core.projects.user_workflow import evaluate_workflow
 from core.validation.real_data import validate_project
 from core.engineering import EngineeringLibrary
@@ -47,6 +48,7 @@ class StructuralProApp:
         self.store=ProjectStore(self.data_dir/"projects.db")
         self.takeoff=TakeoffEngine()
         self.qa=ProjectQA()
+        self.ai_assistant = EngineeringAssistant()
         self.engineering = EngineeringLibrary()
 
     def create_project(self,name:str,project_id:str)->dict[str,Any]:
@@ -54,6 +56,34 @@ class StructuralProApp:
         self.store.save(project_id,project); return self.store.get(project_id)
 
     def open_project(self,project_id:str)->dict[str,Any]|None: return self.store.get(project_id)
+
+    def ai_assistant_context(self, project_id: str) -> dict[str, Any]:
+        """Return the bounded project context used by the AI assistant."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        return self.ai_assistant.context(project)
+
+    def ai_assistant_respond(self, project_id: str, prompt: str) -> dict[str, Any]:
+        """Return an explainable, read-only AI response for a persisted project."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        response = self.ai_assistant.respond(
+            prompt,
+            project=project,
+            validator=validate_project,
+        )
+        return {
+            "intent": response.intent,
+            "text": response.text,
+            "confidence": response.confidence,
+            "evidence": list(response.evidence),
+            "proposals": list(response.proposals),
+            "requires_confirmation": response.requires_confirmation,
+            "deterministic": response.deterministic,
+            "offline": True,
+        }
 
     def engineering_library_snapshot(self) -> dict[str, list[dict[str, Any]]]:
         """Return the immutable reference-library snapshot for clients and reports."""
