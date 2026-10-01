@@ -258,15 +258,20 @@ class ProjectManagement:
         ]
 
     def dashboard(self, *, as_of: str | None = None):
+        schedule = self.schedule_summary(as_of=as_of)
         return {
-            **self.schedule_summary(as_of=as_of),
+            **schedule,
+            "daily_report_count": len(self.daily_reports),
+            "resource_count": len(self.resources),
+            "material_record_count": len(self.materials),
+            "meeting_count": len(self.meetings),
+            "latest_report_date": max((x.date for x in self.daily_reports), default=""),
+            "latest_material_date": max((x.date for x in self.materials), default=""),
             "blocked_tasks": self.blocked_tasks(),
             "daily_progress": self.daily_progress_summary(),
             "resources": self.resource_summary(),
             "materials": self.material_summary(),
             "meeting_followup_count": len(self.meeting_followups(as_of=as_of)),
-            "latest_report_date": max((x.date for x in self.daily_reports), default=""),
-            "latest_material_date": max((x.date for x in self.materials), default=""),
         }
 
     def export_dict(self) -> dict[str, list[dict[str, Any]]]:
