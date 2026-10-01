@@ -61,7 +61,7 @@ def main()->int:
     nav.addWidget(status)
 
     def page(name,desc):
-        p=QWidget(); v=QVBoxLayout(p); v.setContentsMargins(24,20,24,20); v.setSpacing(12)
+        p=QWidget(); p.setObjectName("ContentPage"); v=QVBoxLayout(p); v.setContentsMargins(26,22,26,22); v.setSpacing(14)
         h=QLabel(name); h.setObjectName("PageTitle")
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
