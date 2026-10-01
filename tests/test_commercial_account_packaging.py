@@ -35,5 +35,6 @@ def test_priority5_finance_rejects_broken_links_and_duplicate_ids():
     with pytest.raises(ValueError):
         ledger.add_document(FinanceDocument("D1", "X", "فاکتور", 10, "UNKNOWN"))
     ledger.add_document(FinanceDocument("D1", "X", "فاکتور", 10, "P1"))
+    ledger.add_payment(FinanceEntry("PAY1", 1, document_id="D1"))
     with pytest.raises(ValueError):
-        ledger.add_payment(FinanceEntry("P1", 1, document_id="D1"))
+        ledger.add_payment(FinanceEntry("PAY1", 1, document_id="D1"))
