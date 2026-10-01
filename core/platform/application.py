@@ -290,6 +290,159 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("financial_documents", []))
 
+
+    def project_financial_documents_by_status(self, project_id: str, status: str) -> list[dict[str, Any]]:
+        """Filter financial documents by normalized payment status."""
+        status = str(status).strip().lower()
+        if status not in {"unpaid", "partial", "paid"}:
+            raise ValueError("invalid payment status")
+        return [x for x in self.project_financial_documents(project_id)
+                if str(x.get("payment_status", "unpaid")).strip().lower() == status]
+
+    def project_financial_documents_by_counterparty(self, project_id: str, counterparty_id: str) -> list[dict[str, Any]]:
+        """Filter financial documents by stable counterparty ID."""
+        party = self.find_project_counterparty_by_id(project_id, counterparty_id)
+        if party is None:
+            raise KeyError(counterparty_id)
+        return [x for x in self.project_financial_documents(project_id)
+                if x.get("counterparty_id") == counterparty_id
+                or self._counterparty_id_for_name(self.store.get(project_id), x.get("counterparty", "")) == counterparty_id]
+
+    def project_counterparty_exposure(self, project_id: str, counterparty_id: str) -> dict[str, Any]:
+        """Calculate a focused exposure snapshot for one counterparty."""
+        party = self.find_project_counterparty_by_id(project_id, counterparty_id)
+        if party is None:
+            raise KeyError(counterparty_id)
+        row = next((x for x in self.project_counterparty_financial_rollup(project_id)
+                    if x["counterparty_id"] == counterparty_id), None)
+        row = row or {"counterparty_id": counterparty_id, "name": party["name"],
+                      "commitment_amount": 0.0, "paid_commitments": 0.0,
+                      "cost_amount": 0.0, "receipt_amount": 0.0, "document_amount": 0.0}
+        return {
+            **row,
+            "unpaid_commitments": max(float(row["commitment_amount"]) - float(row["paid_commitments"]), 0.0),
+            "net_cash": float(row["receipt_amount"]) - float(row["paid_commitments"]),
+        }
+
+    def project_financial_document_status_matrix(self, project_id: str) -> dict[str, Any]:
+        """Return count and amount matrix for registered and calculated document status."""
+        audit = self.project_financial_reconciliation(project_id)
+        matrix = {s: {"count": 0, "amount": 0.0} for s in ("unpaid", "partial", "paid")}
+        mismatches = 0
+        for row in audit["rows"]:
+            status = row["derived_status"]
+            matrix[status]["count"] += 1
+            matrix[status]["amount"] += float(row["amount"])
+            mismatches += not row["status_match"]
+        return {"project_id": project_id, "matrix": matrix, "mismatch_count": mismatches}
+
+    def project_financial_integrity_audit(self, project_id: str) -> dict[str, Any]:
+        """Detect broken references, invalid amounts and malformed financial rows."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        issues = []
+        for collection, label in (("commitment_entries", "تعهد"), ("cost_entries", "هزینه"), ("receipt_entries", "دریافتی")):
+            for item in p.get(collection, []):
+                try:
+                    amount = float(item.get("amount", 0) or 0)
+                    if amount < 0: issues.append({"type": "negative_amount", "source": label, "id": item.get("id", "")})
+                except (TypeError, ValueError):
+                    issues.append({"type": "invalid_amount", "source": label, "id": item.get("id", "")})
+        valid_ids = {
+            "commitment_id": {int(x.get("id", 0)) for x in p.get("commitment_entries", [])},
+            "cost_entry_id": {int(x.get("id", 0)) for x in p.get("cost_entries", [])},
+            "receipt_id": {int(x.get("id", 0)) for x in p.get("receipt_entries", [])},
+        }
+        for doc in p.get("financial_documents", []):
+            for key, ids in valid_ids.items():
+                value = doc.get(key)
+                if value is not None:
+                    try:
+                        if int(value) not in ids:
+                            issues.append({"type": "broken_reference", "source": "سند مالی", "id": doc.get("id", ""), "field": key})
+                    except (TypeError, ValueError):
+                        issues.append({"type": "invalid_reference", "source": "سند مالی", "id": doc.get("id", ""), "field": key})
+            if float(doc.get("amount", 0) or 0) < 0:
+                issues.append({"type": "negative_amount", "source": "سند مالی", "id": doc.get("id", "")})
+        return {"project_id": project_id, "issue_count": len(issues), "issues": issues, "healthy": not issues}
+
+    def project_statement_summary(self, project_id: str) -> dict[str, Any]:
+        """Summarize persisted statement periods."""
+        periods = self.statement_periods(project_id)
+        return {
+            "project_id": project_id,
+            "period_count": len(periods),
+            "latest_period": periods[-1] if periods else None,
+            "gross_total": sum(float(x.get("gross_current", 0) or 0) for x in periods),
+            "payable_total": sum(float(x.get("payable_current", 0) or 0) for x in periods),
+            "retention_total": sum(float(x.get("retention", 0) or 0) for x in periods),
+            "tax_total": sum(float(x.get("tax", 0) or 0) for x in periods),
+        }
+
+    def project_statement_period(self, project_id: str, period_no: int) -> dict[str, Any]:
+        """Return one persisted statement period by number."""
+        period_no = int(period_no)
+        return next((x for x in self.statement_periods(project_id) if int(x.get("number", 0)) == period_no), None) or (_ for _ in ()).throw(KeyError(period_no))
+
+    def project_activity_summary(self, project_id: str) -> dict[str, Any]:
+        """Provide a compact project activity inventory for dashboards."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return {
+            "project_id": project_id,
+            "takeoffs": len(p.get("takeoffs", [])),
+            "boq_items": len(p.get("boq", [])),
+            "statement_periods": len(p.get("statement_periods", [])),
+            "documents": len(p.get("financial_documents", [])),
+            "commitments": len(p.get("commitment_entries", [])),
+            "costs": len(p.get("cost_entries", [])),
+            "receipts": len(p.get("receipt_entries", [])),
+            "counterparties": len(p.get("counterparties", [])),
+        }
+
+    def project_financial_control_snapshot(self, project_id: str, as_of: str = "") -> dict[str, Any]:
+        """One read-only snapshot for financial control screens."""
+        kpi = self.project_financial_kpi_summary(project_id, as_of)
+        return {
+            "project_id": project_id,
+            "kpi": kpi,
+            "documents": self.project_financial_document_status_matrix(project_id),
+            "integrity": self.project_financial_integrity_audit(project_id),
+            "counterparties": self.project_counterparty_financial_rollup(project_id),
+        }
+
+    def project_statement_report(self, project_id: str, fmt: str, path):
+        """Export persisted statement-period summary."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        summary = self.project_statement_summary(project_id)
+        rows = [{
+            "دوره": x.get("number", ""), "کارکرد ناخالص": x.get("gross_current", 0),
+            "کسورات نگهداری": x.get("retention", 0), "علی‌الحساب": x.get("advance_recovery", 0),
+            "مالیات": x.get("tax", 0), "بیمه": x.get("insurance", 0),
+            "قابل پرداخت": x.get("payable_current", 0), "پیشرفت": x.get("progress_percent", 0),
+        } for x in self.statement_periods(project_id)]
+        return build_report(f'{p.get("name", "")} — خلاصه صورت‌وضعیت‌ها', rows, summary).export(path, fmt)
+
+    def project_financial_control_report(self, project_id: str, as_of: str, fmt: str, path):
+        """Export one consolidated financial-control snapshot."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        snap = self.project_financial_control_snapshot(project_id, as_of)
+        rows = []
+        for x in snap["counterparties"]:
+            rows.append({
+                "طرف حساب": x["name"], "شناسه": x["counterparty_id"],
+                "اسناد": x["documents"], "تعهدات": x["commitments"],
+                "مبلغ تعهدات": x["commitment_amount"], "پرداخت تعهدات": x["paid_commitments"],
+                "هزینه": x["cost_amount"], "دریافتی": x["receipt_amount"],
+            })
+        return build_report(f'{p.get("name", "")} — کنترل مالی یکپارچه', rows, snap).export(path, fmt)
+
     def project_financial_document_summary(self, project_id: str) -> dict[str, Any]:
         entries = self.project_financial_documents(project_id)
         by_status = {"unpaid": 0.0, "partial": 0.0, "paid": 0.0}
