@@ -273,3 +273,21 @@ def test_project_counterparty_summary_and_report(tmp_path):
     path = tmp_path / "counterparties.xlsx"
     assert app.project_counterparty_report("CP1", "xlsx", path) == path
     assert path.exists() and path.stat().st_size > 0
+
+
+def test_project_counterparty_detailed_ledger(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("گردش حساب", "CP2")
+    app.add_project_commitment("CP2", 10000, counterparty="پیمانکار الف", paid_amount=2000, date="1405/07/01")
+    app.add_project_cost("CP2", "پیمانکار", 3000, counterparty="پیمانکار الف", date="1405/07/02")
+    app.add_project_receipt("CP2", 5000, counterparty="پیمانکار الف", date="1405/07/03")
+    app.add_project_financial_document("CP2", "DOC-CP2", "فاکتور", 3000, counterparty="پیمانکار الف", date="1405/07/02")
+    ledger = app.project_counterparty_ledger("CP2", "پیمانکار الف")
+    assert ledger["row_count"] == 4
+    assert ledger["cash_in"] == 5000
+    assert ledger["cash_out"] == 13000
+    assert ledger["net_cash"] == -8000
+    assert [x["source"] for x in ledger["rows"]] == ["تعهد", "سند مالی", "هزینه", "دریافتی"]
+    path = tmp_path / "party-ledger.xlsx"
+    assert app.project_counterparty_ledger_report("CP2", "پیمانکار الف", "xlsx", path) == path
+    assert path.exists() and path.stat().st_size > 0
