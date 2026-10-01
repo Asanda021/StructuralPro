@@ -27,3 +27,10 @@ The working StructuralPro source is being moved into this repository incremental
 The repository now includes executable production-gate tests for offline DWG conversion/extraction, graphical PDF geometry, IFC/BIM mapping, price-source provenance, local AI hardware/model validation, shared Windows/mobile/Telegram contracts, offline sync E2E, and report/regression paths.
 
 Core work remains offline-first. External provisioning is intentionally explicit: verified official price-list datasets, redistributable GGUF model weights, native platform packaging, and an installed DWG converter are not fabricated or silently replaced by cloud services.
+
+
+## Windows release
+
+The canonical application version is stored in `VERSION`. Windows packaging is reproducible through `packaging/build_windows.ps1` and `packaging/structuralpro.spec`. The installer template is `packaging/installer.iss` and the Windows release workflow runs on `v*` tags after verifying the tag matches `VERSION`.
+
+The release layer also defines an offline licensing boundary in `core/platform/release.py`. License signature verification is injected so a production asymmetric-key verifier can be supplied without embedding a signing secret in the desktop client.
