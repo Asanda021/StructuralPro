@@ -43,4 +43,28 @@ class DashboardPage(QWidget):
         self.table.setRowCount(0)
         for i,p in enumerate(projects[-8:][::-1]):
             self.table.insertRow(i)
-            for j,val in enumerate([p.get("id",""),p.get("name",""),"آماده"]): self.table.setItem(i,j,QTableWidgetItem(str(val)))
+            try:
+                dash=self.service.financial_dashboard(p.get("id",""))
+                status=f'دوره {dash["latest_statement_no"]} | پیشرفت {dash["progress_percent"]:.1f}%'
+            except Exception:
+                status="آماده"
+            for j,val in enumerate([p.get("id",""),p.get("name",""),status]): self.table.setItem(i,j,QTableWidgetItem(str(val)))
+        if projects:
+            self.refresh_financial(projects[-1].get("id",""))
+    def refresh_financial(self, project_id):
+        try:
+            d=self.service.financial_dashboard(project_id)
+        except Exception:
+            return
+        cards=[
+            ("قرارداد / برآورد",f'{d["contract_amount"]:,.0f}',f'مبلغ پایه: {d["base_amount"]:,.0f}'),
+            ("کارکرد تجمعی",f'{d["cumulative_work"]:,.0f}',f'پیشرفت: {d["progress_percent"]:.1f}%'),
+            ("مانده قرارداد",f'{d["remaining_contract"]:,.0f}',f'{d["line_count"]} ردیف BOQ'),
+            ("صورت‌وضعیت",str(d["statement_count"]),f'آخرین دوره: {d["latest_statement_no"] or "—"}'),
+            ("قابل پرداخت تجمعی",f'{d["total_payable"]:,.0f}',f'آخرین دوره: {d["latest_payable"]:,.0f}'),
+        ]
+        while self.cards.count():
+            item=self.cards.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        for i,(a,b,c) in enumerate(cards):
+            self.cards.addWidget(_card(a,b,c),0,i)
