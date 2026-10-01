@@ -197,7 +197,79 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("statement_periods", []))
 
-    def add_project_cost(self, project_id: str, category: str, amount: float, *, description: str = "", date: str = "") -> dict[str, Any]:
+    def add_project_financial_document(self, project_id: str, document_number: str, document_type: str, amount: float, *, counterparty: str = "", date: str = "", due_date: str = "", reference: str = "", notes: str = "", payment_status: str = "unpaid", commitment_id: int | None = None, cost_entry_id: int | None = None, receipt_id: int | None = None) -> dict[str, Any]:
+        """Persist a project financial invoice/document and optionally link it to a ledger entry."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        document_number = str(document_number).strip()
+        document_type = str(document_type).strip()
+        payment_status = str(payment_status).strip().lower()
+        amount = float(amount)
+        if not document_number:
+            raise ValueError("document number cannot be empty")
+        if not document_type:
+            raise ValueError("document type cannot be empty")
+        if amount < 0:
+            raise ValueError("document amount cannot be negative")
+        if payment_status not in {"unpaid", "partial", "paid"}:
+            raise ValueError("invalid payment status")
+        documents = list(p.get("financial_documents", []))
+        if any(str(x.get("document_number", "")) == document_number for x in documents):
+            raise ValueError("document number must be unique within the project")
+        def _exists(collection: str, entry_id: int | None) -> bool:
+            return entry_id is None or any(int(x.get("id", 0)) == int(entry_id) for x in p.get(collection, []))
+        if not _exists("commitment_entries", commitment_id):
+            raise KeyError(f"commitment {commitment_id}")
+        if not _exists("cost_entries", cost_entry_id):
+            raise KeyError(f"cost entry {cost_entry_id}")
+        if not _exists("receipt_entries", receipt_id):
+            raise KeyError(f"receipt {receipt_id}")
+        entry = {
+            "id": len(documents) + 1,
+            "document_number": document_number,
+            "document_type": document_type,
+            "counterparty": str(counterparty).strip(),
+            "amount": amount,
+            "date": str(date).strip(),
+            "due_date": str(due_date).strip(),
+            "reference": str(reference).strip(),
+            "notes": str(notes).strip(),
+            "payment_status": payment_status,
+            "commitment_id": int(commitment_id) if commitment_id is not None else None,
+            "cost_entry_id": int(cost_entry_id) if cost_entry_id is not None else None,
+            "receipt_id": int(receipt_id) if receipt_id is not None else None,
+        }
+        documents.append(entry)
+        p["financial_documents"] = documents
+        self.store.save(project_id, p)
+        return entry
+
+    def project_financial_documents(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("financial_documents", []))
+
+    def project_financial_document_summary(self, project_id: str) -> dict[str, Any]:
+        entries = self.project_financial_documents(project_id)
+        by_status = {"unpaid": 0.0, "partial": 0.0, "paid": 0.0}
+        by_type: dict[str, float] = {}
+        for entry in entries:
+            amount = float(entry.get("amount", 0) or 0)
+            status = str(entry.get("payment_status", "unpaid"))
+            by_status[status] = by_status.get(status, 0.0) + amount
+            dtype = str(entry.get("document_type", "سایر"))
+            by_type[dtype] = by_type.get(dtype, 0.0) + amount
+        return {
+            "project_id": project_id,
+            "document_count": len(entries),
+            "document_total": sum(float(x.get("amount", 0) or 0) for x in entries),
+            "by_payment_status": by_status,
+            "by_type": by_type,
+        }
+
+    def add_project_cost(self, project_id: str, category: str, amount: float, *, description: str = "", date: str = "", document_id: int | None = None) -> dict[str, Any]:
         """Persist an actual project cost entry for financial control."""
         p = self.store.get(project_id)
         if p is None:
@@ -209,6 +281,8 @@ class StructuralProApp:
         category = str(category).strip()
         if category not in categories:
             raise ValueError(f"unsupported cost category: {category}")
+        if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
+            raise KeyError(f"financial document {document_id}")
         entries = list(p.get("cost_entries", []))
         entry = {
             "id": len(entries) + 1,
@@ -216,6 +290,7 @@ class StructuralProApp:
             "amount": amount,
             "description": str(description).strip(),
             "date": str(date).strip(),
+            "document_id": int(document_id) if document_id is not None else None,
         }
         entries.append(entry)
         p["cost_entries"] = entries
@@ -316,7 +391,7 @@ class StructuralProApp:
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
-    def add_project_commitment(self, project_id: str, amount: float, *, category: str = "سایر", description: str = "", date: str = "", due_date: str = "", reference: str = "", paid_amount: float = 0.0) -> dict[str, Any]:
+    def add_project_commitment(self, project_id: str, amount: float, *, category: str = "سایر", description: str = "", date: str = "", due_date: str = "", reference: str = "", paid_amount: float = 0.0, document_id: int | None = None) -> dict[str, Any]:
         p = self.store.get(project_id)
         if p is None:
             raise KeyError(project_id)
@@ -324,8 +399,10 @@ class StructuralProApp:
         paid_amount = float(paid_amount)
         if amount < 0 or paid_amount < 0 or paid_amount > amount:
             raise ValueError("invalid commitment amount")
+        if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
+            raise KeyError(f"financial document {document_id}")
         entries = list(p.get("commitment_entries", []))
-        entry = {"id": len(entries) + 1, "amount": amount, "paid_amount": paid_amount, "category": str(category).strip() or "سایر", "description": str(description).strip(), "date": str(date).strip(), "due_date": str(due_date).strip(), "reference": str(reference).strip()}
+        entry = {"id": len(entries) + 1, "amount": amount, "paid_amount": paid_amount, "category": str(category).strip() or "سایر", "description": str(description).strip(), "date": str(date).strip(), "due_date": str(due_date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None}
         entries.append(entry)
         p["commitment_entries"] = entries
         self.store.save(project_id, p)
@@ -343,15 +420,17 @@ class StructuralProApp:
         paid = sum(float(x.get("paid_amount", 0) or 0) for x in entries)
         return {"project_id": project_id, "entry_count": len(entries), "committed_total": total, "paid_total": paid, "unpaid_total": max(total - paid, 0.0)}
 
-    def add_project_receipt(self, project_id: str, amount: float, *, description: str = "", date: str = "", reference: str = "") -> dict[str, Any]:
+    def add_project_receipt(self, project_id: str, amount: float, *, description: str = "", date: str = "", reference: str = "", document_id: int | None = None) -> dict[str, Any]:
         p = self.store.get(project_id)
         if p is None:
             raise KeyError(project_id)
         amount = float(amount)
         if amount < 0:
             raise ValueError("receipt amount cannot be negative")
+        if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
+            raise KeyError(f"financial document {document_id}")
         entries = list(p.get("receipt_entries", []))
-        entry = {"id": len(entries) + 1, "amount": amount, "description": str(description).strip(), "date": str(date).strip(), "reference": str(reference).strip()}
+        entry = {"id": len(entries) + 1, "amount": amount, "description": str(description).strip(), "date": str(date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None}
         entries.append(entry)
         p["receipt_entries"] = entries
         self.store.save(project_id, p)
