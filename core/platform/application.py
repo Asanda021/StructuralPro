@@ -309,6 +309,31 @@ class StructuralProApp:
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
+    def project_cost_report(self, project_id: str, fmt: str, path):
+        """Export the project's persisted cost ledger with category totals."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        entries = self.project_costs(project_id)
+        summary = self.project_cost_summary(project_id)
+        rows = [{
+            "ردیف": entry.get("id", ""),
+            "دسته": entry.get("category", ""),
+            "شرح": entry.get("description", ""),
+            "تاریخ": entry.get("date", ""),
+            "مبلغ": float(entry.get("amount", 0) or 0),
+        } for entry in entries]
+        by_category = summary["by_category"]
+        summary_payload = {
+            "cost": {
+                "line_count": summary["entry_count"],
+                "grand_total": summary["actual_cost"],
+                "base": summary["actual_cost"],
+                "factors": by_category,
+            }
+        }
+        return build_report(f'{p.get("name", "")} — گزارش هزینه پروژه', rows, summary_payload).export(path, fmt)
+
     def report(self,project_id:str,fmt:str,path,*,period_no:int|None=None):
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
