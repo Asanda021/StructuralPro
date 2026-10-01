@@ -136,3 +136,19 @@ def test_financial_dashboard_includes_actual_cost_and_gross_margin(tmp_path):
     assert dash["cost_entry_count"] == 1
     assert dash["gross_margin"] == dash["cumulative_work"] - 1500
     assert dash["cost_by_category"]["مصالح"] == 1500
+
+
+def test_project_receipts_and_financial_position(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("دریافتی", "R1")
+    app.add_takeoff("R1", "building", "wall", length=10, width=0.2, height=3, price_code="W001", unit_price=1200)
+    app.add_project_cost("R1", "مصالح", 1000)
+    app.add_project_receipt("R1", 5000, description="پرداخت کارفرما", reference="REC-1")
+    app.add_project_receipt("R1", 2000, description="علی‌الحساب")
+    receipts = app.project_receipt_summary("R1")
+    assert receipts["entry_count"] == 2
+    assert receipts["total_received"] == 7000
+    position = app.project_financial_position("R1")
+    assert position["received"] == 7000
+    assert position["receivable"] == max(position["contract_amount"] - 7000, 0)
+    assert position["actual_cost"] == 1000
