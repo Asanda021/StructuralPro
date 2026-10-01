@@ -23,10 +23,4 @@ jobs:
       - name: Compile source
         run: python -m compileall -q core tests
       - name: Run full suite
-        run: |
-          set +e
-          PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests --ignore=tests/test_priority_7.py > pytest.log 2>&1
-          rc=$?
-          echo "### Pytest diagnostics" >> "$GITHUB_STEP_SUMMARY"
-          tail -n 200 pytest.log >> "$GITHUB_STEP_SUMMARY"
-          exit $rc
+        run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests
