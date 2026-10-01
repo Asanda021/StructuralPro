@@ -1,0 +1,103 @@
+"""End-to-end acceptance gate for the five commercial core areas."""
+import stat
+
+from core.drawings.dwg_converter import OfflineDWGConverter
+from core.drawings.dwg_takeoff import DWGTakeoffEngine
+from core.drawings.ifc_inventory import normalize_bim_rows, map_bim_to_price
+from core.drawings.pdf_measurement import PDFMeasurementSession
+from core.commercial.progress import build_progress
+from core.pricing.catalog import PriceCatalog, PriceItem
+from core.reports.quality import prepare_rows, summary
+
+
+def _fake_converter(tmp_path):
+    exe = tmp_path / "dwg2dxf"
+    exe.write_text("#!/bin/sh\ncp \"$1\" \"$2\"\n", encoding="utf-8")
+    exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+    return exe
+
+
+def _dxf():
+    return """0
+SECTION
+2
+ENTITIES
+0
+LINE
+8
+WALL
+10
+0
+20
+0
+11
+3
+21
+4
+0
+ENDSEC
+0
+EOF
+"""
+
+
+def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
+    # 1) PDF graphical takeoff: calibration + length + area with opening.
+    pdf = PDFMeasurementSession()
+    pdf.calibrate(1000, 10, "m")
+    line = pdf.add_length(1, [(0, 0), (300, 400)], label="دیوار")
+    area = pdf.add_area(
+        1,
+        [(0, 0), (1000, 0), (1000, 1000), (0, 1000)],
+        holes=[[(200, 200), (400, 200), (400, 400), (200, 400)]],
+        label="کف",
+    )
+    assert round(line.quantity, 6) == 5.0
+    assert round(area.quantity, 6) == 9.6
+
+    # 2) DWG/DXF: real converter boundary + normalized geometry.
+    exe = _fake_converter(tmp_path)
+    source = tmp_path / "plan.dwg"
+    source.write_text(_dxf(), encoding="utf-8")
+    monkeypatch.setenv("STRUCTURALPRO_DWG_CONVERTER", str(exe))
+    converted = OfflineDWGConverter(str(exe)).convert(source, tmp_path / "out")
+    assert converted.output.exists()
+    drawing = DWGTakeoffEngine().import_file(source)
+    assert drawing.entities and drawing.entities[0].data["length"] == 5.0
+
+    # 3) IFC/BIM: duplicate-safe normalization + price mapping.
+    bim = normalize_bim_rows([
+        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"},
+         "quantities": {"Length": 5}},
+        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"},
+         "quantities": {"Length": 5}},
+    ])
+    mapped = map_bim_to_price(bim, {"IfcWall": "W001"}, strict=True)
+    assert len(mapped) == 1 and mapped[0]["price_code"] == "W001"
+
+    # 4) Annual price catalog: year selection must resolve the selected dataset.
+    catalog = PriceCatalog([
+        PriceItem(1404, "ابنیه", "فصل 1", "W001", "دیوار", "m", 1000),
+        PriceItem(1405, "ابنیه", "فصل 1", "W001", "دیوار", "m", 1200),
+    ])
+    assert catalog.get("W001", 1404).unit_price == 1000
+    assert catalog.get("W001", 1405).unit_price == 1200
+
+    # 5) Progress/payment: previous + current + remaining + deductions.
+    progress = build_progress(
+        [{"contract_quantity": line.quantity, "previous_quantity": 2,
+          "current_quantity": 1, "unit_price": 1200}],
+        deductions=[100],
+        payments=[500],
+    )
+    assert progress["lines"][0]["cumulative_quantity"] == 3
+    assert progress["payable_current"] == 1100
+    assert progress["balance_current"] == 600
+
+    # Final commercial report path.
+    rows = prepare_rows([
+        {"source": "PDF", "price_code": "W001", "description": "دیوار",
+         "quantity": 1, "unit": "m", "unit_price": 1200}
+    ], "fa")
+    assert summary(rows)["grand_total"] == 1200
+    assert summary(rows)["rtl"] is True
