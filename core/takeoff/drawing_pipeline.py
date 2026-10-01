@@ -1,9 +1,9 @@
-"""Unified drawing -> quantity -> price -> BOQ pipeline.
-All steps are deterministic and can run offline.
-"""
+"""Unified drawing -> canonical takeoff -> BOQ pipeline with integrity gates."""
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
+import math
+from core.takeoff.units import normalize_unit
 
 @dataclass(frozen=True)
 class PipelineRow:
@@ -20,23 +20,34 @@ class DrawingTakeoffPipeline:
         self.price_resolver = price_resolver
 
     def normalize(self, rows: Iterable[dict[str, Any]]) -> list[PipelineRow]:
-        out=[]
-        for r in rows:
+        out=[]; seen=set()
+        for i,r in enumerate(rows,1):
+            source=str(r.get("source") or "").strip()
+            if not source: source=f"drawing:{i}"
+            if source in seen:
+                raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source}")
+            seen.add(source)
             q=float(r.get("quantity",0))
-            unit=str(r.get("unit","")).strip()
+            if not math.isfinite(q) or q < 0: raise ValueError("quantity must be finite and non-negative")
+            unit=normalize_unit(r.get("unit",""))
             code=r.get("price_code")
             price=None
-            total=None
             if code and self.price_resolver:
-                price=float(self.price_resolver(code) or 0)
-                total=q*price
-            out.append(PipelineRow(str(r.get("source","drawing")),str(r.get("description","")),q,unit,code,price,total))
+                resolved=self.price_resolver(code)
+                if resolved is None: raise ValueError(f"قیمت پیدا نشد: {code}")
+                price=float(resolved)
+            elif r.get("unit_price") is not None:
+                price=float(r["unit_price"])
+            if price is not None and (not math.isfinite(price) or price < 0):
+                raise ValueError("unit_price must be finite and non-negative")
+            total=None if price is None else q*price
+            out.append(PipelineRow(source,str(r.get("description","")),q,unit,code,price,total))
         return out
 
     def aggregate(self, rows: Iterable[PipelineRow]) -> list[PipelineRow]:
         groups={}
         for r in rows:
-            key=(r.price_code or r.description,r.unit)
+            key=(r.price_code or r.description,r.unit,r.unit_price)
             old=groups.get(key)
             if old is None: groups[key]=r
             else:

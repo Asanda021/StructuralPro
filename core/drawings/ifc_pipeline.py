@@ -9,7 +9,8 @@ def normalize_ifc_rows(rows:Iterable[dict[str,Any]])->list[dict[str,Any]]:
     out=[]; seen=set()
     for r in rows:
         gid=str(r.get("global_id") or "")
-        if gid and gid in seen: continue
+        if gid and gid in seen:
+            continue
         if gid: seen.add(gid)
         props=dict(r.get("properties") or {})
         quantities={}
