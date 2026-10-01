@@ -4,7 +4,7 @@
 
 StructuralPro contains an offline license data model and verification boundary in core/platform/release.py.
 
-The client stores license metadata and can calculate a deterministic fingerprint from the canonical license payload.
+The client stores license metadata and can calculate a deterministic fingerprint from the canonical license payload. The commercial lifecycle boundary validates expiration, revocation, entitlement uniqueness and fail-closed identity/signature conditions.
 
 ## Security rule
 
@@ -20,6 +20,8 @@ Before commercial licensing is enabled:
 5. Define license fields, expiration behavior, feature entitlements and revocation policy.
 6. Test invalid signatures, modified payloads, expired licenses and unsupported products.
 7. Document the customer activation/support workflow.
+
+The client-side lifecycle checks are implemented and regression-tested in `core/platform/release.py` and `tests/test_priority_11_license_lifecycle.py`. Issuer infrastructure, payment processing, customer activation support and production key provisioning remain external commercial services.
 
 ## Third-party licensing
 
