@@ -130,4 +130,74 @@ QLabel#KpiHint { color: #94A3B8; font-size: 9.5pt; }
     background: #111827;
     color: #D8DEE8;
 }
+QLabel#SectionTitle {
+    color: #172033;
+    font-size: 12pt;
+    font-weight: 800;
+    padding: 4px 0 6px 0;
+}
+QFormLayout QLabel {
+    color: #475569;
+    font-weight: 700;
+}
+QPushButton {
+    font-weight: 600;
+}
+QPushButton:disabled {
+    background: #E2E8F0;
+    color: #94A3B8;
+    border-color: #CBD5E1;
+}
+QPushButton#PrimaryAction {
+    background: #2563EB;
+    color: #FFFFFF;
+    border: 1px solid #1D4ED8;
+    font-weight: 800;
+}
+QPushButton#PrimaryAction:hover {
+    background: #1D4ED8;
+}
+QPushButton#SecondaryAction {
+    background: #F8FAFC;
+    color: #1E3A5F;
+    border: 1px solid #CBD5E1;
+}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit {
+    min-height: 34px;
+}
+QComboBox::drop-down {
+    width: 28px;
+    border: none;
+}
+QTableWidget {
+    selection-background-color: #DBEAFE;
+    selection-color: #172033;
+    font-size: 10pt;
+}
+QTableWidget::item {
+    padding: 6px;
+}
+QHeaderView::section:first {
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+QScrollBar:vertical {
+    background: #EEF2F7;
+    width: 10px;
+    margin: 2px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical {
+    background: #CBD5E1;
+    min-height: 28px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #94A3B8;
+}
+QStatusBar {
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
 """
