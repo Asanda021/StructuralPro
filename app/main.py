@@ -17,7 +17,7 @@ def main()->int:
         from core.pricing.catalog import PriceCatalog
         from core.ai.project_assistant import ProjectAssistant
         from core.reports.quality import prepare_rows
-        from core.reports.project_report import build_report
+        from core.reports.project_report import build_report\n        from app.graphical_takeoff import GraphicalTakeoffDialog
     except ImportError as exc:
         print("StructuralPro dependencies are required:",exc); return 2
 
@@ -105,7 +105,7 @@ def main()->int:
     p,v=page("متره از نقشه","ورود PDF/DWG/DXF/IFC و تولید کاندیدهای متره برای تأیید")
     file_edit=QLineEdit(); browse=QPushButton("انتخاب فایل"); inspect=QPushButton("🔎 بررسی نقشه"); dtable=QTableWidget(0,5)
     dtable.setHorizontalHeaderLabels(["تأیید","شرح","مقدار","واحد","منبع"]); dtable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    v.addWidget(file_edit); v.addWidget(browse); v.addWidget(inspect); v.addWidget(dtable)
+    v.addWidget(file_edit); v.addWidget(browse); v.addWidget(inspect); v.addWidget(graphical); v.addWidget(dtable)
     drawing_state={}
     browse.clicked.connect(lambda: file_edit.setText(QFileDialog.getOpenFileName(w,"انتخاب نقشه","","Plans (*.pdf *.dwg *.dxf *.ifc *.ifczip);;All files (*)")[0]))
     def inspect_drawing():
@@ -121,7 +121,7 @@ def main()->int:
             else: outmsg=f'تعداد کاندیدها: {len(drawing_state.get("candidates",[]))}'
             status.setText("🟢 "+outmsg+" | قبل از ورود به BOQ تأیید کنید")
         except Exception as e: QMessageBox.critical(w,"خطای نقشه",str(e))
-    inspect.clicked.connect(inspect_drawing)
+    inspect.clicked.connect(inspect_drawing)\n    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
     # Pricing

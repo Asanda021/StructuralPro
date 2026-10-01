@@ -2,7 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable\nfrom core.drawings.graphical_takeoff import ScaleCalibration, Point, MeasurementStore, subtract_areas
 import re, math
 
 @dataclass(frozen=True)
@@ -47,6 +47,22 @@ class PDFTakeoffAdapter:
         if unit=="mm": value/=1_000_000
         elif unit=="cm": value/=10_000
         return Measurement("area",value,"m2","pdf-scale",confidence=1.0)
+
+    def calibrate(self, scale, drawing_unit="cm", model_unit="m"):
+        return ScaleCalibration.parse(scale, drawing_unit, model_unit)
+
+    def graphical_line(self, points, scale, page=None, label="", layer=None):
+        store=MeasurementStore(); cal=self.calibrate(scale)
+        return store.add_length([Point(float(x),float(y)) for x,y in points], cal,
+                                page=page, label=label, layer=layer, source="pdf-graphical")
+
+    def graphical_area(self, points, scale, holes=(), page=None, label="", layer=None):
+        store=MeasurementStore(); cal=self.calibrate(scale)
+        return store.add_area([Point(float(x),float(y)) for x,y in points], cal, holes=holes,
+                              page=page, label=label, layer=layer, source="pdf-graphical")
+
+    def net_area(self, gross, holes):
+        return subtract_areas(gross, holes)
 
     def measurements(self,pages:Iterable[PDFPageInfo])->list[Measurement]:
         out=[]
