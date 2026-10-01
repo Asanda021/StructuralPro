@@ -23,6 +23,9 @@ from core.takeoff.modules import (
     calculate_electrical_item, calculate_civil_item,
 )
 from core.ai.takeoff_assistant import LocalTakeoffAssistant
+from core.projects.workflow import project_health, audit_project, save_template, load_template, export_package, import_package, backup_project, copy_project
+from core.takeoff.estimate_history import snapshot as estimate_snapshot, delta as estimate_delta
+from core.reports.custom import build_custom_report
 
 def _identity(*args: Any, **kwargs: Any) -> Any:
     return kwargs or (args[0] if len(args) == 1 else list(args))
@@ -55,7 +58,7 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "cad-xref": lambda r: r.xrefs,
         "cad-units": lambda r: r.units,
         "cad-scale": lambda drawing_length, real_length: real_length / drawing_length,
-        "takeoff-depth": depth_volume,
+        "takeoff-length": length_takeoff,\n        "takeoff-area": area_takeoff,\n        "takeoff-count": count_takeoff,\n        "takeoff-perimeter": perimeter_takeoff,\n        "takeoff-volume": depth_volume,\n        "takeoff-depth": depth_volume,
         "takeoff-cutout": cutout_area,
         "takeoff-formula": evaluate_formula,
         "takeoff-waste": apply_waste,
@@ -76,7 +79,7 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "integration-cad": infer_takeoff_from_layers,
         "ai-missing": _missing_inputs,
         "ai-next": _suggest_next_actions,
-        "ai-qa": assistant.qa,
+        "ai-qa": assistant.qa,\n        "project-templates": save_template,\n        "project-library": lambda project: project,\n        "project-package": export_package,\n        "project-backup": backup_project,\n        "project-audit": audit_project,\n        "project-health": project_health,\n        "estimate-history": estimate_snapshot,\n        "estimate-change": estimate_delta,\n        "reports-custom": build_custom_report,
         "domain-structural": _identity,
         "domain-architectural": calculate_building_item,
         "domain-mechanical": calculate_mechanical_item,
