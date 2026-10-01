@@ -141,7 +141,7 @@ def main()->int:
             status.setText("🟢 "+outmsg+" | قبل از ورود به BOQ تأیید کنید")
         except Exception as e: QMessageBox.critical(w,"خطای نقشه",str(e))
     inspect.clicked.connect(inspect_drawing)
-    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w).exec())
+    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
     # Pricing
