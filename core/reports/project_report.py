@@ -23,12 +23,7 @@ DEFAULT_COLUMNS = (
 
 
 def normalize_report_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-    result = []
-    for index, row in enumerate(rows, 1):
-        item = dict(row)
-        item.setdefault("item_no", index)
-        result.append(item)
-    return result
+    return [dict(row) for row in rows]
 
 
 def report_columns(rows: Iterable[dict[str, Any]]) -> list[tuple[str, str]]:
