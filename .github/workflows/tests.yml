@@ -13,6 +13,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install -U pip
-      - run: python -m pip install pytest pypdf openpyxl python-docx reportlab
+      - run: python -m pip install pytest pypdf ezdxf openpyxl python-docx reportlab
       - run: python -m compileall -q core tests
       - run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests
