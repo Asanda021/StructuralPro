@@ -27,7 +27,7 @@ class StructuralProApp:
         result=self.takeoff.calculate(domain,item,**params)
         row={"id":f"{len(p['takeoffs'])+1}","member_code":str(params.get("member_code",item)),
              "description":item,"quantities":[{"code":item,"title":item,"unit":result.unit,"amount":result.quantity,
-             "formula":result.formula,"warning":result.warnings}]}
+             "formula":result.formula,"warning":result.warning}]}
         p["takeoffs"].append(row)
         p["boq"]=build_boq([{"source":"manual","description":item,"quantity":result.quantity,"unit":result.unit,
                              "price_code":params.get("price_code"),"unit_price":params.get("unit_price")}])
