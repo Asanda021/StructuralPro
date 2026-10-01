@@ -1,6 +1,6 @@
 """Commercial dashboard widgets for StructuralPro Windows UI."""
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView,QComboBox,QDoubleSpinBox
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView,QComboBox,QDoubleSpinBox,QLineEdit
 
 def _card(title, value, hint):
     f=QFrame(); f.setObjectName("KpiCard")
@@ -28,6 +28,16 @@ class DashboardPage(QWidget):
         self.control_result=QLabel("برای محاسبه، پروژه و هزینه‌های برنامه‌ای/واقعی را انتخاب کنید."); self.control_result.setWordWrap(True)
         cv.addWidget(self.control_project); cv.addWidget(self.planned_cost); cv.addWidget(self.actual_cost); cv.addWidget(self.control_button); cv.addWidget(self.control_result,2)
         root.addWidget(control)
+        ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
+        lv2.addWidget(QLabel("ثبت هزینه"))
+        self.cost_category=QComboBox(); self.cost_category.addItems(["مصالح","دستمزد","پیمانکار","تجهیزات","سایر"])
+        self.cost_amount=QDoubleSpinBox(); self.cost_amount.setMaximum(999999999999999.0); self.cost_amount.setDecimals(2)
+        self.cost_desc=QLineEdit(); self.cost_desc.setPlaceholderText("شرح هزینه")
+        self.cost_date=QLineEdit(); self.cost_date.setPlaceholderText("تاریخ")
+        self.cost_button=QPushButton("ثبت هزینه"); self.cost_button.setObjectName("SecondaryAction")
+        self.cost_summary=QLabel("دفتر هزینه: ۰"); self.cost_summary.setWordWrap(True)
+        lv2.addWidget(self.cost_category); lv2.addWidget(self.cost_amount); lv2.addWidget(self.cost_desc,2); lv2.addWidget(self.cost_date); lv2.addWidget(self.cost_button); lv2.addWidget(self.cost_summary,1)
+        root.addWidget(ledger)
         body=QHBoxLayout(); body.setSpacing(14)
         left=QFrame(); left.setObjectName("DashboardCard"); lv=QVBoxLayout(left)
         lt=QLabel("پروژه‌های اخیر"); lt.setObjectName("SectionTitle"); lv.addWidget(lt)
@@ -42,6 +52,7 @@ class DashboardPage(QWidget):
             rv.addWidget(b)
         rv.addStretch(); body.addWidget(left,3); body.addWidget(right,1); root.addLayout(body,1)
         self.control_button.clicked.connect(self.calculate_control)
+        self.cost_button.clicked.connect(self.add_cost)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -65,12 +76,35 @@ class DashboardPage(QWidget):
         self.control_project.blockSignals(False)
         if projects:
             self.refresh_financial(projects[-1].get("id",""))
+            try:
+                s=self.service.project_cost_summary(projects[-1].get("id",""))
+                self.cost_summary.setText(f'دفتر هزینه: {s["entry_count"]} مورد | مجموع: {s["actual_cost"]:,.0f}')
+                self.actual_cost.setValue(float(s["actual_cost"]))
+            except Exception:
+                pass
             self.control_project.setCurrentIndex(self.control_project.count()-1)
             try:
                 d=self.service.financial_dashboard(projects[-1].get("id",""))
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def add_cost(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.cost_summary.setText("پروژه‌ای انتخاب نشده است.")
+            return
+        try:
+            self.service.add_project_cost(
+                project_id, self.cost_category.currentText(), float(self.cost_amount.value()),
+                description=self.cost_desc.text(), date=self.cost_date.text()
+            )
+            s=self.service.project_cost_summary(project_id)
+            self.cost_summary.setText(f'دفتر هزینه: {s["entry_count"]} مورد | مجموع: {s["actual_cost"]:,.0f}')
+            self.actual_cost.setValue(float(s["actual_cost"]))
+            self.cost_desc.clear()
+        except Exception as exc:
+            self.cost_summary.setText(f"خطای ثبت هزینه: {exc}")
+
     def calculate_control(self):
         project_id=self.control_project.currentData()
         if not project_id:
