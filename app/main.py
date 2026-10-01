@@ -9,7 +9,7 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabWidget
         )
         from PySide6.QtCore import Qt
         from core.platform.application import StructuralProApp
@@ -18,6 +18,13 @@ def main()->int:
         from core.ai.project_assistant import ProjectAssistant
         from core.reports.quality import prepare_rows
         from core.reports.project_report import build_report
+        from core.revisions.compare import compare_rows, summary
+        from core.takeoff.templates import TemplateLibrary
+        from core.takeoff.formulas import evaluate
+        from core.search.global_search import search_project
+        from core.history.undo import CommandStack
+        from core.drawings.sheets import SheetRegistry
+        from core.drawings.markup import MarkupStore
         from app.graphical_takeoff import GraphicalTakeoffDialog
     except ImportError as exc:
         print("StructuralPro dependencies are required:",exc); return 2
@@ -43,7 +50,7 @@ def main()->int:
         v.addWidget(h); v.addWidget(QLabel(desc)); return p,v
 
     buttons=[]
-    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","گزارشات","هوش مصنوعی آفلاین"]
+    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","گزارشات","ابزارهای حرفه‌ای","هوش مصنوعی آفلاین"]
     for name in sections:
         b=QPushButton(name); b.setMinimumHeight(46); buttons.append(b); nav.addWidget(b)
 
@@ -178,6 +185,42 @@ def main()->int:
         except Exception as e: QMessageBox.critical(w,"خطای گزارش",str(e))
     rgo.clicked.connect(make_report)
     pages.addWidget(p); idx_reports=pages.count()-1
+
+    # Professional tools: revisions, templates, formulas, search, sheets, markups
+    p,v=page("ابزارهای حرفه‌ای","کنترل Revision، قالب‌ها، فرمول، جستجو، نقشه‌ها و یادداشت‌ها")
+    tools=QTabWidget(); v.addWidget(tools)
+    rv=QWidget(); rvv=QVBoxLayout(rv); oldtxt=QTextEdit(); newtxt=QTextEdit()
+    rvv.addWidget(QLabel("نسخه قدیم (JSON ردیف‌ها)")); rvv.addWidget(oldtxt); rvv.addWidget(QLabel("نسخه جدید (JSON ردیف‌ها)")); rvv.addWidget(newtxt)
+    rvc=QPushButton("مقایسه Revision"); rvout=QTextEdit(); rvout.setReadOnly(True); rvv.addWidget(rvc); rvv.addWidget(rvout)
+    def do_revision():
+        import json
+        try:
+            a=json.loads(oldtxt.toPlainText() or "[]"); b=json.loads(newtxt.toPlainText() or "[]")
+            c=compare_rows(a,b); rvout.setPlainText(json.dumps({"changes":c,"summary":summary(c)},ensure_ascii=False,indent=2))
+        except Exception as e: rvout.setPlainText("خطا: "+str(e))
+    rvc.clicked.connect(do_revision); tools.addTab(rv,"Revision")
+    tf=QWidget(); tfv=QVBoxLayout(tf); tmpl=QComboBox(); lib=TemplateLibrary()
+    tmpl.addItems([f"{x.code} | {x.name} | {x.formula}" for x in lib.items.values()]); tfv.addWidget(tmpl)
+    expr=QLineEdit("length*height-openings"); vars_=QLineEdit("length=5,height=3,openings=2")
+    tfv.addWidget(expr); tfv.addWidget(vars_); fe=QPushButton("محاسبه فرمول"); fo=QLabel(); tfv.addWidget(fe); tfv.addWidget(fo)
+    def do_formula():
+        try:
+            d={}; [d.__setitem__(x.split("=",1)[0].strip(),float(x.split("=",1)[1])) for x in vars_.text().split(",") if "=" in x]
+            fo.setText("نتیجه: "+str(evaluate(expr.text(),d)))
+        except Exception as e: fo.setText("خطا: "+str(e))
+    fe.clicked.connect(do_formula); tools.addTab(tf,"قالب و فرمول")
+    sm=QWidget(); smv=QVBoxLayout(sm); sq=QLineEdit(); sq.setPlaceholderText("جستجوی پروژه، متره، آیتم یا کد فهرست‌بها")
+    sb=QPushButton("جستجوی سراسری"); so=QTextEdit(); so.setReadOnly(True); smv.addWidget(sq); smv.addWidget(sb); smv.addWidget(so)
+    def do_search():
+        import json
+        project=service.open_project(pid.text().strip()) if pid.text().strip() else None
+        so.setPlainText(json.dumps(search_project(project,sq.text()) if project else [],ensure_ascii=False,indent=2))
+    sb.clicked.connect(do_search)
+    sheets=SheetRegistry(); markups=MarkupStore()
+    smv.addWidget(QLabel("پشتیبانی چندنقشه و Markup در هسته پروژه فعال است."))
+    tools.addTab(sm,"جستجو و نقشه")
+    tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است."),"گزارش و Excel")
+    pages.addWidget(p); idx_tools=pages.count()-1
 
     # AI
     p,v=page("هوش مصنوعی آفلاین","بازبینی پروژه، هشدار داده‌های ناقص و مقایسه تغییرات")
