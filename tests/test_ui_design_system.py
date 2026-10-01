@@ -16,3 +16,10 @@ def test_operational_pages_use_primary_actions():
     for marker in ("# Pricing","# BOQ","# Reports","# Commercial statement"):
         assert marker in src
     assert src.count('setObjectName("PrimaryAction")') >= 4
+
+
+def test_priority8_rtl_and_accessibility_tokens():
+    css=Path("app/theme.py").read_text(encoding="utf-8")
+    assert "font-family" in css and "QToolTip" in css and "#NavigationPanel" in css
+    src=Path("app/main.py").read_text(encoding="utf-8")
+    assert "setLayoutDirection(Qt.LayoutDirection.RightToLeft)" in src
