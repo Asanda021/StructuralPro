@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSION_FILE = ROOT / "VERSION"
@@ -30,17 +31,33 @@ class LicenseRecord:
     customer: str
     expires_on: str = ""
     features: tuple[str, ...] = ()
+    issuer: str = ""
     def payload(self) -> dict:
-        return {"product": self.product, "license_id": self.license_id, "customer": self.customer, "expires_on": self.expires_on, "features": list(self.features)}
+        return {
+            "product": self.product,
+            "license_id": self.license_id,
+            "customer": self.customer,
+            "expires_on": self.expires_on,
+            "features": list(self.features),
+            "issuer": self.issuer,
+        }
     def canonical_bytes(self) -> bytes:
         return json.dumps(self.payload(), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     def fingerprint(self) -> str:
         return sha256(self.canonical_bytes()).hexdigest()
 
 class LicenseVerifier:
-    def __init__(self, verify_signature):
+    """Injected verifier boundary; private signing material never belongs here."""
+    def __init__(self, verify_signature: Callable[[bytes, str], bool], expected_product: str = "StructuralPro"):
         self._verify_signature = verify_signature
+        self._expected_product = expected_product
+
     def verify(self, record: LicenseRecord, signature: str) -> bool:
-        if not record.product or not record.license_id:
+        if record.product != self._expected_product or not record.license_id or not record.customer:
             return False
-        return bool(self._verify_signature(record.canonical_bytes(), signature))
+        if not signature or not record.issuer:
+            return False
+        try:
+            return bool(self._verify_signature(record.canonical_bytes(), signature))
+        except Exception:
+            return False
