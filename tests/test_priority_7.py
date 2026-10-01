@@ -82,3 +82,5 @@ def test_revision_restore():
     assert restored.rows==[{"code":"A","quantity":1,"total":10}]
 
 # Priority 7 CI diagnostic synchronization marker.
+
+# CI isolation marker.
