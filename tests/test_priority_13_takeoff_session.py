@@ -73,3 +73,15 @@ def test_priority_13_serialization_roundtrip_and_markup():
     assert restored.items[0].quantity == 1
     assert len(restored.markups.items) == 1
     assert restored.markups.items[0].text == "کنترل ابعاد"
+
+
+def test_priority_13_graphical_session_maps_to_boq_workflow():
+    from core.takeoff.workflow import TakeoffWorkflow
+    s = DrawingTakeoffSession("A-101.pdf")
+    s.calibrate(1, 100, 1)
+    s.add_length([Point(0, 0), Point(100, 0)], label="دیوار", takeoff_code="W001")
+    rows = TakeoffWorkflow().graphical_rows(s)
+    assert len(rows) == 1
+    assert rows[0]["description"] == "دیوار"
+    assert rows[0]["price_code"] == "W001"
+    assert rows[0]["source_id"].startswith("A-101.pdf#page=1")
