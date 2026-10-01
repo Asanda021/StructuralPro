@@ -26,9 +26,10 @@ def _normalize_date_key(value: str) -> str | None:
         return None
     max_day = 31 if m <= 6 else 30
     if m == 12:
-        epbase = y - (474 if y >= 0 else 473)
-        epyear = 474 + (epbase % 2820)
-        leap = ((epyear + 38) * 682) % 2816 < 682
+        # Civil Jalali 33-year-cycle validation for Esfand's 29/30-day boundary.
+        # This is used only for input validation; it does not convert dates.
+        cycle_day = y % 33
+        leap = cycle_day in {1, 5, 9, 13, 17, 22, 26, 30}
         max_day = 30 if leap else 29
     if not 1 <= d <= max_day:
         return None
