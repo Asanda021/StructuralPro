@@ -491,6 +491,57 @@ class StructuralProApp:
         }
         return build_report(f'{p.get("name", "")} — گزارش هزینه پروژه', rows, summary_payload).export(path, fmt)
 
+    def project_counterparty_summary(self, project_id: str) -> dict[str, Any]:
+        """Aggregate project financial exposure by counterparty."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        result: dict[str, dict[str, Any]] = {}
+        def bucket(name: str) -> dict[str, Any]:
+            key = str(name or "").strip() or "نامشخص"
+            return result.setdefault(key, {"counterparty": key, "documents": 0, "document_amount": 0.0,
+                                           "commitments": 0, "committed_amount": 0.0, "paid_commitments": 0.0,
+                                           "cost_entries": 0, "actual_cost": 0.0, "receipts": 0, "received": 0.0})
+        for d in p.get("financial_documents", []):
+            b = bucket(d.get("counterparty", ""))
+            b["documents"] += 1
+            b["document_amount"] += float(d.get("amount", 0) or 0)
+        for c in p.get("commitment_entries", []):
+            # Commitment records predate counterparty support; use their optional field when available.
+            b = bucket(c.get("counterparty", ""))
+            b["commitments"] += 1
+            b["committed_amount"] += float(c.get("amount", 0) or 0)
+            b["paid_commitments"] += float(c.get("paid_amount", 0) or 0)
+        for c in p.get("cost_entries", []):
+            b = bucket(c.get("counterparty", ""))
+            b["cost_entries"] += 1
+            b["actual_cost"] += float(c.get("amount", 0) or 0)
+        for r in p.get("receipt_entries", []):
+            b = bucket(r.get("counterparty", ""))
+            b["receipts"] += 1
+            b["received"] += float(r.get("amount", 0) or 0)
+        for b in result.values():
+            b["unpaid_commitments"] = max(b["committed_amount"] - b["paid_commitments"], 0.0)
+            b["net_cash"] = b["received"] - b["paid_commitments"]
+        return {"project_id": project_id, "counterparties": list(result.values()),
+                "counterparty_count": len(result)}
+
+    def project_counterparty_report(self, project_id: str, fmt: str, path):
+        """Export the counterparty financial ledger."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        summary = self.project_counterparty_summary(project_id)
+        rows = []
+        for b in summary["counterparties"]:
+            rows.append({
+                "طرف حساب": b["counterparty"], "اسناد": b["documents"], "مبلغ اسناد": b["document_amount"],
+                "تعهدات": b["commitments"], "مبلغ تعهدات": b["committed_amount"],
+                "پرداخت تعهدات": b["paid_commitments"], "پرداخت‌نشده": b["unpaid_commitments"],
+                "هزینه واقعی": b["actual_cost"], "دریافتی": b["received"], "خالص نقدی": b["net_cash"],
+            })
+        return build_report(f'{p.get("name", "")} — گردش مالی طرف حساب‌ها', rows, summary).export(path, fmt)
+
     def project_financial_report(self, project_id: str, fmt: str, path):
         """Export a consolidated project financial report from all financial ledgers."""
         p = self.store.get(project_id)
