@@ -21,7 +21,7 @@ QLabel#StatusPill {
     border-radius: 8px;
     padding: 7px 10px;
 }
-QFrame#NavigationPanel {
+QWidget#NavigationPanel {
     background: #111827;
     border: none;
 }
