@@ -58,3 +58,16 @@ def test_financial_reconciliation_audits_status_without_mutation(tmp_path):
     assert result["rows"][1]["derived_status"] == "paid"
     assert a.project_financial_documents("rec1")[0]["payment_status"] == "unpaid"
     assert a.project_financial_reconciliation_report("rec1", "csv", tmp_path/"reconciliation.csv").exists()
+
+
+def test_financial_document_status_summary_uses_calculated_status(tmp_path):
+    a=StructuralProApp(tmp_path)
+    a.create_project("وضعیت اسناد","status1")
+    a.add_project_financial_document("status1","S-1","فاکتور",1000,payment_status="unpaid")
+    a.add_project_financial_document("status1","S-2","فاکتور",500,payment_status="paid")
+    result=a.project_financial_document_status_summary("status1")
+    assert result["document_count"]==2
+    assert result["counts"]["unpaid"]==1
+    assert result["counts"]["paid"]==1
+    assert result["amounts"]["unpaid"]==1000
+    assert result["mismatch_count"]==0
