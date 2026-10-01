@@ -374,3 +374,17 @@ def test_project_financial_alerts_summarize_actionable_aging(tmp_path):
     assert alerts["has_overdue"] is True
     assert alerts["has_due_today"] is True
     assert alerts["has_missing_due_date"] is True
+
+
+def test_financial_entries_auto_link_to_counterparty_master(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("اتصال طرف حساب", "LINK1")
+    app.add_project_counterparty("LINK1", "شرکت نمونه", role="پیمانکار")
+    commitment = app.add_project_commitment("LINK1", 1000, counterparty="  شرکت   نمونه ")
+    cost = app.add_project_cost("LINK1", "پیمانکار", 200, counterparty="شرکت نمونه")
+    receipt = app.add_project_receipt("LINK1", 300, counterparty="شرکت نمونه")
+    document = app.add_project_financial_document("LINK1", "DOC-LINK1", "فاکتور", 500, counterparty="شرکت نمونه")
+    assert commitment["counterparty_id"] == "CP0001"
+    assert cost["counterparty_id"] == "CP0001"
+    assert receipt["counterparty_id"] == "CP0001"
+    assert document["counterparty_id"] == "CP0001"
