@@ -44,4 +44,4 @@ class GraphicalPDFTakeoff:
         q=area*float(scale)**2
         if unit=="mm2": q/=1_000_000
         elif unit=="cm2": q/=10_000
-        return GraphicMeasurement(page,"area",q,"m2",1.0,tuple(pts))
+        return GraphicMeasurement(page,"area",round(q,10),"m2",1.0,tuple(pts))
