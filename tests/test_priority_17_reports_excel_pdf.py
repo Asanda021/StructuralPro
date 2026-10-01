@@ -37,5 +37,5 @@ def test_csv_export_keeps_persian_bom_and_named_headers(tmp_path):
     report = build_report("پروژه نمونه", _rows())
     path = report.export(tmp_path / "report.csv", "csv")
     data = path.read_bytes()
-    assert data.startswith(b"\\xef\\xbb\\xbf")
+    assert data.startswith(b"\xef\xbb\xbf")
     assert "شرح".encode("utf-8") in data
