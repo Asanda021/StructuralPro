@@ -118,3 +118,27 @@ def test_statement_period_accepts_explicit_quantities_and_rejects_duplicate(tmp_
         assert False, "duplicate period should fail"
     except ValueError as exc:
         assert "unique" in str(exc)
+
+def test_selected_statement_period_is_exported_with_summary(tmp_path):
+    app = _seed(tmp_path)
+    first = app.save_statement_period("R1", current_quantities={"W001": 2}, retention_rate=0.05)
+    app.save_statement_period("R1", current_quantities={"W001": 3}, retention_rate=0.05)
+    path = tmp_path / "period-1.xlsx"
+    app.report("R1", "xlsx", path, period_no=first["number"])
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "شماره صورت‌وضعیت" in values
+    assert 1 in values
+    assert "مبلغ ناخالص این دوره" in values
+    assert "کسور تضمین" in values
+    assert "W001" in values
+
+
+def test_report_rejects_missing_statement_period(tmp_path):
+    app = _seed(tmp_path)
+    path = tmp_path / "missing.xlsx"
+    try:
+        app.report("R1", "xlsx", path, period_no=9)
+        assert False, "missing period should fail"
+    except KeyError as exc:
+        assert "statement period 9" in str(exc)
