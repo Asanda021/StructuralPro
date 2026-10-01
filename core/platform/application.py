@@ -10,6 +10,22 @@ from core.commercial.progress import build_progress
 from core.reports.project_report import build_report
 from core.ai.qa_engine import ProjectQA
 
+
+def _normalize_date_key(value: str) -> str | None:
+    """Normalize simple Persian/Gregorian project dates for deterministic aging checks."""
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    trans = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+    raw = raw.translate(trans).replace("-", "/").replace(".", "/")
+    parts = raw.split("/")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        return None
+    y, m, d = (int(part) for part in parts)
+    if y < 1 or not 1 <= m <= 12 or not 1 <= d <= 31:
+        return None
+    return f"{y:04d}/{m:02d}/{d:02d}"
+
 class StructuralProApp:
     def __init__(self,data_dir: str|Path):
         self.data_dir=Path(data_dir); self.data_dir.mkdir(parents=True,exist_ok=True)
@@ -594,6 +610,91 @@ class StructuralProApp:
                 "هزینه واقعی": b["actual_cost"], "دریافتی": b["received"], "خالص نقدی": b["net_cash"],
             })
         return build_report(f'{p.get("name", "")} — گردش مالی طرف حساب‌ها', rows, summary).export(path, fmt)
+
+    def project_financial_aging(self, project_id: str, as_of: str) -> dict[str, Any]:
+        """Return deterministic due-date aging for unpaid project financial items.
+
+        The caller supplies the reporting date explicitly. This avoids mixing the
+        project's Jalali date strings with the machine's Gregorian clock.
+        """
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        as_of_key = _normalize_date_key(as_of)
+        if as_of_key is None:
+            raise ValueError("invalid aging date; expected YYYY/MM/DD")
+        rows = []
+
+        def classify(due_date: str) -> str:
+            due_key = _normalize_date_key(due_date)
+            if due_key is None:
+                return "بدون سررسید"
+            if due_key < as_of_key:
+                return "معوق"
+            if due_key == as_of_key:
+                return "سررسید امروز"
+            return "آتی"
+
+        for entry in p.get("commitment_entries", []):
+            amount = float(entry.get("amount", 0) or 0)
+            paid = float(entry.get("paid_amount", 0) or 0)
+            outstanding = max(amount - paid, 0.0)
+            if outstanding <= 0:
+                continue
+            due_date = str(entry.get("due_date", "")).strip()
+            status = classify(due_date)
+            rows.append({
+                "source": "تعهد", "id": entry.get("id", ""), "counterparty": entry.get("counterparty", ""),
+                "reference": entry.get("reference", ""), "due_date": due_date, "status": status,
+                "amount": amount, "paid_amount": paid, "outstanding": outstanding,
+            })
+
+        for entry in p.get("financial_documents", []):
+            payment_status = str(entry.get("payment_status", "unpaid")).strip().lower()
+            if payment_status == "paid":
+                continue
+            amount = float(entry.get("amount", 0) or 0)
+            due_date = str(entry.get("due_date", "")).strip()
+            status = classify(due_date)
+            rows.append({
+                "source": "سند مالی", "id": entry.get("id", ""), "counterparty": entry.get("counterparty", ""),
+                "reference": entry.get("document_number", ""), "due_date": due_date, "status": status,
+                "amount": amount, "paid_amount": None, "outstanding": amount if payment_status == "unpaid" else None,
+            })
+
+        order = {"معوق": 0, "سررسید امروز": 1, "آتی": 2, "بدون سررسید": 3}
+        rows.sort(key=lambda x: (order.get(x["status"], 9), _normalize_date_key(x["due_date"]) or "9999/99/99",
+                                str(x["source"]), int(x.get("id", 0) or 0)))
+        overdue_commitments = sum(x["outstanding"] for x in rows if x["source"] == "تعهد" and x["status"] == "معوق")
+        overdue_unpaid_documents = sum(x["outstanding"] or 0 for x in rows if x["source"] == "سند مالی" and x["status"] == "معوق")
+        return {
+            "project_id": project_id,
+            "as_of": as_of_key,
+            "rows": rows,
+            "row_count": len(rows),
+            "overdue_count": sum(1 for x in rows if x["status"] == "معوق"),
+            "due_today_count": sum(1 for x in rows if x["status"] == "سررسید امروز"),
+            "upcoming_count": sum(1 for x in rows if x["status"] == "آتی"),
+            "no_due_date_count": sum(1 for x in rows if x["status"] == "بدون سررسید"),
+            "overdue_commitments": overdue_commitments,
+            "overdue_unpaid_documents": overdue_unpaid_documents,
+            "overdue_amount": overdue_commitments + overdue_unpaid_documents,
+        }
+
+    def project_financial_aging_report(self, project_id: str, as_of: str, fmt: str, path):
+        """Export the project's due-date aging center."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        aging = self.project_financial_aging(project_id, as_of)
+        rows = [{
+            "نوع": x["source"], "شناسه": x["id"], "طرف حساب": x["counterparty"],
+            "مرجع": x["reference"], "سررسید": x["due_date"], "وضعیت": x["status"],
+            "مبلغ": x["amount"], "پرداخت": x["paid_amount"] if x["paid_amount"] is not None else "",
+            "مانده": x["outstanding"] if x["outstanding"] is not None else "",
+        } for x in aging["rows"]]
+        return build_report(f'{p.get("name", "")} — کنترل سررسید مالی', rows, aging).export(path, fmt)
+
 
     def project_financial_report(self, project_id: str, fmt: str, path):
         """Export a consolidated project financial report from all financial ledgers."""
