@@ -307,6 +307,7 @@ class StructuralProApp:
             "description": str(description).strip(),
             "date": str(date).strip(),
             "counterparty": str(counterparty).strip(),
+            "counterparty_id": self._counterparty_id_for_name(p, counterparty),
             "document_id": int(document_id) if document_id is not None else None,
         }
         entries.append(entry)
@@ -419,7 +420,7 @@ class StructuralProApp:
         if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
             raise KeyError(f"financial document {document_id}")
         entries = list(p.get("commitment_entries", []))
-        entry = {"id": len(entries) + 1, "amount": amount, "paid_amount": paid_amount, "category": str(category).strip() or "سایر", "description": str(description).strip(), "date": str(date).strip(), "due_date": str(due_date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None, "counterparty": str(counterparty).strip()}
+        entry = {"id": len(entries) + 1, "amount": amount, "paid_amount": paid_amount, "category": str(category).strip() or "سایر", "description": str(description).strip(), "date": str(date).strip(), "due_date": str(due_date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None, "counterparty": str(counterparty).strip(), "counterparty_id": self._counterparty_id_for_name(p, counterparty)}
         entries.append(entry)
         p["commitment_entries"] = entries
         self.store.save(project_id, p)
@@ -447,7 +448,7 @@ class StructuralProApp:
         if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
             raise KeyError(f"financial document {document_id}")
         entries = list(p.get("receipt_entries", []))
-        entry = {"id": len(entries) + 1, "amount": amount, "description": str(description).strip(), "date": str(date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None, "counterparty": str(counterparty).strip()}
+        entry = {"id": len(entries) + 1, "amount": amount, "description": str(description).strip(), "date": str(date).strip(), "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None, "counterparty": str(counterparty).strip(), "counterparty_id": self._counterparty_id_for_name(p, counterparty)}
         entries.append(entry)
         p["receipt_entries"] = entries
         self.store.save(project_id, p)
@@ -507,6 +508,15 @@ class StructuralProApp:
             }
         }
         return build_report(f'{p.get("name", "")} — گزارش هزینه پروژه', rows, summary_payload).export(path, fmt)
+
+    def _counterparty_id_for_name(self, project: dict[str, Any], name: str) -> str | None:
+        key = " ".join(str(name).strip().split()).casefold()
+        if not key:
+            return None
+        for item in project.get("counterparties", []):
+            if " ".join(str(item.get("name", "")).strip().split()).casefold() == key:
+                return str(item.get("id"))
+        return None
 
     def add_project_counterparty(self, project_id: str, name: str, *, role: str = "", notes: str = "") -> dict[str, Any]:
         """Create a normalized project counterparty master record."""
