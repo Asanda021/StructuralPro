@@ -1,4 +1,5 @@
-$ErrorActionPreference = "Stop"
+param([string]$Version="0.1.0")
+$ErrorActionPreference="Stop"
 py -3.12 -m pip install -r requirements.txt pyinstaller
-py -3.12 -m PyInstaller --noconfirm --clean packaging/structuralpro.spec
-Write-Host "StructuralPro Windows build completed: dist\\StructuralPro"
+pyinstaller --noconfirm --clean --onedir --windowed --name StructuralPro app/main.py
+Write-Host "StructuralPro Windows payload built in dist/StructuralPro"
