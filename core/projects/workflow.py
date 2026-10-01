@@ -26,7 +26,7 @@ def export_package(project,path,attachments=()):
     path=Path(path); path.parent.mkdir(parents=True,exist_ok=True)
     with zipfile.ZipFile(path,"w",zipfile.ZIP_DEFLATED) as z:
         z.writestr("project.json",json.dumps(project,ensure_ascii=False,indent=2,sort_keys=True))
-        z.writestr("audit.json",json.dumps(audit_project(project),ensure_ascii=False,indent=2,sort_keys=True))
+        z.writestr("audit.json",json.dumps(audit_project(project),ensure_ascii=False,sort_keys=True))
         for item in attachments:
             p=Path(item)
             if p.exists(): z.write(p,f"attachments/{p.name}")
