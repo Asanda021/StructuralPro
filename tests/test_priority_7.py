@@ -80,3 +80,5 @@ def test_revision_restore():
     assert r.compare(1,2)["summary"]["changed"]==1
     restored=r.restore(1)
     assert restored.rows==[{"code":"A","quantity":1,"total":10}]
+
+# Priority 7 CI diagnostic synchronization marker.
