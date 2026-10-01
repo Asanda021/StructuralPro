@@ -28,6 +28,16 @@ class DashboardPage(QWidget):
         self.control_result=QLabel("برای محاسبه، پروژه و هزینه‌های برنامه‌ای/واقعی را انتخاب کنید."); self.control_result.setWordWrap(True)
         cv.addWidget(self.control_project); cv.addWidget(self.planned_cost); cv.addWidget(self.actual_cost); cv.addWidget(self.control_button); cv.addWidget(self.control_result,2)
         root.addWidget(control)
+        receipts=QFrame(); rvh=QHBoxLayout(receipts); rvh.setContentsMargins(12,10,12,10)
+        rvh.addWidget(QLabel("ثبت دریافتی"))
+        self.receipt_amount=QDoubleSpinBox(); self.receipt_amount.setMaximum(999999999999999.0); self.receipt_amount.setDecimals(2)
+        self.receipt_desc=QLineEdit(); self.receipt_desc.setPlaceholderText("شرح دریافتی")
+        self.receipt_ref=QLineEdit(); self.receipt_ref.setPlaceholderText("شماره مرجع")
+        self.receipt_date=QLineEdit(); self.receipt_date.setPlaceholderText("تاریخ")
+        self.receipt_button=QPushButton("ثبت دریافتی"); self.receipt_button.setObjectName("SecondaryAction")
+        self.receipt_summary=QLabel("دریافتی: ۰"); self.receipt_summary.setWordWrap(True)
+        for x in (self.receipt_amount,self.receipt_desc,self.receipt_ref,self.receipt_date,self.receipt_button,self.receipt_summary): rvh.addWidget(x)
+        root.addWidget(receipts)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
         self.cost_category=QComboBox(); self.cost_category.addItems(["مصالح","دستمزد","پیمانکار","تجهیزات","سایر"])
@@ -53,6 +63,7 @@ class DashboardPage(QWidget):
         rv.addStretch(); body.addWidget(left,3); body.addWidget(right,1); root.addLayout(body,1)
         self.control_button.clicked.connect(self.calculate_control)
         self.cost_button.clicked.connect(self.add_cost)
+        self.receipt_button.clicked.connect(self.add_receipt)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -91,6 +102,17 @@ class DashboardPage(QWidget):
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def add_receipt(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.receipt_summary.setText("پروژه‌ای انتخاب نشده است."); return
+        try:
+            self.service.add_project_receipt(project_id,float(self.receipt_amount.value()),description=self.receipt_desc.text(),date=self.receipt_date.text(),reference=self.receipt_ref.text())
+            self.on_control_project_changed(self.control_project.currentIndex())
+            self.receipt_desc.clear(); self.receipt_ref.clear()
+        except Exception as exc:
+            self.receipt_summary.setText(f"خطای ثبت دریافتی: {exc}")
+
     def on_control_project_changed(self, _index):
         project_id=self.control_project.currentData()
         if not project_id:
@@ -101,6 +123,8 @@ class DashboardPage(QWidget):
             self.planned_cost.setValue(float(d["contract_amount"]))
             self.actual_cost.setValue(float(d["actual_cost"]))
             self.cost_summary.setText(f'دفتر هزینه: {d["cost_entry_count"]} مورد | مجموع: {d["actual_cost"]:,.0f}')
+            pos=self.service.project_financial_position(project_id)
+            self.receipt_summary.setText(f'دریافتی: {pos["received"]:,.0f} | مطالبات: {pos["receivable"]:,.0f} | {pos["receipt_count"]} ثبت')
             self.control_result.setText(
                 f'ارزش کارکرد: {d["cumulative_work"]:,.0f} | '
                 f'هزینه واقعی: {d["actual_cost"]:,.0f} | '
@@ -160,6 +184,8 @@ class DashboardPage(QWidget):
             ("مانده قرارداد",f'{d["remaining_contract"]:,.0f}',f'{d["line_count"]} ردیف BOQ'),
             ("هزینه واقعی",f'{d["actual_cost"]:,.0f}',f'{d["cost_entry_count"]} ثبت هزینه'),
             ("حاشیه کارکرد",f'{d["gross_margin"]:,.0f}','کارکرد منهای هزینه ثبت‌شده'),
+            ("دریافتی",f'{self.service.project_receipt_summary(project_id)["total_received"]:,.0f}','جمع مبالغ دریافت‌شده'),
+            ("مطالبات",f'{max(float(d["contract_amount"])-self.service.project_receipt_summary(project_id)["total_received"],0):,.0f}','قرارداد منهای دریافتی'),
             ("قابل پرداخت تجمعی",f'{d["total_payable"]:,.0f}',f'آخرین دوره: {d["latest_payable"]:,.0f}'),
         ]
         while self.cards.count():
