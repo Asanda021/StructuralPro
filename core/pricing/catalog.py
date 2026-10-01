@@ -4,6 +4,7 @@ from dataclasses import dataclass, asdict
 from typing import Iterable, Any
 import csv
 from io import StringIO
+import math
 
 @dataclass(frozen=True)
 class PriceItem:
@@ -20,19 +21,66 @@ class PriceItem:
 class PriceCatalog:
     def __init__(self, items: Iterable[PriceItem] = (), source_registry=None):
         self._items: dict[tuple[int,str], PriceItem] = {}
+        self._overrides: dict[tuple[int,str], PriceItem] = {}
+        self._history: dict[tuple[int,str], list[dict[str, Any]]] = {}
         self.source_registry=source_registry
         self.replace(items)
 
     def replace(self, items: Iterable[PriceItem]) -> None:
-        self._items = {(int(x.year), str(x.code).strip()): x for x in items}
+        self._items = {}
+        for item in items:
+            self.add(item, record_history=False)
 
-    def add(self, item: PriceItem) -> None:
-        key = (int(item.year), str(item.code).strip())
-        if not item.code.strip():
+    @staticmethod
+    def _validate_item(item: PriceItem) -> PriceItem:
+        year = int(item.year)
+        code = str(item.code).strip()
+        unit = str(item.unit).strip()
+        price = float(item.unit_price)
+        if not code:
             raise ValueError("price code is required")
-        if item.unit_price < 0:
-            raise ValueError("unit price cannot be negative")
+        if not unit:
+            raise ValueError("price unit is required")
+        if not math.isfinite(price) or price < 0:
+            raise ValueError("unit price must be finite and non-negative")
+        return PriceItem(year, str(item.group).strip(), str(item.chapter).strip(),
+                         code, str(item.description).strip(), unit, price,
+                         str(item.analysis or ""), str(item.notes or ""))
+
+    def _key(self, year: int, code: str) -> tuple[int, str]:
+        return int(year), str(code).strip()
+
+
+    def add(self, item: PriceItem, *, record_history: bool = True) -> None:
+        item = self._validate_item(item)
+        key = self._key(item.year, item.code)
+        old = self._items.get(key)
         self._items[key] = item
+        if record_history and old is not None and old.unit_price != item.unit_price:
+            self._history.setdefault(key, []).append({
+                "year": item.year, "code": item.code,
+                "old_price": old.unit_price, "new_price": item.unit_price,
+            })
+
+    def set_custom_price(self, code: str, year: int, unit_price: float,
+                         *, reason: str = "") -> PriceItem:
+        base = self.get(code, year)
+        if base is None:
+            raise KeyError(code)
+        price = float(unit_price)
+        if not math.isfinite(price) or price < 0:
+            raise ValueError("custom price must be finite and non-negative")
+        custom = PriceItem(base.year, base.group, base.chapter, base.code,
+                           base.description, base.unit, price, base.analysis,
+                           reason or base.notes)
+        self._overrides[self._key(year, code)] = custom
+        return custom
+
+    def clear_custom_price(self, code: str, year: int) -> None:
+        self._overrides.pop(self._key(year, code), None)
+
+    def price_history(self, code: str, year: int) -> list[dict[str, Any]]:
+        return list(self._history.get(self._key(year, code), []))
 
     def years(self) -> list[int]:
         return sorted({k[0] for k in self._items}, reverse=True)
@@ -47,8 +95,9 @@ class PriceCatalog:
     def get(self, code: str, year: int | None = None) -> PriceItem | None:
         code = code.strip()
         if year is not None:
-            return self._items.get((int(year), code))
-        matches = [x for (y,c), x in self._items.items() if c == code]
+            key = self._key(year, code)
+            return self._overrides.get(key) or self._items.get(key)
+        matches = [self._overrides.get((y, code)) or x for (y,c), x in self._items.items() if c == code]
         return sorted(matches, key=lambda x: x.year, reverse=True)[0] if matches else None
 
     def search(self, query: str, year: int | None = None, group: str | None = None,

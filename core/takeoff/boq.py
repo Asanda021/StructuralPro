@@ -26,6 +26,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
         raise ValueError("factor must be finite and non-negative")
     raw=[]
     for r in rows:
+        source=str(_read(r,"source","") or "").strip()
         q=float(_read(r,"quantity",0) or 0)
         if not math.isfinite(q) or q < 0:
             raise ValueError("quantity must be finite and non-negative")
@@ -45,7 +46,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
         total=None if price is None else round(q*price*f, 10)
         warning="" if q >= 0 and unit else "missing_quantity_or_unit"
         if price == 0: warning = (warning+";" if warning else "")+"zero_price"
-        raw.append({"source":str(_read(r,"source","") or ""), "description":desc,
+        raw.append({"source":source, "description":desc,
                     "quantity":q, "unit":unit, "price_code":code, "unit_price":price,
                     "total":total, "factor":f, "warning":warning})
     if aggregate:
