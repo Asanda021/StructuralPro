@@ -87,7 +87,7 @@ def main()->int:
     def create_project():
         try:
             service.create_project(pname.text().strip() or "پروژه جدید",pid.text().strip() or "project")
-            pout.setText("پروژه با موفقیت ذخیره شد."); refresh_projects(); refresh_dash()
+            pout.setText("پروژه با موفقیت ذخیره شد."); refresh_projects(); dashboard_page.refresh()
         except Exception as e: QMessageBox.critical(w,"خطا",str(e))
     create.clicked.connect(create_project)
     def open_selected():
