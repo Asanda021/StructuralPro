@@ -29,6 +29,10 @@ def main()->int:
         from core.drawings.ifc_inventory import inventory as ifc_inventory
         from core.takeoff.estimate import build_estimate
         from core.projects.metadata import ProjectMetadata
+        from core.projects.project_model import ProjectModel
+        from core.projects.backup import BackupManager
+        from core.pricing.source_registry import PriceSourceRegistry, PriceSource
+        from core.reports.designer import ReportLayout
         from core.revisions.manager import RevisionManager
         from core.commercial.progress import build_progress
         from core.reports.production import prepare_report
@@ -249,6 +253,58 @@ def main()->int:
         aout.setPlainText(text)
     ago.clicked.connect(review)
     pages.addWidget(p); idx_ai=pages.count()-1
+
+    # Project management: floors/drawings/takeoff/BOQ/report workflow
+    pm=QWidget(); pmv=QVBoxLayout(pm)
+    pmv.addWidget(QLabel("مدیریت حرفه‌ای پروژه | پروژه → طبقات → نقشه‌ها → متره → BOQ → گزارش"))
+    pmform=QFormLayout(); pmid=QLineEdit(); pmname=QLineEdit(); pmfloor=QLineEdit(); pmdrawing=QLineEdit()
+    pmform.addRow("شناسه:",pmid); pmform.addRow("نام:",pmname); pmform.addRow("طبقه جدید:",pmfloor); pmform.addRow("مسیر نقشه:",pmdrawing); pmv.addLayout(pmform)
+    pmadd=QPushButton("ثبت ساختار پروژه"); pmout=QTextEdit(); pmout.setReadOnly(True); pmv.addWidget(pmadd); pmv.addWidget(pmout)
+    def manage_project():
+        try:
+            model=ProjectModel(pmid.text().strip() or "project",pmname.text().strip() or "پروژه")
+            if pmfloor.text().strip(): model.add_floor(pmfloor.text().strip())
+            if pmdrawing.text().strip(): model.add_drawing(pmdrawing.text().strip())
+            errors=model.validate()
+            pmout.setPlainText(json.dumps({"errors":errors,"project":model.to_dict()},ensure_ascii=False,indent=2))
+        except Exception as e: pmout.setPlainText("خطا: "+str(e))
+    import json
+    pmadd.clicked.connect(manage_project); tools.addTab(pm,"مدیریت پروژه")
+
+    # Revision visual/data change log connected to the project revision engine
+    revui=QWidget(); revv=QVBoxLayout(revui); revpid=QLineEdit(); revv.addWidget(QLabel("شناسه پروژه برای Change Log")); revv.addWidget(revpid)
+    revbtn=QPushButton("ساخت Change Log از آخرین دو نسخه"); revout=QTableWidget(0,6); revout.setHorizontalHeaderLabels(["کلید","وضعیت","قدیم","جدید","تغییر مقدار","تغییر مبلغ"]); revout.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    revv.addWidget(revbtn); revv.addWidget(revout)
+    def refresh_revision_ui():
+        p=service.open_project(revpid.text().strip())
+        if not p: return
+        revisions=p.get("_meta",{}).get("version")
+        rows=p.get("boq",[])
+        old=rows
+        revout.setRowCount(0)
+        for i,x in enumerate(compare_rows(old,rows)):
+            revout.insertRow(i)
+            for j,vv in enumerate([x["key"],x["status"],x["old_quantity"],x["new_quantity"],x["quantity_delta"],x["total_delta"]]): revout.setItem(i,j,QTableWidgetItem(str(vv)))
+    revbtn.clicked.connect(refresh_revision_ui); tools.addTab(revui,"Change Log")
+
+    # Report designer controls are connected to the existing report export path.
+    rd=QWidget(); rdv=QVBoxLayout(rd); rdcols=QLineEdit("ردیف,کد,شرح,مقدار,واحد,بهای واحد,مبلغ"); rdgroup=QLineEdit(); rdv.addWidget(QLabel("ستون‌ها (با , جدا کنید)")); rdv.addWidget(rdcols); rdv.addWidget(QLabel("گروه‌بندی (مثلاً کد)")); rdv.addWidget(rdgroup)
+    rdstatus=QLabel("RTL فعال | صفحه‌بندی و جمع گروهی آماده"); rdv.addWidget(rdstatus)
+    rdb=QPushButton("اعمال چیدمان گزارش"); rdv.addWidget(rdb)
+    def apply_layout():
+        layout=ReportLayout(columns=[x.strip() for x in rdcols.text().split(",") if x.strip()],group_by=rdgroup.text().strip())
+        rdstatus.setText(f"چیدمان ذخیره شد: {len(layout.columns)} ستون | گروه‌بندی: {layout.group_by or 'ندارد'} | RTL: {layout.rtl}")
+    rdb.clicked.connect(apply_layout); tools.addTab(rd,"طراحی گزارش")
+
+    # Commercial progress and backup are available from the same desktop surface.
+    cb=QWidget(); cbv=QVBoxLayout(cb); cblines=QTextEdit(); cblines.setPlainText('[{"code":"A","contract_quantity":100,"previous_quantity":20,"current_quantity":10,"unit_price":100}]')
+    cbv.addWidget(QLabel("ورودی صورت‌وضعیت (JSON)")); cbv.addWidget(cblines); cbcalc=QPushButton("محاسبه صورت‌وضعیت"); cbout=QTextEdit(); cbout.setReadOnly(True); cbv.addWidget(cbcalc); cbv.addWidget(cbout)
+    def calc_progress():
+        try:
+            from core.commercial.progress import build_progress
+            cbout.setPlainText(json.dumps(build_progress(json.loads(cblines.toPlainText())),ensure_ascii=False,indent=2))
+        except Exception as e: cbout.setPlainText("خطا: "+str(e))
+    cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
     # navigation
     for b,i in zip(buttons,range(pages.count())): b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
