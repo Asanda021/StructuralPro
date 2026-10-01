@@ -49,6 +49,22 @@ class DashboardPage(QWidget):
         self.receipt_summary=QLabel("دریافتی: ۰"); self.receipt_summary.setWordWrap(True)
         for x in (self.receipt_amount,self.receipt_desc,self.receipt_ref,self.receipt_date,self.receipt_button,self.receipt_summary): rvh.addWidget(x)
         root.addWidget(receipts)
+        documents=QFrame(); dv=QHBoxLayout(documents); dv.setContentsMargins(12,10,12,10)
+        dv.addWidget(QLabel("مرکز اسناد مالی"))
+        self.document_number=QLineEdit(); self.document_number.setPlaceholderText("شماره سند / فاکتور")
+        self.document_type=QLineEdit(); self.document_type.setPlaceholderText("نوع سند")
+        self.document_counterparty=QLineEdit(); self.document_counterparty.setPlaceholderText("طرف حساب")
+        self.document_amount=QDoubleSpinBox(); self.document_amount.setMaximum(999999999999999.0); self.document_amount.setDecimals(2)
+        self.document_date=QLineEdit(); self.document_date.setPlaceholderText("تاریخ")
+        self.document_due=QLineEdit(); self.document_due.setPlaceholderText("سررسید")
+        self.document_status=QComboBox(); self.document_status.addItem("پرداخت‌نشده","unpaid"); self.document_status.addItem("بخشی","partial"); self.document_status.addItem("پرداخت‌شده","paid")
+        self.document_commitment=QLineEdit(); self.document_commitment.setPlaceholderText("شناسه تعهد")
+        self.document_cost=QLineEdit(); self.document_cost.setPlaceholderText("شناسه هزینه")
+        self.document_receipt=QLineEdit(); self.document_receipt.setPlaceholderText("شناسه دریافتی")
+        self.document_button=QPushButton("ثبت سند"); self.document_button.setObjectName("SecondaryAction")
+        self.document_summary=QLabel("اسناد: ۰"); self.document_summary.setWordWrap(True)
+        for x in (self.document_number,self.document_type,self.document_counterparty,self.document_amount,self.document_date,self.document_due,self.document_status,self.document_commitment,self.document_cost,self.document_receipt,self.document_button,self.document_summary): dv.addWidget(x)
+        root.addWidget(documents)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
         self.cost_category=QComboBox(); self.cost_category.addItems(["مصالح","دستمزد","پیمانکار","تجهیزات","سایر"])
@@ -76,6 +92,7 @@ class DashboardPage(QWidget):
         self.cost_button.clicked.connect(self.add_cost)
         self.receipt_button.clicked.connect(self.add_receipt)
         self.commit_button.clicked.connect(self.add_commitment)
+        self.document_button.clicked.connect(self.add_financial_document)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -114,6 +131,33 @@ class DashboardPage(QWidget):
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def add_financial_document(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.document_summary.setText("پروژه‌ای انتخاب نشده است."); return
+        def optional_id(widget):
+            value=widget.text().strip()
+            return int(value) if value else None
+        try:
+            self.service.add_project_financial_document(
+                project_id,
+                self.document_number.text(),
+                self.document_type.text() or "سند مالی",
+                float(self.document_amount.value()),
+                counterparty=self.document_counterparty.text(),
+                date=self.document_date.text(),
+                due_date=self.document_due.text(),
+                payment_status=self.document_status.currentData(),
+                commitment_id=optional_id(self.document_commitment),
+                cost_entry_id=optional_id(self.document_cost),
+                receipt_id=optional_id(self.document_receipt),
+            )
+            summary=self.service.project_financial_document_summary(project_id)
+            self.document_summary.setText(f'اسناد: {summary["document_count"]} مورد | مجموع: {summary["document_total"]:,.0f} | پرداخت‌نشده: {summary["by_payment_status"]["unpaid"]:,.0f}')
+            self.document_number.clear(); self.document_counterparty.clear(); self.document_commitment.clear(); self.document_cost.clear(); self.document_receipt.clear()
+        except Exception as exc:
+            self.document_summary.setText(f"خطای ثبت سند: {exc}")
+
     def add_commitment(self):
         project_id=self.control_project.currentData()
         if not project_id:
@@ -149,6 +193,8 @@ class DashboardPage(QWidget):
             pos=self.service.project_financial_position(project_id)
             self.commit_summary.setText(f'تعهدات: {pos["committed_cost"]:,.0f} | پرداخت‌نشده: {pos["unpaid_commitments"]:,.0f} | مواجهه نقدی: {pos["cash_exposure"]:,.0f} | {pos["commitment_count"]} ثبت')
             self.receipt_summary.setText(f'دریافتی: {pos["received"]:,.0f} | مطالبات: {pos["receivable"]:,.0f} | {pos["receipt_count"]} ثبت')
+            ds=self.service.project_financial_document_summary(project_id)
+            self.document_summary.setText(f'اسناد: {ds["document_count"]} مورد | مجموع: {ds["document_total"]:,.0f} | پرداخت‌نشده: {ds["by_payment_status"]["unpaid"]:,.0f}')
             self.control_result.setText(
                 f'ارزش کارکرد: {d["cumulative_work"]:,.0f} | '
                 f'هزینه واقعی: {d["actual_cost"]:,.0f} | '
