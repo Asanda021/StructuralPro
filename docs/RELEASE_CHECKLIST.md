@@ -24,6 +24,9 @@
 ## Licensing and dependencies
 - [ ] License architecture does not embed a signing secret.
 - [ ] Production public-key verification path is configured when commercial licensing is enabled.
+- [ ] Commercial license expiration behavior is tested.
+- [ ] Commercial license revocation policy is defined and tested.
+- [ ] Feature entitlement identifiers are defined without duplicates.
 - [ ] Third-party dependencies have compatible redistribution terms.
 - [ ] Any bundled GGUF model has verified license and checksum.
 - [ ] Any bundled/required DWG converter has verified redistribution/installation terms.
@@ -43,6 +46,7 @@
 - [ ] Developer Guide is current.
 - [ ] Configuration documentation is current.
 - [ ] License documentation is current.
+- [ ] Commercial license lifecycle documentation is current.
 - [ ] Backup/Restore documentation is current.
 - [ ] Troubleshooting documentation is current.
 - [ ] Version/release process is current.
