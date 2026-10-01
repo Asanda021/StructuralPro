@@ -18,6 +18,23 @@ def _summary_items(summary):
     factors = cost.get("factors", {}) if isinstance(cost, dict) else {}
     for name, value in factors.items():
         items.append((str(name), value))
+    statement = summary.get("statement", {}) if isinstance(summary, dict) else {}
+    statement_labels = (
+        ("gross_current", "مبلغ ناخالص این دوره"),
+        ("retention", "کسور تضمین"),
+        ("advance_recovery", "استهلاک پیش‌پرداخت"),
+        ("taxable_current", "مبلغ مشمول مالیات"),
+        ("tax", "مالیات"),
+        ("insurance", "بیمه"),
+        ("payable_current", "قابل پرداخت این دوره"),
+        ("previous_paid", "پرداختی قبلی"),
+        ("balance_after_current", "مانده پس از این دوره"),
+    )
+    for key, label in statement_labels:
+        if key in statement:
+            items.append((label, statement.get(key)))
+    if "period_no" in summary:
+        items.insert(0, ("شماره صورت‌وضعیت", summary["period_no"]))
     return items
 
 
