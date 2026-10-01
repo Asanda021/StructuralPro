@@ -213,6 +213,18 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("statement_periods", []))
 
+    def project_financial_document_status_summary(self, project_id: str) -> dict[str, Any]:
+        """Summarize registered and calculated payment statuses without mutating documents."""
+        audit = self.project_financial_reconciliation(project_id)
+        counts = {"unpaid": 0, "partial": 0, "paid": 0}
+        amounts = {"unpaid": 0.0, "partial": 0.0, "paid": 0.0}
+        for row in audit["rows"]:
+            status = row["derived_status"]
+            counts[status] += 1
+            amounts[status] += float(row["amount"])
+        return {"project_id": project_id, "counts": counts, "amounts": amounts,
+                "document_count": audit["document_count"], "mismatch_count": audit["mismatch_count"]}
+
     def add_project_financial_document(self, project_id: str, document_number: str, document_type: str, amount: float, *, counterparty: str = "", date: str = "", due_date: str = "", reference: str = "", notes: str = "", payment_status: str = "unpaid", commitment_id: int | None = None, cost_entry_id: int | None = None, receipt_id: int | None = None) -> dict[str, Any]:
         """Persist a project financial invoice/document and optionally link it to a ledger entry."""
         p = self.store.get(project_id)
