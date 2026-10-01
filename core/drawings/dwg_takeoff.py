@@ -91,7 +91,7 @@ class DWGTakeoffEngine:
             metric=rule.get("metric","count"); qty=sum(float(e.data.get(metric,1) or 0) for e in ents)
             out.append({"layer":layer,"count":len(ents),"quantity":qty,"description":rule.get("description",layer),
                         "unit":rule.get("unit","عدد" if metric=="count" else "m"),"price_code":rule.get("price_code"),
-                        "source":"dwg-layer","needs_confirmation":True})
+                        "source":"dwg-layer","needs_confirmation":False})
         return out
 
 def infer_takeoff_from_layers(doc:DWGDocument,rules:dict[str,dict[str,Any]])->list[dict[str,Any]]:
