@@ -35,7 +35,7 @@ def test_year_aware_factors():
 def test_progress_complete_contract_flow():
     out=build_progress([{"code":"A","contract_quantity":100,"previous_quantity":20,"current_quantity":10,"unit_price":100}],
                         deductions=[50],payments=[100])
-    assert out["cumulative_total"] if "cumulative_total" in out else out["completed_total"]==3000
+    assert (out["cumulative_total"] if "cumulative_total" in out else out["completed_total"]) == 3000
     assert out["remaining_contract"]==7000
     assert out["balance_current"]==850
 
