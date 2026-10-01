@@ -1,6 +1,6 @@
 """Commercial dashboard widgets for StructuralPro Windows UI."""
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView,QComboBox,QDoubleSpinBox,QLineEdit
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView,QComboBox,QDoubleSpinBox,QLineEdit,QFileDialog
 
 def _card(title, value, hint):
     f=QFrame(); f.setObjectName("KpiCard")
@@ -74,19 +74,27 @@ class DashboardPage(QWidget):
         ah.addWidget(QLabel("کنترل سررسید مالی"))
         self.aging_as_of=QLineEdit(); self.aging_as_of.setPlaceholderText("تاریخ مبنا؛ مثال ۱۴۰۵/۰۷/۱۰"); self.aging_as_of.setMinimumWidth(180)
         self.aging_button=QPushButton("بررسی سررسید"); self.aging_button.setObjectName("SecondaryAction")
+        self.aging_export_button=QPushButton("خروجی"); self.aging_export_button.setObjectName("SecondaryAction")
         self.aging_summary=QLabel("برای مشاهده وضعیت سررسید، تاریخ مبنا را وارد کنید."); self.aging_summary.setWordWrap(True)
-        ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
+        ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_export_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
         self.aging_table=QTableWidget(0,7); self.aging_table.setHorizontalHeaderLabels(["نوع","شناسه","طرف حساب","مرجع","سررسید","وضعیت","مانده"])
         self.aging_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.aging_table.setAlternatingRowColors(True)
         av.addWidget(self.aging_table)
         root.addWidget(aging)
-        parties=QFrame(); parties.setObjectName("DashboardCard"); pv=QHBoxLayout(parties); pv.setContentsMargins(12,10,12,10)
-        pv.addWidget(QLabel("دفتر طرف حساب‌ها"))
+        parties=QFrame(); parties.setObjectName("DashboardCard"); pv=QVBoxLayout(parties); pv.setContentsMargins(12,10,12,10)
+        ph=QHBoxLayout(); ph.addWidget(QLabel("دفتر طرف حساب‌ها"))
         self.party_name=QLineEdit(); self.party_name.setPlaceholderText("نام طرف حساب")
         self.party_role=QLineEdit(); self.party_role.setPlaceholderText("نقش: پیمانکار / فروشنده / کارفرما")
         self.party_button=QPushButton("ثبت طرف حساب"); self.party_button.setObjectName("SecondaryAction")
+        self.party_update_button=QPushButton("ویرایش انتخاب‌شده"); self.party_update_button.setObjectName("SecondaryAction")
+        self.party_toggle_button=QPushButton("فعال/غیرفعال"); self.party_toggle_button.setObjectName("SecondaryAction")
+        self.party_export_button=QPushButton("خروجی طرف حساب‌ها"); self.party_export_button.setObjectName("SecondaryAction")
         self.party_summary=QLabel("طرف حساب‌های ثبت‌شده: ۰"); self.party_summary.setWordWrap(True)
-        pv.addWidget(self.party_name,2); pv.addWidget(self.party_role,1); pv.addWidget(self.party_button); pv.addWidget(self.party_summary,2)
+        ph.addWidget(self.party_name,2); ph.addWidget(self.party_role,1); ph.addWidget(self.party_button); ph.addWidget(self.party_update_button); ph.addWidget(self.party_toggle_button); ph.addWidget(self.party_export_button); ph.addWidget(self.party_summary,2)
+        pv.addLayout(ph)
+        self.party_table=QTableWidget(0,4); self.party_table.setHorizontalHeaderLabels(["شناسه","نام","نقش","وضعیت"])
+        self.party_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.party_table.setAlternatingRowColors(True)
+        pv.addWidget(self.party_table)
         root.addWidget(parties)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
@@ -118,7 +126,12 @@ class DashboardPage(QWidget):
         self.commit_button.clicked.connect(self.add_commitment)
         self.document_button.clicked.connect(self.add_financial_document)
         self.aging_button.clicked.connect(self.refresh_aging)
+        self.aging_export_button.clicked.connect(self.export_aging)
         self.party_button.clicked.connect(self.add_counterparty)
+        self.party_update_button.clicked.connect(self.update_counterparty)
+        self.party_toggle_button.clicked.connect(self.toggle_counterparty)
+        self.party_export_button.clicked.connect(self.export_counterparties)
+        self.party_table.itemSelectionChanged.connect(self.load_selected_counterparty)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -172,7 +185,7 @@ class DashboardPage(QWidget):
                 self.document_number.text(),
                 self.document_type.text() or "سند مالی",
                 float(self.document_amount.value()),
-                counterparty=self.document_counterparty.currentData() or "",
+                counterparty=self._selected_counterparty_name(self.document_counterparty),
                 date=self.document_date.text(),
                 due_date=self.document_due.text(),
                 payment_status=self.document_status.currentData(),
@@ -186,12 +199,20 @@ class DashboardPage(QWidget):
         except Exception as exc:
             self.document_summary.setText(f"خطای ثبت سند: {exc}")
 
+    def _selected_counterparty_name(self, widget):
+        project_id=self.control_project.currentData()
+        value=widget.currentData()
+        if not project_id or not value:
+            return ""
+        item=self.service.find_project_counterparty_by_id(project_id, value)
+        return item.get("name","") if item else ""
+
     def add_commitment(self):
         project_id=self.control_project.currentData()
         if not project_id:
             self.commit_summary.setText("پروژه‌ای انتخاب نشده است."); return
         try:
-            self.service.add_project_commitment(project_id,float(self.commit_amount.value()),description=self.commit_desc.text(),date=self.commit_date.text(),due_date=self.commit_due.text(),reference=self.commit_ref.text(),counterparty=self.commit_counterparty.currentData() or "")
+            self.service.add_project_commitment(project_id,float(self.commit_amount.value()),description=self.commit_desc.text(),date=self.commit_date.text(),due_date=self.commit_due.text(),reference=self.commit_ref.text(),counterparty=self._selected_counterparty_name(self.commit_counterparty))
             self.on_control_project_changed(self.control_project.currentIndex())
             self.commit_desc.clear(); self.commit_ref.clear()
         except Exception as exc:
@@ -202,7 +223,7 @@ class DashboardPage(QWidget):
         if not project_id:
             self.receipt_summary.setText("پروژه‌ای انتخاب نشده است."); return
         try:
-            self.service.add_project_receipt(project_id,float(self.receipt_amount.value()),description=self.receipt_desc.text(),date=self.receipt_date.text(),reference=self.receipt_ref.text(),counterparty=self.receipt_counterparty.currentData() or "")
+            self.service.add_project_receipt(project_id,float(self.receipt_amount.value()),description=self.receipt_desc.text(),date=self.receipt_date.text(),reference=self.receipt_ref.text(),counterparty=self._selected_counterparty_name(self.receipt_counterparty))
             self.on_control_project_changed(self.control_project.currentIndex())
             self.receipt_desc.clear(); self.receipt_ref.clear()
         except Exception as exc:
@@ -282,13 +303,19 @@ class DashboardPage(QWidget):
 
     def refresh_counterparties(self, project_id):
         try:
-            parties=self.service.project_counterparties(project_id)
+            parties=self.service.project_counterparties(project_id, active_only=True)
             preview=" | ".join(f'{x["name"]} ({x["role"] or "بدون نقش"})' for x in parties[:4])
-            self.party_summary.setText(f"طرف حساب‌های ثبت‌شده: {len(parties)}" + (f" | {preview}" if preview else ""))
+            all_parties=self.service.project_counterparties(project_id)
+            self.party_summary.setText(f"فعال: {len(parties)} | کل: {len(all_parties)}" + (f" | {preview}" if preview else ""))
+            self.party_table.setRowCount(0)
+            for i,item in enumerate(all_parties):
+                self.party_table.insertRow(i)
+                values=[item.get("id",""),item.get("name",""),item.get("role","") or "بدون نقش","فعال" if item.get("active",True) else "غیرفعال"]
+                for j,value in enumerate(values): self.party_table.setItem(i,j,QTableWidgetItem(str(value)))
             for widget in (self.commit_counterparty,self.receipt_counterparty,self.document_counterparty,self.cost_counterparty):
                 current=widget.currentData()
                 widget.blockSignals(True); widget.clear(); widget.addItem("بدون طرف حساب","")
-                for item in parties: widget.addItem(f'{item["name"]} — {item["role"] or "بدون نقش"}',item["name"])
+                for item in parties: widget.addItem(f'{item["name"]} — {item["role"] or "بدون نقش"}',item["id"])
                 idx=widget.findData(current)
                 widget.setCurrentIndex(idx if idx >= 0 else 0); widget.blockSignals(False)
         except Exception as exc:
@@ -296,6 +323,81 @@ class DashboardPage(QWidget):
         except Exception as exc:
             self.party_summary.setText(f"خطای دفتر طرف حساب‌ها: {exc}")
 
+
+    def load_selected_counterparty(self):
+        row=self.party_table.currentRow()
+        if row < 0:
+            return
+        item=self.party_table.item(row,0)
+        if not item:
+            return
+        record=self.service.find_project_counterparty_by_id(self.control_project.currentData(), item.text())
+        if record:
+            self.party_name.setText(record.get("name",""))
+            self.party_role.setText(record.get("role",""))
+
+    def update_counterparty(self):
+        project_id=self.control_project.currentData()
+        row=self.party_table.currentRow()
+        if not project_id or row < 0:
+            self.party_summary.setText("یک طرف حساب را انتخاب کنید.")
+            return
+        item=self.party_table.item(row,0)
+        if not item:
+            return
+        try:
+            self.service.update_project_counterparty(project_id,item.text(),name=self.party_name.text(),role=self.party_role.text())
+            self.refresh_counterparties(project_id)
+        except Exception as exc:
+            self.party_summary.setText(f"خطای ویرایش طرف حساب: {exc}")
+
+    def toggle_counterparty(self):
+        project_id=self.control_project.currentData()
+        row=self.party_table.currentRow()
+        if not project_id or row < 0:
+            self.party_summary.setText("یک طرف حساب را انتخاب کنید.")
+            return
+        item=self.party_table.item(row,0)
+        status=self.party_table.item(row,3)
+        if not item or not status:
+            return
+        try:
+            active=status.text() != "فعال"
+            self.service.set_project_counterparty_active(project_id,item.text(),active)
+            self.refresh_counterparties(project_id)
+        except Exception as exc:
+            self.party_summary.setText(f"خطای تغییر وضعیت طرف حساب: {exc}")
+
+    def export_counterparties(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.party_summary.setText("پروژه‌ای انتخاب نشده است.")
+            return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره گزارش طرف حساب‌ها","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path:
+            return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_counterparty_report(project_id,suffix,path)
+            self.party_summary.setText(f"گزارش طرف حساب‌ها ذخیره شد: {path}")
+        except Exception as exc:
+            self.party_summary.setText(f"خطای خروجی طرف حساب‌ها: {exc}")
+
+    def export_aging(self):
+        project_id=self.control_project.currentData()
+        as_of=self.aging_as_of.text().strip()
+        if not project_id or not as_of:
+            self.aging_summary.setText("پروژه و تاریخ مبنا را مشخص کنید.")
+            return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره گزارش سررسید مالی","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path:
+            return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_financial_aging_report(project_id,as_of,suffix,path)
+            self.aging_summary.setText(f"گزارش سررسید ذخیره شد: {path}")
+        except Exception as exc:
+            self.aging_summary.setText(f"خطای خروجی سررسید: {exc}")
 
     def add_cost(self):
         project_id=self.control_project.currentData()
@@ -305,7 +407,7 @@ class DashboardPage(QWidget):
         try:
             self.service.add_project_cost(
                 project_id, self.cost_category.currentText(), float(self.cost_amount.value()),
-                description=self.cost_desc.text(), date=self.cost_date.text(), counterparty=self.cost_counterparty.currentData() or ""
+                description=self.cost_desc.text(), date=self.cost_date.text(), counterparty=self._selected_counterparty_name(self.cost_counterparty)
             )
             s=self.service.project_cost_summary(project_id)
             self.cost_summary.setText(f'دفتر هزینه: {s["entry_count"]} مورد | مجموع: {s["actual_cost"]:,.0f}')
