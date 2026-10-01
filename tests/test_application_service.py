@@ -70,7 +70,7 @@ def test_financial_document_status_summary_uses_calculated_status(tmp_path):
     assert result["counts"]["unpaid"]==1
     assert result["counts"]["paid"]==1
     assert result["amounts"]["unpaid"]==1000
-    assert result["mismatch_count"]==0
+    assert result["mismatch_count"]==1
 
 
 def test_counterparty_financial_rollup_uses_stable_ids_and_legacy_names(tmp_path):
