@@ -2,7 +2,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable\nfrom core.drawings.graphical_takeoff import ScaleCalibration, Point, MeasurementStore, subtract_areas
+from typing import Iterable
+from core.drawings.graphical_takeoff import ScaleCalibration, Point, MeasurementStore, subtract_areas
 import re, math
 
 @dataclass(frozen=True)

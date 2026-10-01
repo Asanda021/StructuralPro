@@ -4,17 +4,20 @@ from pathlib import Path
 from typing import Any
 from core.drawings.pdf_takeoff import PDFTakeoffAdapter
 from core.drawings.dwg_takeoff import DWGTakeoffEngine
-from core.drawings.bim_quantities import read_ifc\nfrom core.ai.auto_takeoff import LocalAutoTakeoff
+from core.drawings.bim_quantities import read_ifc
+from core.ai.auto_takeoff import LocalAutoTakeoff
 _BIM_UNITS={"Length":"m","Area":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
 class UnifiedDrawingTakeoff:
-    def __init__(self,price_resolver=None):\n        self.price_resolver=price_resolver\n        self.auto=LocalAutoTakeoff()
+    def __init__(self,price_resolver=None):\n        self.price_resolver=price_resolver
+        self.auto=LocalAutoTakeoff()
     def inspect(self,path:str|Path)->dict[str,Any]:
         p=Path(path)
         if not p.exists(): raise FileNotFoundError(p)
         ext=p.suffix.lower()
         if ext==".pdf":
             a=PDFTakeoffAdapter(); pages=a.inspect(p)
-            candidates=a.text_takeoff_candidates(pages)\n            scales=self.auto.auto_scale("\\n".join(x.text for x in pages))\n            return {"kind":"pdf","source":str(p),"pages":len(pages),"scale_candidate":scales,"candidates":candidates}
+            candidates=a.text_takeoff_candidates(pages)
+            scales=self.auto.auto_scale("\\n".join(x.text for x in pages))\n            return {"kind":"pdf","source":str(p),"pages":len(pages),"scale_candidate":scales,"candidates":candidates}
         if ext in {".dwg",".dxf"}:
             e=DWGTakeoffEngine(); doc=e.import_file(p); candidates=[]
             for layer in doc.layers:
@@ -24,7 +27,8 @@ class UnifiedDrawingTakeoff:
                 qty,unit=(length,"m") if length>0 else ((area,"m2") if area>0 else (float(len(ents)),"عدد"))
                 candidates.append({"source":f"cad:{layer}","description":layer,"quantity":qty,"unit":unit,
                                    "count":len(ents),"needs_confirmation":True})
-            candidates.extend(self.auto.auto_takeoff(doc.entities))\n            return {"kind":"cad","source":str(p),"summary":e.summarize(doc),"candidates":candidates,"document":doc}
+            candidates.extend(self.auto.auto_takeoff(doc.entities))
+            return {"kind":"cad","source":str(p),"summary":e.summarize(doc),"candidates":candidates,"document":doc}
         if ext in {".ifc",".ifczip"}:
             rows=read_ifc(p); candidates=[]
             for row in rows:
