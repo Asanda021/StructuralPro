@@ -74,6 +74,9 @@ class DashboardPage(QWidget):
         self.control_project.clear()
         for p in projects: self.control_project.addItem(f'{p.get("id","")} | {p.get("name","")}', p.get("id",""))
         self.control_project.blockSignals(False)
+        if not getattr(self, "_control_signal_connected", False):
+            self.control_project.currentIndexChanged.connect(self.on_control_project_changed)
+            self._control_signal_connected=True
         if projects:
             self.refresh_financial(projects[-1].get("id",""))
             try:
@@ -88,6 +91,25 @@ class DashboardPage(QWidget):
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def on_control_project_changed(self, _index):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            return
+        try:
+            d=self.service.financial_dashboard(project_id)
+            self.refresh_financial(project_id)
+            self.planned_cost.setValue(float(d["contract_amount"]))
+            self.actual_cost.setValue(float(d["actual_cost"]))
+            self.cost_summary.setText(f'دفتر هزینه: {d["cost_entry_count"]} مورد | مجموع: {d["actual_cost"]:,.0f}')
+            self.control_result.setText(
+                f'ارزش کارکرد: {d["cumulative_work"]:,.0f} | '
+                f'هزینه واقعی: {d["actual_cost"]:,.0f} | '
+                f'حاشیه کارکرد: {d["gross_margin"]:,.0f} | '
+                f'پیشرفت: {d["progress_percent"]:.1f}%'
+            )
+        except Exception as exc:
+            self.control_result.setText(f"خطای داشبورد مالی: {exc}")
+
     def add_cost(self):
         project_id=self.control_project.currentData()
         if not project_id:
@@ -136,7 +158,8 @@ class DashboardPage(QWidget):
             ("قرارداد / برآورد",f'{d["contract_amount"]:,.0f}',f'مبلغ پایه: {d["base_amount"]:,.0f}'),
             ("کارکرد تجمعی",f'{d["cumulative_work"]:,.0f}',f'پیشرفت: {d["progress_percent"]:.1f}%'),
             ("مانده قرارداد",f'{d["remaining_contract"]:,.0f}',f'{d["line_count"]} ردیف BOQ'),
-            ("صورت‌وضعیت",str(d["statement_count"]),f'آخرین دوره: {d["latest_statement_no"] or "—"}'),
+            ("هزینه واقعی",f'{d["actual_cost"]:,.0f}',f'{d["cost_entry_count"]} ثبت هزینه'),
+            ("حاشیه کارکرد",f'{d["gross_margin"]:,.0f}','کارکرد منهای هزینه ثبت‌شده'),
             ("قابل پرداخت تجمعی",f'{d["total_payable"]:,.0f}',f'آخرین دوره: {d["latest_payable"]:,.0f}'),
         ]
         while self.cards.count():
