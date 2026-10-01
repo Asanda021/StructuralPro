@@ -66,3 +66,13 @@ def test_project_pipeline_does_not_silently_double_count_same_source():
     ]
     with pytest.raises(ValueError, match="دوباره"):
         build_core_pipeline(project, rows)
+
+def test_application_rejects_duplicate_takeoff_source(tmp_path):
+    from core.platform.application import StructuralProApp
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه منبع", "P3")
+    app.add_takeoff("P3", "building", "wall", source_id="DRAW-9",
+                    length=2, width=0.2, height=3, price_code="W001", unit_price=100)
+    with pytest.raises(ValueError, match="دوباره"):
+        app.add_takeoff("P3", "building", "wall", source_id="DRAW-9",
+                        length=2, width=0.2, height=3, price_code="W001", unit_price=100)
