@@ -4,7 +4,7 @@ from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.pdf_graphical import GraphicalPDFTakeoff
 from core.ai.hardware_profiles import select_profile, validate_model_manifest
 from core.platform.mobile_runtime import AndroidRuntime, TelegramRuntime
-from core.sync.memory import MemorySyncProvider
+from core.sync.memory import MemorySyncProvider\nfrom core.sync.manager import SyncManager\nfrom core.sync.offline_queue import OfflineQueue
 from core.pricing.source_registry import PriceSource, PriceSourceRegistry
 
 def _fake_converter(tmp_path):
@@ -84,3 +84,12 @@ def test_price_source_registry():
     s=PriceSource(1405,"ابنیه","verified","https://example.invalid","licensed","2026-10-01","abc",True)
     r.add(s)
     assert r.verify_record(s,"abc")
+
+
+def test_sync_manager_end_to_end(tmp_path):
+    provider=MemorySyncProvider()
+    manager=SyncManager(provider,OfflineQueue(tmp_path/"queue.json"))
+    manager.record_local_change({"project_id":"P2","version":1,"payload":{"name":"A"}})
+    result=manager.sync("P2")
+    assert result.pushed==1 and result.pulled==1
+    assert manager.queue.peek()==[]
