@@ -152,3 +152,26 @@ def test_project_receipts_and_financial_position(tmp_path):
     assert position["received"] == 7000
     assert position["receivable"] == max(position["contract_amount"] - 7000, 0)
     assert position["actual_cost"] == 1000
+
+
+def test_project_commitment_ledger_and_cash_exposure(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("تعهدات", "C1")
+    app.add_project_commitment("C1", 12000, category="پیمانکار", description="قرارداد اجرا", paid_amount=3000)
+    app.add_project_commitment("C1", 5000, category="مصالح")
+    summary = app.project_commitment_summary("C1")
+    assert summary["entry_count"] == 2
+    assert summary["committed_total"] == 17000
+    assert summary["paid_total"] == 3000
+    assert summary["unpaid_total"] == 14000
+    app.add_project_receipt("C1", 4000)
+    pos = app.project_financial_position("C1")
+    assert pos["committed_cost"] == 17000
+    assert pos["unpaid_commitments"] == 14000
+    assert pos["cash_exposure"] == 13000
+
+def test_project_commitment_rejects_invalid_paid_amount(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("تعهد نامعتبر", "C2")
+    with pytest.raises(ValueError):
+        app.add_project_commitment("C2", 1000, paid_amount=1200)
