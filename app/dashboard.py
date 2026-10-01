@@ -28,6 +28,17 @@ class DashboardPage(QWidget):
         self.control_result=QLabel("برای محاسبه، پروژه و هزینه‌های برنامه‌ای/واقعی را انتخاب کنید."); self.control_result.setWordWrap(True)
         cv.addWidget(self.control_project); cv.addWidget(self.planned_cost); cv.addWidget(self.actual_cost); cv.addWidget(self.control_button); cv.addWidget(self.control_result,2)
         root.addWidget(control)
+        commitments=QFrame(); cv=QHBoxLayout(commitments); cv.setContentsMargins(12,10,12,10)
+        cv.addWidget(QLabel("ثبت تعهد هزینه"))
+        self.commit_amount=QDoubleSpinBox(); self.commit_amount.setMaximum(999999999999999.0); self.commit_amount.setDecimals(2)
+        self.commit_desc=QLineEdit(); self.commit_desc.setPlaceholderText("شرح تعهد")
+        self.commit_ref=QLineEdit(); self.commit_ref.setPlaceholderText("شماره مرجع")
+        self.commit_date=QLineEdit(); self.commit_date.setPlaceholderText("تاریخ")
+        self.commit_due=QLineEdit(); self.commit_due.setPlaceholderText("سررسید")
+        self.commit_button=QPushButton("ثبت تعهد"); self.commit_button.setObjectName("SecondaryAction")
+        self.commit_summary=QLabel("تعهدات: ۰"); self.commit_summary.setWordWrap(True)
+        for x in (self.commit_amount,self.commit_desc,self.commit_ref,self.commit_date,self.commit_due,self.commit_button,self.commit_summary): cv.addWidget(x)
+        root.addWidget(commitments)
         receipts=QFrame(); rvh=QHBoxLayout(receipts); rvh.setContentsMargins(12,10,12,10)
         rvh.addWidget(QLabel("ثبت دریافتی"))
         self.receipt_amount=QDoubleSpinBox(); self.receipt_amount.setMaximum(999999999999999.0); self.receipt_amount.setDecimals(2)
@@ -64,6 +75,7 @@ class DashboardPage(QWidget):
         self.control_button.clicked.connect(self.calculate_control)
         self.cost_button.clicked.connect(self.add_cost)
         self.receipt_button.clicked.connect(self.add_receipt)
+        self.commit_button.clicked.connect(self.add_commitment)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -102,6 +114,17 @@ class DashboardPage(QWidget):
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def add_commitment(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.commit_summary.setText("پروژه‌ای انتخاب نشده است."); return
+        try:
+            self.service.add_project_commitment(project_id,float(self.commit_amount.value()),description=self.commit_desc.text(),date=self.commit_date.text(),due_date=self.commit_due.text(),reference=self.commit_ref.text())
+            self.on_control_project_changed(self.control_project.currentIndex())
+            self.commit_desc.clear(); self.commit_ref.clear()
+        except Exception as exc:
+            self.commit_summary.setText(f"خطای ثبت تعهد: {exc}")
+
     def add_receipt(self):
         project_id=self.control_project.currentData()
         if not project_id:
@@ -124,6 +147,7 @@ class DashboardPage(QWidget):
             self.actual_cost.setValue(float(d["actual_cost"]))
             self.cost_summary.setText(f'دفتر هزینه: {d["cost_entry_count"]} مورد | مجموع: {d["actual_cost"]:,.0f}')
             pos=self.service.project_financial_position(project_id)
+            self.commit_summary.setText(f'تعهدات: {pos["committed_cost"]:,.0f} | پرداخت‌نشده: {pos["unpaid_commitments"]:,.0f} | مواجهه نقدی: {pos["cash_exposure"]:,.0f} | {pos["commitment_count"]} ثبت')
             self.receipt_summary.setText(f'دریافتی: {pos["received"]:,.0f} | مطالبات: {pos["receivable"]:,.0f} | {pos["receipt_count"]} ثبت')
             self.control_result.setText(
                 f'ارزش کارکرد: {d["cumulative_work"]:,.0f} | '
@@ -186,6 +210,8 @@ class DashboardPage(QWidget):
             ("حاشیه کارکرد",f'{d["gross_margin"]:,.0f}','کارکرد منهای هزینه ثبت‌شده'),
             ("دریافتی",f'{self.service.project_receipt_summary(project_id)["total_received"]:,.0f}','جمع مبالغ دریافت‌شده'),
             ("مطالبات",f'{max(float(d["contract_amount"])-self.service.project_receipt_summary(project_id)["total_received"],0):,.0f}','قرارداد منهای دریافتی'),
+            ("تعهدات",f'{self.service.project_commitment_summary(project_id)["committed_total"]:,.0f}','هزینه‌های تعهدشده'),
+            ("پرداخت‌نشده",f'{self.service.project_commitment_summary(project_id)["unpaid_total"]:,.0f}','مانده تعهدات'),
             ("قابل پرداخت تجمعی",f'{d["total_payable"]:,.0f}',f'آخرین دوره: {d["latest_payable"]:,.0f}'),
         ]
         while self.cards.count():
