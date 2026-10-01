@@ -170,7 +170,7 @@ def main()->int:
     btools=QFrame(); btools.setObjectName("DashboardCard"); bv=QHBoxLayout(btools); bv.setContentsMargins(12,10,12,10)
     bpid=QLineEdit(); bpid.setPlaceholderText("شناسه پروژه")
     bgo=QPushButton("بازسازی برآورد"); bgo.setObjectName("PrimaryAction")
-bfactors=QLineEdit(); bfactors.setPlaceholderText("ضرایب اختیاری: سربار=0.1,منطقه=0.05")
+    bfactors=QLineEdit(); bfactors.setPlaceholderText("ضرایب اختیاری: سربار=0.1,منطقه=0.05")
     bv.addWidget(QLabel("پروژه")); bv.addWidget(bpid,1); bv.addWidget(bfactors,2); bv.addWidget(bgo); v.addWidget(btools)
     btitle=QLabel("جدول برآورد پروژه"); btitle.setObjectName("SectionTitle"); v.addWidget(btitle)
     btable=QTableWidget(0,6); btable.setAlternatingRowColors(True); btable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); btable.setHorizontalHeaderLabels(["ردیف","شرح","مقدار","واحد","کد","مبلغ"]); btable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(btable,1)
