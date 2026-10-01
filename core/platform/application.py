@@ -197,6 +197,34 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("statement_periods", []))
 
+    def project_financial_control(self, project_id: str, *, planned_cost: float | None = None,
+                                  actual_cost: float = 0.0) -> dict[str, Any]:
+        """Calculate cost variance indicators from explicit project cost inputs."""
+        if actual_cost < 0 or (planned_cost is not None and planned_cost < 0):
+            raise ValueError("cost values cannot be negative")
+        dashboard = self.financial_dashboard(project_id)
+        contract = float(dashboard["contract_amount"])
+        work = float(dashboard["cumulative_work"])
+        planned = contract if planned_cost is None else float(planned_cost)
+        actual = float(actual_cost)
+        earned = work
+        cost_variance = earned - actual
+        schedule_variance = earned - (planned * dashboard["progress_percent"] / 100.0 if planned else 0.0)
+        cost_ratio = (earned / actual) if actual > 0 else None
+        budget_ratio = (earned / planned) if planned > 0 else None
+        return {
+            "project_id": project_id,
+            "contract_amount": contract,
+            "planned_cost": planned,
+            "actual_cost": actual,
+            "earned_value": earned,
+            "cost_variance": cost_variance,
+            "schedule_variance": schedule_variance,
+            "cost_performance_index": cost_ratio,
+            "budget_progress_ratio": budget_ratio,
+            "progress_percent": dashboard["progress_percent"],
+        }
+
     def financial_dashboard(self, project_id: str) -> dict[str, Any]:
         """Return a compact financial/progress snapshot for the project dashboard."""
         p = self.store.get(project_id)
