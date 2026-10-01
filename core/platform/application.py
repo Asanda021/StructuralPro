@@ -699,6 +699,29 @@ class StructuralProApp:
         return target
 
 
+    def project_counterparty_financial_rollup(self, project_id: str) -> list[dict[str, Any]]:
+        """Aggregate financial activity by stable counterparty ID, including legacy name-only records."""
+        p=self.store.get(project_id)
+        if p is None: raise KeyError(project_id)
+        parties=self.project_counterparties(project_id)
+        rows={x["id"]: {"counterparty_id":x["id"],"name":x.get("name",""),"role":x.get("role",""),
+                        "active":x.get("active",True),"documents":0,"document_amount":0.0,
+                        "commitments":0,"commitment_amount":0.0,"paid_commitments":0.0,
+                        "costs":0,"cost_amount":0.0,"receipts":0,"receipt_amount":0.0} for x in parties}
+        for coll,key,count,amount in [
+            ("financial_documents","documents","document_amount","amount"),
+            ("commitment_entries","commitments","commitment_amount","amount"),
+            ("cost_entries","costs","cost_amount","amount"),
+            ("receipt_entries","receipts","receipt_amount","amount")]:
+            for item in p.get(coll,[]):
+                cid=item.get("counterparty_id") or self._counterparty_id_for_name(p,item.get("counterparty",""))
+                if cid not in rows: continue
+                rows[cid][key]+=1
+                rows[cid][amount]+=float(item.get("amount",0) or 0)
+                if coll=="commitment_entries":
+                    rows[cid]["paid_commitments"]+=float(item.get("paid_amount",0) or 0)
+        return sorted(rows.values(),key=lambda x:(not bool(x["active"]),str(x["name"]).casefold()))
+
     def project_counterparty_summary(self, project_id: str) -> dict[str, Any]:
         """Aggregate project financial exposure by counterparty."""
         p = self.store.get(project_id)
