@@ -121,7 +121,12 @@ QGroupBox {
     padding: 12px;
     font-weight: 700;
 }
-QStatusBar {
+
+QFrame#KpiCard, QFrame#DashboardCard { background: #FFFFFF; border: 1px solid #D8DEE8; border-radius: 10px; }
+QLabel#KpiTitle, QLabel#SectionTitle { color: #64748B; font-weight: 700; }
+QLabel#KpiValue { color: #111827; font-size: 22px; font-weight: 800; }
+QLabel#KpiHint { color: #94A3B8; font-size: 9.5pt; }
+\nQStatusBar {
     background: #111827;
     color: #D8DEE8;
 }
