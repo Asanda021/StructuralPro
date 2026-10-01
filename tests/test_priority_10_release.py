@@ -8,7 +8,7 @@ def test_windows_release_script_uses_canonical_version():
 
 def test_installer_paths_are_valid_in_template():
     text=(ROOT/"packaging/installer.iss").read_text()
-    assert 'Source: "dist\\StructuralPro\\*"' in text
+    assert 'Source: "..\\dist\\StructuralPro\\*"' in text
     assert "OutputBaseFilename=StructuralPro-{#MyAppVersion}-Setup" in text
     assert '#define MyAppVersion "__VERSION__"' in text
 
