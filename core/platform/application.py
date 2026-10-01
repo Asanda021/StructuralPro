@@ -720,6 +720,9 @@ class StructuralProApp:
                 if cid not in rows: continue
                 rows[cid][key]+=1
                 target_key = {"amount":"document_amount"}.get(amount, amount)
+                if coll == "commitment_entries": target_key = "commitment_amount"
+                elif coll == "cost_entries": target_key = "cost_amount"
+                elif coll == "receipt_entries": target_key = "receipt_amount"
                 rows[cid][target_key]+=float(item.get("amount",0) or 0)
                 if coll=="commitment_entries":
                     rows[cid]["paid_commitments"]+=float(item.get("paid_amount",0) or 0)
