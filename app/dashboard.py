@@ -77,6 +77,14 @@ class DashboardPage(QWidget):
         self.aging_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.aging_table.setAlternatingRowColors(True)
         av.addWidget(self.aging_table)
         root.addWidget(aging)
+        parties=QFrame(); parties.setObjectName("DashboardCard"); pv=QHBoxLayout(parties); pv.setContentsMargins(12,10,12,10)
+        pv.addWidget(QLabel("دفتر طرف حساب‌ها"))
+        self.party_name=QLineEdit(); self.party_name.setPlaceholderText("نام طرف حساب")
+        self.party_role=QLineEdit(); self.party_role.setPlaceholderText("نقش: پیمانکار / فروشنده / کارفرما")
+        self.party_button=QPushButton("ثبت طرف حساب"); self.party_button.setObjectName("SecondaryAction")
+        self.party_summary=QLabel("طرف حساب‌های ثبت‌شده: ۰"); self.party_summary.setWordWrap(True)
+        pv.addWidget(self.party_name,2); pv.addWidget(self.party_role,1); pv.addWidget(self.party_button); pv.addWidget(self.party_summary,2)
+        root.addWidget(parties)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
         self.cost_category=QComboBox(); self.cost_category.addItems(["مصالح","دستمزد","پیمانکار","تجهیزات","سایر"])
@@ -106,6 +114,7 @@ class DashboardPage(QWidget):
         self.commit_button.clicked.connect(self.add_commitment)
         self.document_button.clicked.connect(self.add_financial_document)
         self.aging_button.clicked.connect(self.refresh_aging)
+        self.party_button.clicked.connect(self.add_counterparty)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -208,6 +217,7 @@ class DashboardPage(QWidget):
             self.receipt_summary.setText(f'دریافتی: {pos["received"]:,.0f} | مطالبات: {pos["receivable"]:,.0f} | {pos["receipt_count"]} ثبت')
             ds=self.service.project_financial_document_summary(project_id)
             self.document_summary.setText(f'اسناد: {ds["document_count"]} مورد | مجموع: {ds["document_total"]:,.0f} | پرداخت‌نشده: {ds["by_payment_status"]["unpaid"]:,.0f}')
+            self.refresh_counterparties(project_id)
             cp=self.service.project_counterparty_summary(project_id)
             self.counterparty_summary.setText(f'طرف حساب‌ها: {cp["counterparty_count"]} | ' + " | ".join(f'{x["counterparty"]}: {x["committed_amount"] + x["document_amount"]:,.0f}' for x in cp["counterparties"][:3]))
             self.control_result.setText(
@@ -239,6 +249,26 @@ class DashboardPage(QWidget):
             )
         except Exception as exc:
             self.aging_summary.setText(f"خطای کنترل سررسید: {exc}")
+
+    def add_counterparty(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.party_summary.setText("پروژه‌ای انتخاب نشده است."); return
+        try:
+            self.service.add_project_counterparty(project_id,self.party_name.text(),role=self.party_role.text())
+            self.refresh_counterparties(project_id)
+            self.party_name.clear(); self.party_role.clear()
+        except Exception as exc:
+            self.party_summary.setText(f"خطای ثبت طرف حساب: {exc}")
+
+    def refresh_counterparties(self, project_id):
+        try:
+            parties=self.service.project_counterparties(project_id)
+            preview=" | ".join(f'{x["name"]} ({x["role"] or "بدون نقش"})' for x in parties[:4])
+            self.party_summary.setText(f"طرف حساب‌های ثبت‌شده: {len(parties)}" + (f" | {preview}" if preview else ""))
+        except Exception as exc:
+            self.party_summary.setText(f"خطای دفتر طرف حساب‌ها: {exc}")
+
 
     def add_cost(self):
         project_id=self.control_project.currentData()
