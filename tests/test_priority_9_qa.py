@@ -92,10 +92,16 @@ def test_backup_package_rejects_tampering(tmp_path):
     manager = BackupManager(tmp_path)
     path = manager.create_package(project(), "QA-1")
     assert manager.restore_package(path) == project()
-    raw = path.read_bytes()
-    path.write_bytes(raw.replace(b'"QA-1"', b'"TAMPER"'))
+    import zipfile
+    tampered = tmp_path / "tampered.spbackup"
+    with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(tampered, "w", zipfile.ZIP_DEFLATED) as target:
+        for name in source.namelist():
+            payload = source.read(name)
+            if name == "project.json":
+                payload = payload.replace(b'"QA-1"', b'"TAMPER"')
+            target.writestr(name, payload)
     try:
-        manager.restore_package(path)
+        manager.restore_package(tampered)
     except ValueError as exc:
         assert "checksum" in str(exc) or "invalid" in str(exc)
     else:
