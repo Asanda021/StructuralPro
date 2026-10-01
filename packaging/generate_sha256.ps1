@@ -3,14 +3,21 @@ param(
 )
 $ErrorActionPreference="Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
+
 $version=(Get-Content VERSION -Raw).Trim()
 $files = @(
   "dist/StructuralPro/StructuralPro.exe",
   "dist/StructuralPro/VERSION"
-) | Where-Object { Test-Path $_ }
-$installer=Get-ChildItem "dist" -Filter "StructuralPro-$version-Setup.exe" -ErrorAction SilentlyContinue
-if ($installer) { $files += $installer.FullName }
-if ($files.Count -eq 0) { throw "No release artifacts found" }
+)
+
+$installerPath="dist/StructuralPro-$version-Setup.exe"
+if (-not (Test-Path $installerPath)) { throw "Expected installer not found: $installerPath" }
+$files += $installerPath
+
+foreach ($file in $files) {
+  if (-not (Test-Path $file)) { throw "Required release artifact missing: $file" }
+}
+
 $lines = foreach ($file in $files) {
   $hash=(Get-FileHash -Algorithm SHA256 $file).Hash.ToLowerInvariant()
   "$hash  $($file.Replace((Get-Location).Path + '\',''))"
