@@ -287,14 +287,23 @@ def main()->int:
     ago.clicked.connect(review)
     pages.addWidget(p); idx_ai=pages.count()-1
 
-    # Commercial statement — period/progress workspace
-    p,v=page("صورت‌وضعیت","محاسبه پیشرفت، مبلغ دوره، کسورات، مالیات و خالص قابل پرداخت")
+    # Commercial statement — persistent numbered period workspace
+    p,v=page("صورت‌وضعیت","مدیریت دوره‌های صورت‌وضعیت، کارکرد قبلی/این دوره/تجمعی و کسورات")
     sttools=QFrame(); sttools.setObjectName("DashboardCard"); sv=QHBoxLayout(sttools); sv.setContentsMargins(12,10,12,10)
     stid=QLineEdit(); stid.setPlaceholderText("شناسه پروژه")
-    stgo=QPushButton("محاسبه صورت‌وضعیت"); stgo.setObjectName("PrimaryAction")
-    sv.addWidget(QLabel("پروژه")); sv.addWidget(stid,1); sv.addWidget(stgo); v.addWidget(sttools)
+    stperiod=QLineEdit(); stperiod.setPlaceholderText("شماره دوره؛ خالی = بعدی")
+    stcur=QLineEdit(); stcur.setPlaceholderText("کارکرد: W001=3, W002=5")
+    stgo=QPushButton("محاسبه دوره"); stsave=QPushButton("ذخیره دوره"); stsave.setObjectName("PrimaryAction")
+    sv.addWidget(QLabel("پروژه")); sv.addWidget(stid,1); sv.addWidget(QLabel("دوره")); sv.addWidget(stperiod); sv.addWidget(stgo); sv.addWidget(stsave); v.addWidget(sttools)
     sttitle=QLabel("خلاصه مالی و پیشرفت"); sttitle.setObjectName("SectionTitle"); v.addWidget(sttitle)
     stout=QTextEdit(); stout.setReadOnly(True); v.addWidget(stout,1)
+    stperiods=QLabel("دوره‌های ذخیره‌شده: ۰"); v.addWidget(stperiods)
+    def parse_statement_quantities():
+        values={}
+        for token in stcur.text().split(","):
+            if "=" in token:
+                key,val=token.split("=",1); values[key.strip()]=float(val.strip())
+        return values
     def statement_shortcut():
         try:
             snapshot=service.build_commercial_snapshot(stid.text().strip())
@@ -304,7 +313,19 @@ def main()->int:
                 "پیشرفت": snapshot["progress"]
             },ensure_ascii=False,indent=2))
         except Exception as e: stout.setPlainText("خطا: "+str(e))
-    stgo.clicked.connect(statement_shortcut); pages.addWidget(p); idx_statement=pages.count()-1
+    def save_statement_period():
+        try:
+            project_id=stid.text().strip()
+            if not project_id: raise ValueError("شناسه پروژه را وارد کنید")
+            number=int(stperiod.text()) if stperiod.text().strip() else None
+            period=service.save_statement_period(project_id,period_no=number,current_quantities=parse_statement_quantities())
+            stout.setPlainText(json.dumps(period,ensure_ascii=False,indent=2))
+            stperiods.setText(f"دوره‌های ذخیره‌شده: {len(service.statement_periods(project_id))}")
+            status.setText(f'🟢 صورت‌وضعیت دوره {period["number"]} ذخیره شد')
+        except Exception as e: QMessageBox.critical(w,"خطای صورت‌وضعیت",str(e))
+    stgo.clicked.connect(statement_shortcut)
+    stsave.clicked.connect(save_statement_period)
+    pages.addWidget(p); idx_statement=pages.count()-1
 
     # Project documents
     p,v=page("اسناد پروژه","مرکز ثبت و پیگیری نقشه‌ها، فایل‌های قراردادی و خروجی‌های پروژه")
