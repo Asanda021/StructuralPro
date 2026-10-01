@@ -20,6 +20,7 @@ class DashboardPage(QWidget):
         root.addWidget(title); root.addWidget(desc)
         self.cards=QGridLayout(); self.cards.setSpacing(12); root.addLayout(self.cards)
         self.alerts=QLabel("کنترل مالی: برای مشاهده هشدارها، پروژه و تاریخ مبنا را انتخاب کنید."); self.alerts.setObjectName("DashboardCard"); self.alerts.setWordWrap(True); root.addWidget(self.alerts)
+        self.kpi_summary=QLabel("شاخص‌های مالی پروژه پس از انتخاب پروژه نمایش داده می‌شوند."); self.kpi_summary.setObjectName("DashboardCard"); self.kpi_summary.setWordWrap(True); root.addWidget(self.kpi_summary)
         control=QFrame(); control.setObjectName("DashboardCard"); cv=QHBoxLayout(control); cv.setContentsMargins(12,10,12,10)
         cv.addWidget(QLabel("کنترل مالی"))
         self.control_project=QComboBox(); self.control_project.setMinimumWidth(180)
@@ -77,9 +78,15 @@ class DashboardPage(QWidget):
         self.aging_export_button=QPushButton("خروجی"); self.aging_export_button.setObjectName("SecondaryAction")
         self.reconcile_button=QPushButton("تطبیق اسناد"); self.reconcile_button.setObjectName("SecondaryAction")
         self.reconcile_summary=QLabel("برای کنترل تطبیق وضعیت اسناد با پرداخت‌ها و دریافتی‌های لینک‌شده، این گزینه را اجرا کنید."); self.reconcile_summary.setWordWrap(True)
+        self.reconcile_export_button=QPushButton("خروجی تطبیق"); self.reconcile_export_button.setObjectName("SecondaryAction")
+        ah.addWidget(self.reconcile_export_button)
         self.aging_summary=QLabel("برای مشاهده وضعیت سررسید، تاریخ مبنا را وارد کنید."); self.aging_summary.setWordWrap(True)
         ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_export_button); ah.addWidget(self.reconcile_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
         av.addWidget(self.reconcile_summary)
+        self.reconcile_table=QTableWidget(0,7)
+        self.reconcile_table.setHorizontalHeaderLabels(["سند","شماره","ثبت‌شده","محاسباتی","تطبیق","اتصال","تسویه"])
+        self.reconcile_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.reconcile_table.setAlternatingRowColors(True); av.addWidget(self.reconcile_table)
         self.aging_table=QTableWidget(0,7); self.aging_table.setHorizontalHeaderLabels(["نوع","شناسه","طرف حساب","مرجع","سررسید","وضعیت","مانده"])
         self.aging_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.aging_table.setAlternatingRowColors(True)
         av.addWidget(self.aging_table)
@@ -92,8 +99,10 @@ class DashboardPage(QWidget):
         self.party_update_button=QPushButton("ویرایش انتخاب‌شده"); self.party_update_button.setObjectName("SecondaryAction")
         self.party_toggle_button=QPushButton("فعال/غیرفعال"); self.party_toggle_button.setObjectName("SecondaryAction")
         self.party_export_button=QPushButton("خروجی طرف حساب‌ها"); self.party_export_button.setObjectName("SecondaryAction")
+        self.party_rollup_button=QPushButton("رول‌آپ مالی"); self.party_rollup_button.setObjectName("SecondaryAction")
+        self.party_ledger_button=QPushButton("گردش انتخاب‌شده"); self.party_ledger_button.setObjectName("SecondaryAction")
         self.party_summary=QLabel("طرف حساب‌های ثبت‌شده: ۰"); self.party_summary.setWordWrap(True)
-        ph.addWidget(self.party_name,2); ph.addWidget(self.party_role,1); ph.addWidget(self.party_button); ph.addWidget(self.party_update_button); ph.addWidget(self.party_toggle_button); ph.addWidget(self.party_export_button); ph.addWidget(self.party_summary,2)
+        ph.addWidget(self.party_name,2); ph.addWidget(self.party_role,1); ph.addWidget(self.party_button); ph.addWidget(self.party_update_button); ph.addWidget(self.party_toggle_button); ph.addWidget(self.party_export_button); ph.addWidget(self.party_rollup_button); ph.addWidget(self.party_ledger_button); ph.addWidget(self.party_summary,2)
         pv.addLayout(ph)
         self.party_table=QTableWidget(0,4); self.party_table.setHorizontalHeaderLabels(["شناسه","نام","نقش","وضعیت"])
         self.party_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.party_table.setAlternatingRowColors(True)
@@ -137,6 +146,9 @@ class DashboardPage(QWidget):
         self.party_update_button.clicked.connect(self.update_counterparty)
         self.party_toggle_button.clicked.connect(self.toggle_counterparty)
         self.party_export_button.clicked.connect(self.export_counterparties)
+        self.party_rollup_button.clicked.connect(self.export_counterparty_rollup)
+        self.party_ledger_button.clicked.connect(self.export_selected_counterparty_ledger)
+        self.reconcile_export_button.clicked.connect(self.export_reconciliation)
         self.party_table.itemSelectionChanged.connect(self.load_selected_counterparty)
         self.refresh()
     def refresh(self):
@@ -252,6 +264,7 @@ class DashboardPage(QWidget):
             self.document_summary.setText(f'اسناد: {ds["document_count"]} مورد | مجموع: {ds["document_total"]:,.0f} | پرداخت‌نشده: {ds["by_payment_status"]["unpaid"]:,.0f}')
             self.refresh_counterparties(project_id)
             self.refresh_financial_document_status()
+            self.refresh_financial_kpis(project_id)
             cp=self.service.project_counterparty_summary(project_id)
             self.counterparty_summary.setText(f'طرف حساب‌ها: {cp["counterparty_count"]} | ' + " | ".join(f'{x["counterparty"]}: {x["committed_amount"] + x["document_amount"]:,.0f}' for x in cp["counterparties"][:3]))
             self.control_result.setText(
@@ -429,12 +442,70 @@ class DashboardPage(QWidget):
             return
         try:
             r=self.service.project_financial_reconciliation(project_id)
+            self.reconcile_table.setRowCount(0)
+            for i,row in enumerate(r["rows"]):
+                self.reconcile_table.insertRow(i)
+                values=[row["document_id"],row["document_number"],row["manual_status"],row["derived_status"],
+                        "تطبیق" if row["status_match"] else "بررسی",row["linkage_state"],f'{row["settlement_amount"]:,.0f}']
+                for j,value in enumerate(values): self.reconcile_table.setItem(i,j,QTableWidgetItem(str(value)))
             self.reconcile_summary.setText(
                 f'تطبیق اسناد: {r["matched_count"]} | نیازمند بررسی: {r["mismatch_count"]} | '
                 f'بدون اتصال: {r["unlinked_count"]} | چند اتصال تسویه: {r["multiple_settlement_count"]}'
             )
         except Exception as exc:
             self.reconcile_summary.setText(f"خطای تطبیق اسناد: {exc}")
+
+    def refresh_financial_kpis(self, project_id):
+        try:
+            s=self.service.project_financial_kpi_summary(project_id, self.aging_as_of.text().strip())
+            self.kpi_summary.setText(
+                f'قرارداد: {s["contract_amount"]:,.0f} | کارکرد: {s["earned_value"]:,.0f} | '
+                f'دریافتی: {s["received"]:,.0f} | مطالبات: {s["receivable"]:,.0f} | '
+                f'تعهد باز: {s["unpaid_commitments"]:,.0f} | مواجهه نقدی: {s["cash_exposure"]:,.0f} | '
+                f'معوق: {s["overdue_amount"]:,.0f} | مغایرت اسناد: {s["document_mismatches"]}'
+            )
+        except Exception as exc:
+            self.kpi_summary.setText(f"خطای شاخص‌های مالی: {exc}")
+
+    def export_reconciliation(self):
+        project_id=self.control_project.currentData()
+        if not project_id: return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره گزارش تطبیق اسناد","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path: return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_financial_reconciliation_report(project_id,suffix,path)
+            self.reconcile_summary.setText(f"گزارش تطبیق ذخیره شد: {path}")
+        except Exception as exc:
+            self.reconcile_summary.setText(f"خطای خروجی تطبیق: {exc}")
+
+    def export_counterparty_rollup(self):
+        project_id=self.control_project.currentData()
+        if not project_id: return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره رول‌آپ مالی","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path: return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_counterparty_financial_rollup_report(project_id,suffix,path)
+            self.party_summary.setText(f"رول‌آپ مالی ذخیره شد: {path}")
+        except Exception as exc:
+            self.party_summary.setText(f"خطای خروجی رول‌آپ: {exc}")
+
+    def export_selected_counterparty_ledger(self):
+        project_id=self.control_project.currentData(); row=self.party_table.currentRow()
+        if not project_id or row < 0: return
+        item=self.party_table.item(row,0)
+        if not item: return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره گردش طرف حساب","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path: return
+        try:
+            party=self.service.find_project_counterparty_by_id(project_id,item.text())
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_counterparty_ledger_by_id(project_id,item.text())
+            self.service.project_counterparty_ledger_report(project_id,party["name"],suffix,path)
+            self.party_summary.setText(f"گردش طرف حساب ذخیره شد: {path}")
+        except Exception as exc:
+            self.party_summary.setText(f"خطای خروجی گردش طرف حساب: {exc}")
 
     def export_aging(self):
         project_id=self.control_project.currentData()
