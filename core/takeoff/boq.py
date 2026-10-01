@@ -1,78 +1,128 @@
-"""Deterministic BOQ builder: normalize, validate, aggregate and total."""
+"""Professional deterministic BOQ builder.
+
+Keeps takeoff provenance, stable item coding and commercial metadata intact while
+remaining backward compatible with the existing BOQ/estimate pipeline.
+"""
 from __future__ import annotations
-from dataclasses import dataclass, asdict
 from typing import Iterable, Any
 import math
 from .units import normalize_unit
 
-@dataclass(frozen=True)
-class BOQLine:
-    item_no: int
-    source: str
-    description: str
-    quantity: float
-    unit: str
-    price_code: str | None = None
-    unit_price: float | None = None
-    total: float | None = None
-    factor: float = 1.0
-    warning: str = ""
+BOQ_DEFAULT_STATUS = "active"
 
 def _read(r: Any, name: str, default=None):
     return r.get(name, default) if isinstance(r, dict) else getattr(r, name, default)
 
+def _text(value) -> str:
+    return str(value or "").strip()
+
+def _number(value, field: str, *, allow_none: bool = True):
+    if value is None and allow_none:
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field} must be finite")
+    return number
+
 def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) -> list[dict[str, Any]]:
-    if not math.isfinite(float(factor)) or float(factor) < 0:
+    factor = _number(factor, "factor", allow_none=False)
+    if factor < 0:
         raise ValueError("factor must be finite and non-negative")
-    raw=[]
+    raw = []
     for r in rows:
-        source=str(_read(r,"source","") or "").strip()
-        q=float(_read(r,"quantity",0) or 0)
-        if not math.isfinite(q) or q < 0:
+        source = _text(_read(r, "source", ""))
+        source_id = _text(_read(r, "source_id", ""))
+        source_type = _text(_read(r, "source_type", "manual")) or "manual"
+        q = _number(_read(r, "quantity", 0), "quantity", allow_none=False)
+        if q < 0:
             raise ValueError("quantity must be finite and non-negative")
-        raw_unit=str(_read(r,"unit","") or "").strip()
+        raw_unit = _text(_read(r, "unit", ""))
         if not raw_unit:
             raise ValueError("unit is required")
-        unit=normalize_unit(raw_unit)
-        price=_read(r,"unit_price",None)
-        price=None if price is None else float(price)
-        if price is not None and (not math.isfinite(price) or price < 0):
+        unit = normalize_unit(raw_unit)
+        price = _number(_read(r, "unit_price", None), "unit_price")
+        if price is not None and price < 0:
             raise ValueError("unit_price must be finite and non-negative")
-        code=_read(r,"price_code",None)
-        desc=str(_read(r,"description","") or "").strip()
-        f=float(_read(r,"factor",factor) or factor)
-        if not math.isfinite(f) or f < 0:
+        code = _text(_read(r, "price_code", "")) or None
+        item_code = _text(_read(r, "item_code", "")) or code
+        description = _text(_read(r, "description", ""))
+        if not description:
+            raise ValueError("description is required")
+        chapter = _text(_read(r, "chapter", ""))
+        category = _text(_read(r, "category", "")) or chapter
+        group = _text(_read(r, "group", "")) or category or "سایر"
+        f = _number(_read(r, "factor", factor), "factor", allow_none=False)
+        if f < 0:
             raise ValueError("factor must be finite and non-negative")
-        total=None if price is None else round(q*price*f, 10)
-        warning="" if q >= 0 and unit else "missing_quantity_or_unit"
-        if price == 0: warning = (warning+";" if warning else "")+"zero_price"
-        raw.append({"source":source, "description":desc,
-                    "quantity":q, "unit":unit, "price_code":code, "unit_price":price,
-                    "total":total, "factor":f, "warning":warning})
+        status = _text(_read(r, "status", BOQ_DEFAULT_STATUS)) or BOQ_DEFAULT_STATUS
+        notes = _text(_read(r, "notes", ""))
+        total = None if price is None else round(q * price * f, 10)
+        warning = ""
+        if price == 0:
+            warning = "zero_price"
+        raw.append({
+            "source": source, "source_id": source_id, "source_type": source_type,
+            "item_code": item_code, "price_code": code, "chapter": chapter,
+            "category": category, "group": group, "description": description,
+            "quantity": q, "unit": unit, "unit_price": price, "total": total,
+            "factor": f, "status": status, "notes": notes, "warning": warning,
+        })
     if aggregate:
-        groups={}
+        groups = {}
         for r in raw:
-            key=(r["price_code"] or r["description"],r["unit"],r["unit_price"],r["factor"])
-            if key not in groups: groups[key]=dict(r)
+            key = (
+                r["item_code"] or r["price_code"] or r["description"], r["unit"],
+                r["unit_price"], r["factor"], r["chapter"], r["category"],
+                r["group"], r["status"], r["source_id"], r["source_type"],
+            )
+            if key not in groups:
+                groups[key] = dict(r)
             else:
                 groups[key]["quantity"] += r["quantity"]
-                if r["total"] is not None: groups[key]["total"]=(groups[key]["total"] or 0)+r["total"]
-        raw=list(groups.values())
-    return [dict(item_no=i, **r) for i,r in enumerate(raw,1)]
+                if r["total"] is not None:
+                    groups[key]["total"] = round((groups[key]["total"] or 0) + r["total"], 10)
+        raw = list(groups.values())
+    return [dict(item_no=i, **r) for i, r in enumerate(raw, 1)]
 
-def boq_summary(rows: Iterable[dict[str,Any]]) -> dict[str,Any]:
-    rows=list(rows)
+def validate_boq_structure(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    rows = list(rows)
+    errors, warnings, codes = [], [], set()
+    for index, row in enumerate(rows, 1):
+        code = _text(row.get("price_code") or row.get("item_code"))
+        if not code:
+            warnings.append({"item_no": index, "code": "missing_item_code"})
+        elif code in codes:
+            warnings.append({"item_no": index, "code": "duplicate_item_code", "value": code})
+        codes.add(code)
+        if not _text(row.get("description")):
+            errors.append({"item_no": index, "code": "missing_description"})
+        if not _text(row.get("unit")):
+            errors.append({"item_no": index, "code": "missing_unit"})
+        if _text(row.get("status")) not in {"active", "cancelled", "draft"}:
+            warnings.append({"item_no": index, "code": "unknown_status", "value": row.get("status")})
+        try:
+            q = float(row.get("quantity", 0))
+            if not math.isfinite(q) or q < 0:
+                errors.append({"item_no": index, "code": "invalid_quantity"})
+        except (TypeError, ValueError):
+            errors.append({"item_no": index, "code": "invalid_quantity"})
+    return {"valid": not errors, "errors": errors, "warnings": warnings, "line_count": len(rows)}
+
+def boq_summary(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    rows = list(rows)
     return {
         "line_count": len(rows),
+        "active_line_count": sum(1 for r in rows if r.get("status", "active") == "active"),
         "quantity_by_unit": _sum_by(rows, "unit", "quantity"),
         "amount_by_code": _sum_by(rows, "price_code", "total"),
+        "amount_by_group": _sum_by(rows, "group", "total"),
         "grand_total": sum(float(r.get("total") or 0) for r in rows),
-        "warnings": [r for r in rows if r.get("warning")]
+        "warnings": [r for r in rows if r.get("warning")],
     }
 
 def _sum_by(rows, key, value):
-    out={}
+    out = {}
     for r in rows:
-        k=r.get(key) or "بدون کد"
-        out[k]=out.get(k,0)+float(r.get(value) or 0)
+        k = r.get(key) or "بدون کد"
+        out[k] = out.get(k, 0) + float(r.get(value) or 0)
     return out
