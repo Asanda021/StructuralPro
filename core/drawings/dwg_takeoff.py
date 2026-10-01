@@ -27,6 +27,8 @@ def _xy(v): return (float(v[0]),float(v[1]))
 
 def _poly_metrics(points, closed=False):
     pts=[_xy(p) for p in points]
+    if any(not math.isfinite(v) for p in pts for v in p):
+        raise ValueError("CAD geometry contains non-finite coordinates")
     length=sum(math.dist(pts[i],pts[i+1]) for i in range(len(pts)-1))
     if closed and len(pts)>2: length+=math.dist(pts[-1],pts[0])
     area=0.0
@@ -41,7 +43,7 @@ class DWGTakeoffEngine:
         doc=ezdxf.readfile(str(p)); out=DWGDocument(source=str(p),format="DXF"); layers=set()
         units_map={0:"unitless",1:"in",2:"ft",3:"mi",4:"mm",5:"cm",6:"m",7:"km"}
         raw_units=int(doc.header.get("$INSUNITS",0) or 0)
-        out.units="unitless" if raw_units==6 else units_map.get(raw_units,str(raw_units))
+        out.units=units_map.get(raw_units, "unknown")
         out.__dict__["unit_name"]=units_map.get(raw_units,"unknown")
         try: out.xrefs=[str(x) for x in doc.xrefdocpaths]
         except Exception: pass
@@ -90,10 +92,13 @@ class DWGTakeoffEngine:
         for layer,rule in rules.items():
             ents=[e for e in doc.entities if e.layer==layer]
             if not ents: continue
-            metric=rule.get("metric","count"); qty=sum(float(e.data.get(metric,1) or 0) for e in ents)
+            metric=rule.get("metric","count"); values=[float(e.data.get(metric,1) or 0) for e in ents]
+            if any(not math.isfinite(v) or v < 0 for v in values):
+                raise ValueError(f"Invalid CAD quantity on layer: {layer}")
+            qty=sum(values)
             out.append({"layer":layer,"count":len(ents),"quantity":qty,"description":rule.get("description",layer),
                         "unit":rule.get("unit","عدد" if metric=="count" else "m"),"price_code":rule.get("price_code"),
-                        "source":"dwg-layer","needs_confirmation":False})
+                        "source":f"dwg-layer:{layer}","needs_confirmation":False})
         return out
 
 def infer_takeoff_from_layers(doc:DWGDocument,rules:dict[str,dict[str,Any]])->list[dict[str,Any]]:
