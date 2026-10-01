@@ -1,25 +1,21 @@
-"""Project library services: search, clone, health, export and revision access."""
+"""Project library facade: search, clone, revisions and portable packages."""
 from __future__ import annotations
-from .store import ProjectStore
-from .workflow import project_health,copy_project,export_package,import_package
+from pathlib import Path
+from core.projects.workflow import export_package,import_package,backup_project,copy_project,project_health
+
 class ProjectLibrary:
-    def __init__(self,store:ProjectStore): self.store=store
-    def search(self,text=""):
-        q=text.casefold().strip()
-        rows=self.store.list()
-        return [x for x in rows if not q or q in x["id"].casefold() or q in x["name"].casefold()]
+    def __init__(self,store): self.store=store
+    def search(self,query=""):
+        q=(query or "").strip().lower()
+        return [p for p in self.store.list() if not q or q in str(p.get("id","")).lower() or q in str(p.get("name","")).lower()]
     def health(self,project_id):
-        p=self.store.get(project_id)
-        if p is None: raise KeyError(project_id)
-        return project_health(p)
-    def clone(self,project_id,new_id):
-        p=self.store.get(project_id)
-        if p is None: raise KeyError(project_id)
-        out=copy_project(p,new_id); self.store.save(new_id,out); return self.store.get(new_id)
+        return project_health(self.store.get(project_id))
+    def clone(self,source_id,target_id,target_name=None):
+        project=self.store.get(source_id)
+        if not project: raise KeyError(source_id)
+        return self.store.save({"id":target_id,"name":target_name or project.get("name","")+" (copy)",
+            "takeoffs":project.get("takeoffs",[]),"boq":project.get("boq",[]),"revisions":[]})
     def revisions(self,project_id): return self.store.revisions(project_id)
-    def export(self,project_id,path):
-        p=self.store.get(project_id)
-        if p is None: raise KeyError(project_id)
-        return export_package(p,path)
-    def import_into_store(self,path,project_id=None):
-        p=import_package(path); pid=project_id or p["id"]; p["id"]=pid; self.store.save(pid,p); return p
+    def export(self,project_id,path): return export_package(self.store.get(project_id),path)
+    def import_package(self,path): return import_package(path)
+    def backup(self,project_id,path): return backup_project(self.store.get(project_id),path)
