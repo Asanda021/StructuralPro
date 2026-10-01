@@ -246,6 +246,7 @@ class StructuralProApp:
             "document_number": document_number,
             "document_type": document_type,
             "counterparty": str(counterparty).strip(),
+            "counterparty_id": self._counterparty_id_for_name(p, counterparty),
             "amount": amount,
             "date": str(date).strip(),
             "due_date": str(due_date).strip(),
