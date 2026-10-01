@@ -51,9 +51,9 @@ def main()->int:
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
     assistant=ProjectAssistant()
-    w=QMainWindow(); w.setWindowTitle("StructuralPro — متره و برآورد حرفه‌ای"); w.resize(1500,920)
+    w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
-    root=QWidget(); layout=QHBoxLayout(root); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); pages=QStackedWidget()
+    root=QWidget(); layout=QHBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); nav.setContentsMargins(12,16,12,16); nav.setSpacing(6); pages=QStackedWidget()
     title=QLabel("StructuralPro")
     title.setObjectName("BrandTitle")
     nav.addWidget(title)
