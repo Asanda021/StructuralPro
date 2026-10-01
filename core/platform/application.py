@@ -491,6 +491,91 @@ class StructuralProApp:
         }
         return build_report(f'{p.get("name", "")} — گزارش هزینه پروژه', rows, summary_payload).export(path, fmt)
 
+    def project_financial_report(self, project_id: str, fmt: str, path):
+        """Export a consolidated project financial report from all financial ledgers."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        position = self.project_financial_position(project_id)
+        documents = self.project_financial_documents(project_id)
+        costs = self.project_costs(project_id)
+        commitments = self.project_commitments(project_id)
+        receipts = self.project_receipts(project_id)
+        rows = []
+        for entry in documents:
+            rows.append({
+                "نوع": "سند مالی",
+                "شناسه": entry.get("id", ""),
+                "شماره سند": entry.get("document_number", ""),
+                "نوع سند": entry.get("document_type", ""),
+                "طرف حساب": entry.get("counterparty", ""),
+                "مبلغ": float(entry.get("amount", 0) or 0),
+                "تاریخ": entry.get("date", ""),
+                "سررسید": entry.get("due_date", ""),
+                "وضعیت پرداخت": entry.get("payment_status", ""),
+                "تعهد": entry.get("commitment_id", ""),
+                "هزینه": entry.get("cost_entry_id", ""),
+                "دریافتی": entry.get("receipt_id", ""),
+                "مرجع": entry.get("reference", ""),
+            })
+        for entry in commitments:
+            rows.append({
+                "نوع": "تعهد",
+                "شناسه": entry.get("id", ""),
+                "شماره سند": "",
+                "نوع سند": entry.get("category", ""),
+                "طرف حساب": "",
+                "مبلغ": float(entry.get("amount", 0) or 0),
+                "تاریخ": entry.get("date", ""),
+                "سررسید": entry.get("due_date", ""),
+                "وضعیت پرداخت": "paid" if float(entry.get("paid_amount", 0) or 0) >= float(entry.get("amount", 0) or 0) else "unpaid",
+                "تعهد": entry.get("id", ""),
+                "هزینه": "",
+                "دریافتی": "",
+                "مرجع": entry.get("reference", ""),
+            })
+        for entry in costs:
+            rows.append({
+                "نوع": "هزینه",
+                "شناسه": entry.get("id", ""),
+                "شماره سند": "",
+                "نوع سند": entry.get("category", ""),
+                "طرف حساب": "",
+                "مبلغ": float(entry.get("amount", 0) or 0),
+                "تاریخ": entry.get("date", ""),
+                "سررسید": "",
+                "وضعیت پرداخت": "",
+                "تعهد": "",
+                "هزینه": entry.get("id", ""),
+                "دریافتی": "",
+                "مرجع": "",
+            })
+        for entry in receipts:
+            rows.append({
+                "نوع": "دریافتی",
+                "شناسه": entry.get("id", ""),
+                "شماره سند": "",
+                "نوع سند": "دریافتی",
+                "طرف حساب": "",
+                "مبلغ": float(entry.get("amount", 0) or 0),
+                "تاریخ": entry.get("date", ""),
+                "سررسید": "",
+                "وضعیت پرداخت": "received",
+                "تعهد": "",
+                "هزینه": "",
+                "دریافتی": entry.get("id", ""),
+                "مرجع": entry.get("reference", ""),
+            })
+        doc_summary = self.project_financial_document_summary(project_id)
+        summary = {
+            "financial_position": position,
+            "documents": doc_summary,
+            "cost": self.project_cost_summary(project_id),
+            "commitments": self.project_commitment_summary(project_id),
+            "receipts": self.project_receipt_summary(project_id),
+        }
+        return build_report(f'{p.get("name", "")} — گزارش مالی تجمیعی پروژه', rows, summary).export(path, fmt)
+
     def report(self,project_id:str,fmt:str,path,*,period_no:int|None=None):
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
