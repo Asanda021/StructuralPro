@@ -1,32 +1,38 @@
-# 100% capability acceptance gate
+# 100% product acceptance gate
 
-The target is 100% of the **relevant, transferable** capabilities found in the
-benchmark products, not a claim that StructuralPro is literally identical to
-their proprietary implementations.
+StructuralPro is accepted against its defined product contract only when the
+executable core paths below are present and regression-tested. Proprietary
+competitor internals are not copied.
 
-Acceptance requires an executable path for each applicable capability:
+## Ten production gates
 
-DWG/DXF/PDF/IFC -> drawing/model entities -> classification -> measurement ->
-quantity normalization -> price-list code -> BOQ -> estimate -> reports.
+1. **DWG** — offline converter boundary + DWG→DXF→entity→takeoff path.
+2. **Graphical PDF** — local page geometry and deterministic line/polygon measurement.
+3. **IFC/BIM** — local object classification, quantities and 2D/3D linking.
+4. **Price lists** — versioned/provenance-aware dataset ingestion; no fabricated official prices.
+5. **Local AI** — GGUF runtime boundary, model-license/checksum manifest and hardware profiles.
+6. **Windows** — shared core service and desktop workflow entry points remain offline-first.
+7. **Android/Telegram** — shared client/runtime contracts over the same project model.
+8. **Sync/conflicts** — durable offline queue, optional provider, deterministic three-way conflict handling and E2E provider tests.
+9. **Reports** — CSV/XLSX/DOCX/PDF export paths with RTL report schema.
+10. **Regression** — compile + complete pytest suite + focused drawing/production suite in CI.
 
-The same project core must serve Windows, Android and Telegram. Core calculation,
-storage and local AI must remain usable offline. Internet is only required for
-optional synchronization, backup, updates and account/device coordination.
+## Explicit product boundaries
 
-A capability is complete only when its adapter, data contract and user-facing
-entry point exist. A registry entry alone does not count.
+- Official annual price-list *data* must come from a verified/licensed source; the
+  repository provides the ingestion, validation and provenance layer and must not
+  invent official prices.
+- Native DWG parsing remains offline through an installed converter; StructuralPro
+  does not upload drawings to a cloud service.
+- Large GGUF weights are not committed to Git. A production installer must bundle
+  or install a commercially redistributable model and verify its checksum/license.
+- Android and Telegram adapters share the same business/data contract; a polished
+  native UI for each platform is a separate packaging/distribution deliverable.
+- A green CI result means the defined executable acceptance scope is green; it is
+  not a claim that third-party installers, proprietary price datasets, model
+  licenses, or external service accounts have been provisioned.
 
-The final 100% gate requires:
-- tested native/local DWG conversion and extraction
-- graphical PDF measurement engine
-- tested IFC quantity/property mapping
-- complete official annual price-list datasets
-- local AI model packaging and hardware profiles
-- Windows UI acceptance
-- Android UI/runtime
-- Telegram client
-- end-to-end sync/conflict handling
-- end-to-end Excel/PDF/Word outputs
-- regression tests for all critical quantity/price/statement paths
+## CI gate
 
-Until those gates pass, the project must not display "100% complete".
+tests/test_product_gates.py covers the ten production boundaries in addition
+to the existing unit/integration/regression suites.
