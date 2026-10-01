@@ -84,3 +84,5 @@ def test_revision_restore():
 # Priority 7 CI diagnostic synchronization marker.
 
 # CI isolation marker.
+
+# workflow isolation marker.
