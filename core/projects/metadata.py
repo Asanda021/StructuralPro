@@ -27,7 +27,7 @@ class ProjectMetadata:
         if self.floors is not None and self.floors<0: e.append("floors_invalid")
         for field in ("start_date","end_date"):
             value=getattr(self,field)
-            if value and not re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}",value): e.append(f"{field}_invalid")
+            if value and not re.fullmatch(r"\d{4}-\d{2}-\d{2}",value): e.append(f"{field}_invalid")
         return e
 
     def to_dict(self): return asdict(self)
