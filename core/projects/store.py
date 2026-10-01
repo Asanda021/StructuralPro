@@ -1,6 +1,7 @@
 """Offline-first project persistence with SQLite, revisions and backups."""
 from __future__ import annotations
 import json, sqlite3, time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,7 @@ class ProjectStore:
     def __init__(self, path: str | Path):
         self.path=Path(path); self.path.parent.mkdir(parents=True,exist_ok=True)
         self.db=sqlite3.connect(self.path); self.db.row_factory=sqlite3.Row
+        self._cache: dict[str, tuple[int, dict[str, Any]]] = {}
         self.db.execute("""CREATE TABLE IF NOT EXISTS projects(
             id TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1,
             updated_at REAL NOT NULL, payload TEXT NOT NULL)""")
@@ -26,16 +28,39 @@ class ProjectStore:
         self.db.execute("INSERT OR REPLACE INTO revisions(project_id,version,created_at,payload) VALUES(?,?,?,?)",
                         (pid,version,now,payload))
         self.db.commit()
+        self._cache[pid] = (version, deepcopy(project))
         return {"id":pid,"version":version,"updated_at":now}
 
     def get(self, project_id: str) -> dict[str,Any] | None:
-        row=self.db.execute("SELECT * FROM projects WHERE id=?",(str(project_id),)).fetchone()
+        pid=str(project_id)
+        cached=self._cache.get(pid)
+        if cached is not None:
+            _, data=cached
+            return deepcopy(data)
+        row=self.db.execute("SELECT * FROM projects WHERE id=?",(pid,)).fetchone()
         if not row: return None
-        data=json.loads(row["payload"]); data["_meta"]={"id":row["id"],"version":row["version"],"updated_at":row["updated_at"]}
+        data=json.loads(row["payload"])
+        data["_meta"]={"id":row["id"],"version":row["version"],"updated_at":row["updated_at"]}
+        self._cache[pid]=(int(row["version"]), deepcopy(data))
         return data
 
-    def list(self) -> list[dict[str,Any]]:
-        return [dict(r) for r in self.db.execute("SELECT id,name,version,updated_at FROM projects ORDER BY updated_at DESC")]
+    def list(self, *, limit: int | None = None, offset: int = 0) -> list[dict[str,Any]]:
+        offset=int(offset)
+        if offset < 0: raise ValueError("offset must be non-negative")
+        params: list[Any]=[]
+        query="SELECT id,name,version,updated_at FROM projects ORDER BY updated_at DESC"
+        if limit is not None:
+            limit=int(limit)
+            if limit < 1: raise ValueError("limit must be positive")
+            query += " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+        elif offset:
+            query += " LIMIT -1 OFFSET ?"
+            params.append(offset)
+        return [dict(r) for r in self.db.execute(query,params)]
+
+    def get_many(self, project_ids: list[str]) -> list[dict[str,Any]]:
+        return [project for pid in project_ids if (project:=self.get(pid)) is not None]
 
     def revisions(self, project_id: str) -> list[dict[str,Any]]:
         return [{"version":r["version"],"created_at":r["created_at"],"payload":json.loads(r["payload"])}
