@@ -721,6 +721,23 @@ class StructuralProApp:
             "overdue_amount": overdue_commitments + overdue_unpaid_documents,
         }
 
+    def project_financial_alerts(self, project_id: str, as_of: str) -> dict[str, Any]:
+        """Summarize actionable financial warnings for the dashboard."""
+        aging = self.project_financial_aging(project_id, as_of)
+        return {
+            "project_id": project_id,
+            "as_of": aging["as_of"],
+            "overdue_amount": aging["overdue_amount"],
+            "overdue_count": aging["overdue_count"],
+            "due_today_count": aging["due_today_count"],
+            "no_due_date_count": aging["no_due_date_count"],
+            "upcoming_count": aging["upcoming_count"],
+            "has_overdue": aging["overdue_count"] > 0,
+            "has_due_today": aging["due_today_count"] > 0,
+            "has_missing_due_date": aging["no_due_date_count"] > 0,
+        }
+
+
     def project_financial_aging_report(self, project_id: str, as_of: str, fmt: str, path):
         """Export the project's due-date aging center."""
         p = self.store.get(project_id)
