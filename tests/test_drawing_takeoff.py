@@ -67,3 +67,39 @@ def test_bim_link_and_quantities():
     linked = link_2d_3d([{"global_id": "G1"}, {"global_id": "G2"}], rows)
     assert linked[0]["linked"] is True
     assert linked[1]["linked"] is False
+
+import pytest
+from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
+from core.takeoff.drawing_pipeline import DrawingTakeoffPipeline
+
+def test_unified_confirmed_rows_reject_duplicate_sources():
+    u = UnifiedDrawingTakeoff()
+    with pytest.raises(ValueError, match="دوباره"):
+        u.candidates_to_rows({"candidates":[
+            {"source":"PDF:p1:L1","description":"wall","quantity":10,"unit":"m"},
+            {"source":"PDF:p1:L1","description":"wall duplicate","quantity":5,"unit":"m"},
+        ]})
+
+def test_drawing_pipeline_normalizes_units_and_rejects_invalid_data():
+    p = DrawingTakeoffPipeline()
+    rows = p.normalize([
+        {"source":"dwg:WALL:1","description":"wall","quantity":100,"unit":"cm","unit_price":10},
+        {"source":"dwg:WALL:2","description":"wall","quantity":2,"unit":"m","unit_price":10},
+    ])
+    assert rows[0].unit == "cm"
+    assert rows[0].total == 1000
+    with pytest.raises(ValueError, match="دوباره"):
+        p.normalize([
+            {"source":"dwg:X","description":"x","quantity":1,"unit":"m"},
+            {"source":"dwg:X","description":"x","quantity":2,"unit":"m"},
+        ])
+    with pytest.raises(ValueError):
+        p.normalize([{"source":"dwg:bad","description":"x","quantity":-1,"unit":"m"}])
+
+def test_ifc_duplicate_global_id_is_not_silently_dropped():
+    from core.drawings.ifc_pipeline import normalize_ifc_rows
+    with pytest.raises(ValueError, match="IFC"):
+        normalize_ifc_rows([
+            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5}},
+            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":6}},
+        ])
