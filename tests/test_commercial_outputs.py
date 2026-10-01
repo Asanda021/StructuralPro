@@ -1,5 +1,6 @@
 """Acceptance tests for commercial report generation and output formats."""
 from core.platform.application import StructuralProApp
+from openpyxl import load_workbook
 
 
 def _seed(tmp_path):
@@ -37,3 +38,16 @@ def test_report_service_uses_project_data(tmp_path):
     result = app.report("R1", "xlsx", path)
     assert result == path
     assert path.exists() and path.stat().st_size > 0
+
+
+def test_xlsx_contains_commercial_summary(tmp_path):
+    app = _seed(tmp_path)
+    path = tmp_path / "summary.xlsx"
+    app.report("R1", "xlsx", path)
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "خلاصه تجاری" in values
+    assert "مبلغ پایه" in values
+    assert "مبلغ نهایی" in values
+    assert "کد" in values
+    assert "W001" in values
