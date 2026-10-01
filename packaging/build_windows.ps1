@@ -14,6 +14,7 @@ python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpat
 $exe="dist/StructuralPro/StructuralPro.exe"
 $embedded="dist/StructuralPro/VERSION"
 if (-not (Test-Path $exe)) { throw "PyInstaller did not create $exe" }
+Copy-Item VERSION $embedded -Force
 if (-not (Test-Path $embedded)) { throw "Packaged VERSION is missing" }
 $packagedVersion=(Get-Content $embedded -Raw).Trim()
 if ($packagedVersion -ne $canonicalVersion) { throw "Packaged VERSION '$packagedVersion' does not match canonical VERSION '$canonicalVersion'" }
