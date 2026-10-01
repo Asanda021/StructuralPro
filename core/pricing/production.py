@@ -22,4 +22,4 @@ def price_analysis(quantity: float, unit_price: float, factors=None) -> dict[str
     q=float(quantity); base=q*float(unit_price)
     factor_total=1.0
     for f in factors or (): factor_total*=float(f)
-    return {"quantity":q,"unit_price":float(unit_price),"factor":factor_total,"amount":base*factor_total}
+    return {"quantity":q,"unit_price":float(unit_price),"factor":factor_total,"amount":round(base*factor_total, 10)}
