@@ -51,9 +51,9 @@ def main()->int:
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
     assistant=ProjectAssistant()
-    w=QMainWindow(); w.setWindowTitle("StructuralPro — متره و برآورد حرفه‌ای"); w.resize(1500,920)
+    w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
-    root=QWidget(); layout=QHBoxLayout(root); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); pages=QStackedWidget()
+    root=QWidget(); layout=QHBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); nav.setContentsMargins(12,16,12,16); nav.setSpacing(6); pages=QStackedWidget()
     title=QLabel("StructuralPro")
     title.setObjectName("BrandTitle")
     nav.addWidget(title)
@@ -69,7 +69,7 @@ def main()->int:
     buttons=[]
     sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات"]
     for name in sections:
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); buttons.append(b); nav.addWidget(b)
+        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); b.setCursor(__import__("PySide6").QtGui.QCursor(__import__("PySide6").QtCore.Qt.CursorShape.PointingHandCursor)); buttons.append(b); nav.addWidget(b)
 
     # Dashboard — Canva-aligned commercial shell with real project data
     dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
