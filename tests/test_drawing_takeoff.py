@@ -104,3 +104,31 @@ def test_ifc_duplicate_global_id_is_deduplicated_deterministically():
     ])
     assert len(rows) == 1
     assert rows[0]["quantities"]["Length"] == 5
+
+def test_dwg_metric_rejects_nonfinite_and_preserves_units():
+    from core.drawings.dwg_takeoff import DWGTakeoffEngine
+    doc = DWGDocument([DWGEntity("LINE", "WALL", "1", {"length": 4})], ["WALL"], units="m")
+    rows = DWGTakeoffEngine().layer_takeoff(doc, {"WALL": {"metric": "length", "unit": "m"}})
+    assert rows[0]["source"] == "dwg-layer:WALL"
+    import math
+    bad = DWGDocument([DWGEntity("LINE", "WALL", "1", {"length": math.nan})], ["WALL"])
+    with pytest.raises(ValueError):
+        DWGTakeoffEngine().layer_takeoff(bad, {"WALL": {"metric": "length", "unit": "m"}})
+
+
+def test_ifc_multi_quantity_rows_have_unique_sources_and_reject_invalid_values():
+    from core.drawings.ifc_pipeline import normalize_ifc_rows, map_ifc_to_boq
+    rows = normalize_ifc_rows([{"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5,"Area":12,"Volume":-1,"Bad":float("nan")}}])
+    assert set(rows[0]["quantities"]) == {"Length","Area"}
+    mapped = map_ifc_to_boq(rows, {"IfcWall":"W1"})
+    assert {r["source"] for r in mapped["rows"]} == {"ifc:G1:Length","ifc:G1:Area"}
+
+
+def test_unified_ifc_multi_quantity_candidates_do_not_trigger_duplicate_source_guard():
+    from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
+    u = UnifiedDrawingTakeoff()
+    inspection = {"candidates":[
+        {"source":"ifc:G1:Length","description":"wall Length","quantity":5,"unit":"m"},
+        {"source":"ifc:G1:Area","description":"wall Area","quantity":12,"unit":"m2"},
+    ]}
+    assert len(u.candidates_to_rows(inspection)) == 2
