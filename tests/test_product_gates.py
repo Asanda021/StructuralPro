@@ -1,0 +1,43 @@
+import json, os, stat
+from pathlib import Path
+from core.drawings.dwg_converter import OfflineDWGConverter
+from core.drawings.pdf_graphical import GraphicalPDFTakeoff
+from core.ai.hardware_profiles import select_profile, validate_model_manifest
+from core.platform.mobile_runtime import AndroidRuntime, TelegramRuntime
+from core.sync.memory import MemorySyncProvider
+from core.pricing.source_registry import PriceSource, PriceSourceRegistry
+
+def test_offline_dwg_converter_contract(tmp_path):
+    exe=tmp_path/"fake-dwg2dxf"
+    exe.write_text("#!/bin/sh\ncp "$1" "$2"\n",encoding="utf-8"); exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
+    src=tmp_path/"plan.dwg"; src.write_text("DXF-FIXTURE",encoding="utf-8")
+    r=OfflineDWGConverter(str(exe)).convert(src,tmp_path/"out")
+    assert r.output.read_text()=="DXF-FIXTURE"
+
+def test_graphical_pdf_geometry():
+    m=GraphicalPDFTakeoff.line(1,0,0,3,4,0.01)
+    assert m.quantity==0.05
+    a=GraphicalPDFTakeoff.polygon(1,[(0,0),(10,0),(10,10),(0,10)],0.1)
+    assert a.quantity==1
+
+def test_ai_manifest_and_hardware(tmp_path):
+    p=tmp_path/"manifest.json"
+    p.write_text(json.dumps({"name":"demo","format":"GGUF","license":"Apache-2.0","commercial_use":True,"sha256":"abc"}),encoding="utf-8")
+    assert validate_model_manifest(p)["valid"]
+    assert select_profile(16).name=="standard"
+
+def test_mobile_clients_share_offline_runtime():
+    for c in (AndroidRuntime(),TelegramRuntime()):
+        assert c.open("P1")["id"]=="P1"
+        assert c.command("open_project",project_id="P1").action=="open_project"
+
+def test_e2e_sync_provider():
+    p=MemorySyncProvider()
+    p.push([{"project_id":"P1","version":1,"payload":{"name":"A"}}])
+    p.push([{"project_id":"P1","version":2,"payload":{"name":"B"}}])
+    assert p.pull("P1")[-1]["payload"]["name"]=="B"
+
+def test_price_source_registry():
+    r=PriceSourceRegistry()
+    s=PriceSource(1405,"ابنیه","verified","https://example.invalid","licensed","2026-10-01","abc",True)
+    r.add(s); assert r.verify_record(s,"abc")
