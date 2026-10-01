@@ -9,7 +9,7 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\StructuralPro
 DefaultGroupName=StructuralPro
-OutputDir=dist
+OutputDir=..\dist
 OutputBaseFilename=StructuralPro-{#MyAppVersion}-Setup
 Compression=lzma
 SolidCompression=yes
@@ -17,7 +17,7 @@ ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
 WizardStyle=modern
 [Files]
-Source: "dist\StructuralPro\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\dist\StructuralPro\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 [Icons]
 Name: "{group}\StructuralPro"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\StructuralPro"; Filename: "{app}\{#MyAppExeName}"
