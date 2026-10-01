@@ -1,32 +1,60 @@
-import json, os, stat
-from pathlib import Path
-from core.drawings.dwg_converter import OfflineDWGConverter\nfrom core.drawings.dwg_takeoff import DWGTakeoffEngine
+import json, stat
+from core.drawings.dwg_converter import OfflineDWGConverter
+from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.pdf_graphical import GraphicalPDFTakeoff
 from core.ai.hardware_profiles import select_profile, validate_model_manifest
 from core.platform.mobile_runtime import AndroidRuntime, TelegramRuntime
 from core.sync.memory import MemorySyncProvider
 from core.pricing.source_registry import PriceSource, PriceSourceRegistry
 
-def test_offline_dwg_converter_contract(tmp_path):
+def _fake_converter(tmp_path):
     exe=tmp_path/"fake-dwg2dxf"
-    exe.write_text("#!/bin/sh\ncp "$1" "$2"\n",encoding="utf-8"); exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
+    exe.write_text("#!/bin/sh\\ncp \"$1\" \"$2\"\\n",encoding="utf-8")
+    exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
+    return exe
+
+def _minimal_dxf():
+    return """0
+SECTION
+2
+HEADER
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+0
+LINE
+8
+WALL
+10
+0
+20
+0
+11
+3
+21
+4
+0
+ENDSEC
+0
+EOF
+"""
+
+def test_offline_dwg_converter_contract(tmp_path):
+    exe=_fake_converter(tmp_path)
     src=tmp_path/"plan.dwg"; src.write_text("DXF-FIXTURE",encoding="utf-8")
     r=OfflineDWGConverter(str(exe)).convert(src,tmp_path/"out")
     assert r.output.read_text()=="DXF-FIXTURE"
 
 def test_dwg_engine_reads_converter_output(tmp_path, monkeypatch):
-    exe=tmp_path/"fake-dwg2dxf"
-    dxf="0\\nSECTION\\n2\\nHEADER\\n0\\nENDSEC\\n0\\nSECTION\\n2\\nENTITIES\\n0\\nLINE\\n8\\nWALL\\n10\\n0\\n20\\n0\\n11\\n3\\n21\\n4\\n0\\nENDSEC\\n0\\nEOF\\n"
-    exe.write_text("#!/bin/sh\\nprintf '%s' '" + dxf.replace("\\n","\\\\n") + "' | sed 's/\\\\n/\\n/g' > \\$2\\n",encoding="utf-8")
-    exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
-    src=tmp_path/"plan.dwg"; src.write_text("fixture",encoding="utf-8")
+    exe=_fake_converter(tmp_path)
+    src=tmp_path/"plan.dwg"; src.write_text(_minimal_dxf(),encoding="utf-8")
     monkeypatch.setenv("STRUCTURALPRO_DWG_CONVERTER",str(exe))
-    try:
-        doc=DWGTakeoffEngine().import_file(src)
-        assert doc.entities[0].entity_type=="LINE"
-        assert round(doc.entities[0].data["length"],3)==5.0
-    except RuntimeError as exc:
-        assert "ezdxf" in str(exc).lower()
+    doc=DWGTakeoffEngine().import_file(src)
+    assert doc.entities[0].entity_type=="LINE"
+    assert round(doc.entities[0].data["length"],3)==5.0
 
 def test_graphical_pdf_geometry():
     m=GraphicalPDFTakeoff.line(1,0,0,3,4,0.01)
@@ -54,4 +82,5 @@ def test_e2e_sync_provider():
 def test_price_source_registry():
     r=PriceSourceRegistry()
     s=PriceSource(1405,"ابنیه","verified","https://example.invalid","licensed","2026-10-01","abc",True)
-    r.add(s); assert r.verify_record(s,"abc")
+    r.add(s)
+    assert r.verify_record(s,"abc")
