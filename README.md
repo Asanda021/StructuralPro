@@ -28,12 +28,13 @@ The repository now includes executable production-gate tests for offline DWG con
 
 Core work remains offline-first. External provisioning is intentionally explicit: verified official price-list datasets, redistributable GGUF model weights, native platform packaging, and an installed DWG converter are not fabricated or silently replaced by cloud services.
 
-
 ## Windows release
 
 The canonical application version is stored in `VERSION`. Windows packaging is reproducible through `packaging/build_windows.ps1` and `packaging/structuralpro.spec`. The installer template is `packaging/installer.iss` and the Windows release workflow runs on `v*` tags after verifying the tag matches `VERSION`.
 
 The release layer also defines an offline licensing boundary in `core/platform/release.py`. License signature verification is injected so a production asymmetric-key verifier can be supplied without embedding a signing secret in the desktop client.
+
+The commercial license lifecycle boundary also validates expiration, revocation, entitlement uniqueness and fail-closed identity/signature conditions. See `docs/COMMERCIAL_LICENSE_LIFECYCLE.md`.
 
 ## Release documentation
 
@@ -42,6 +43,7 @@ The release layer also defines an offline licensing boundary in `core/platform/r
 - [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Configuration](docs/CONFIGURATION.md)
 - [Licensing](docs/LICENSE.md)
+- [Commercial License Lifecycle](docs/COMMERCIAL_LICENSE_LIFECYCLE.md)
 - [Backup and Restore](docs/BACKUP_RESTORE.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
