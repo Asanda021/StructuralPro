@@ -11,7 +11,7 @@ def test_pdf_scale_measurement():
     p=PDFTakeoffAdapter()
     assert p.normalize_scale("1:100")==100
     assert p.pixel_to_model(2,"1:100","cm")==2
-    assert round(p.measure_area(0.01,"1:100"),2)==100
+    assert round(p.measure_area(0.01,"1:100").value,2)==100
 
 def test_bim_link_and_quantities():
     class O:
