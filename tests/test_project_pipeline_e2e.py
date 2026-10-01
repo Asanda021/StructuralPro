@@ -291,3 +291,56 @@ def test_project_counterparty_detailed_ledger(tmp_path):
     path = tmp_path / "party-ledger.xlsx"
     assert app.project_counterparty_ledger_report("CP2", "پیمانکار الف", "xlsx", path) == path
     assert path.exists() and path.stat().st_size > 0
+
+
+def test_project_financial_aging_classifies_commitments_and_documents(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("کنترل سررسید", "AGE1")
+    app.add_project_commitment(
+        "AGE1", 10000, paid_amount=2000, counterparty="پیمانکار الف",
+        reference="COM-1", due_date="1405/07/09",
+    )
+    app.add_project_commitment(
+        "AGE1", 5000, paid_amount=5000, counterparty="پیمانکار ب",
+        due_date="1405/07/01",
+    )
+    app.add_project_financial_document(
+        "AGE1", "INV-1", "فاکتور", 7000,
+        counterparty="فروشنده", due_date="1405/07/09", payment_status="unpaid",
+    )
+    app.add_project_financial_document(
+        "AGE1", "INV-2", "فاکتور", 3000,
+        counterparty="فروشنده دوم", due_date="1405/07/15", payment_status="partial",
+    )
+    app.add_project_financial_document(
+        "AGE1", "INV-3", "فاکتور", 2000,
+        counterparty="فروشنده سوم", due_date="1405/07/01", payment_status="paid",
+    )
+
+    aging = app.project_financial_aging("AGE1", "۱۴۰۵-۰۷-۱۰")
+    assert aging["as_of"] == "1405/07/10"
+    assert aging["row_count"] == 3
+    assert aging["overdue_count"] == 2
+    assert aging["due_today_count"] == 0
+    assert aging["upcoming_count"] == 1
+    assert aging["overdue_commitments"] == 8000
+    assert aging["overdue_unpaid_documents"] == 7000
+    assert aging["overdue_amount"] == 15000
+    assert [x["status"] for x in aging["rows"]] == ["معوق", "معوق", "آتی"]
+
+    path = tmp_path / "aging.xlsx"
+    assert app.project_financial_aging_report("AGE1", "1405/07/10", "xlsx", path) == path
+    assert path.exists() and path.stat().st_size > 0
+    from openpyxl import load_workbook
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "وضعیت" in values
+    assert "معوق" in values
+    assert 15000 in values or 8000 in values or 7000 in values
+
+
+def test_project_financial_aging_rejects_invalid_as_of_date(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("تاریخ نامعتبر", "AGE2")
+    with pytest.raises(ValueError):
+        app.project_financial_aging("AGE2", "1405/99/99")
