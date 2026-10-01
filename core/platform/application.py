@@ -22,7 +22,15 @@ def _normalize_date_key(value: str) -> str | None:
     if len(parts) != 3 or any(not part.isdigit() for part in parts):
         return None
     y, m, d = (int(part) for part in parts)
-    if y < 1 or not 1 <= m <= 12 or not 1 <= d <= 31:
+    if y < 1 or not 1 <= m <= 12:
+        return None
+    max_day = 31 if m <= 6 else 30
+    if m == 12:
+        epbase = y - (474 if y >= 0 else 473)
+        epyear = 474 + (epbase % 2820)
+        leap = ((epyear + 38) * 682) % 2816 < 682
+        max_day = 30 if leap else 29
+    if not 1 <= d <= max_day:
         return None
     return f"{y:04d}/{m:02d}/{d:02d}"
 
@@ -350,6 +358,47 @@ class StructuralProApp:
             "mismatch_count": len(mismatches),
             "unlinked_count": sum(1 for x in rows if x["linkage_state"] == "بدون اتصال"),
             "multiple_settlement_count": sum(1 for x in rows if x["multiple_settlement_links"]),
+        }
+
+    def project_financial_reconciliation_rows(self, project_id: str) -> list[dict[str, Any]]:
+        """Return normalized reconciliation rows for UI grids and integrations."""
+        return list(self.project_financial_reconciliation(project_id)["rows"])
+
+    def project_counterparty_financial_rollup_report(self, project_id: str, fmt: str, path):
+        """Export stable-ID counterparty financial rollup."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        rollup = self.project_counterparty_financial_rollup(project_id)
+        rows = [{
+            "شناسه": x["counterparty_id"], "طرف حساب": x["name"], "نقش": x["role"],
+            "وضعیت": "فعال" if x["active"] else "غیرفعال",
+            "اسناد": x["documents"], "مبلغ اسناد": x["document_amount"],
+            "تعهدات": x["commitments"], "مبلغ تعهدات": x["commitment_amount"],
+            "پرداخت تعهدات": x["paid_commitments"], "هزینه‌ها": x["costs"],
+            "مبلغ هزینه": x["cost_amount"], "دریافتی": x["receipts"],
+            "مبلغ دریافتی": x["receipt_amount"],
+        } for x in rollup]
+        summary = {"project_id": project_id, "counterparty_count": len(rollup), "rows": rollup}
+        return build_report(f'{p.get("name", "")} — رول‌آپ مالی طرف حساب‌ها', rows, summary).export(path, fmt)
+
+    def project_financial_audit_summary(self, project_id: str) -> dict[str, Any]:
+        """Combine document reconciliation controls into one audit snapshot."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        documents = self.project_financial_document_status_summary(project_id)
+        reconciliation = self.project_financial_reconciliation(project_id)
+        return {
+            "project_id": project_id,
+            "document_count": documents["document_count"],
+            "status_mismatch_count": documents["mismatch_count"],
+            "matched_count": reconciliation["matched_count"],
+            "unlinked_count": reconciliation["unlinked_count"],
+            "multiple_settlement_count": reconciliation["multiple_settlement_count"],
+            "paid_documents": documents["counts"]["paid"],
+            "partial_documents": documents["counts"]["partial"],
+            "unpaid_documents": documents["counts"]["unpaid"],
         }
 
     def project_financial_reconciliation_report(self, project_id: str, fmt: str, path):
@@ -763,6 +812,13 @@ class StructuralProApp:
         return {"project_id": project_id, "counterparties": list(result.values()),
                 "counterparty_count": len(result)}
 
+    def project_counterparty_ledger_by_id(self, project_id: str, counterparty_id: str) -> dict[str, Any]:
+        """Return a detailed ledger using the stable counterparty ID."""
+        party = self.find_project_counterparty_by_id(project_id, counterparty_id)
+        if party is None:
+            raise KeyError(counterparty_id)
+        return self.project_counterparty_ledger(project_id, party["name"])
+
     def project_counterparty_ledger(self, project_id: str, counterparty: str) -> dict[str, Any]:
         """Return chronological financial activity for one project counterparty."""
         p = self.store.get(project_id)
@@ -830,6 +886,44 @@ class StructuralProApp:
                 "هزینه واقعی": b["actual_cost"], "دریافتی": b["received"], "خالص نقدی": b["net_cash"],
             })
         return build_report(f'{p.get("name", "")} — گردش مالی طرف حساب‌ها', rows, summary).export(path, fmt)
+
+    def project_financial_kpi_summary(self, project_id: str, as_of: str = "") -> dict[str, Any]:
+        """Return dashboard-ready financial KPIs without mutating persisted data."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        position = self.project_financial_position(project_id)
+        status = self.project_financial_document_status_summary(project_id)
+        result = {
+            "project_id": project_id,
+            "contract_amount": position["contract_amount"],
+            "earned_value": position["earned_value"],
+            "actual_cost": position["actual_cost"],
+            "received": position["received"],
+            "receivable": position["receivable"],
+            "committed_cost": position["committed_cost"],
+            "unpaid_commitments": position["unpaid_commitments"],
+            "cash_exposure": position["cash_exposure"],
+            "cost_margin": position["cost_margin"],
+            "document_count": status["document_count"],
+            "document_mismatches": status["mismatch_count"],
+        }
+        if str(as_of).strip():
+            due_data = self.project_financial_due_summary(project_id, as_of)
+            result.update({
+                "overdue_amount": due_data["overdue_amount"],
+                "overdue_count": due_data["overdue_count"],
+                "due_today_count": due_data["due_today_count"],
+                "upcoming_count": due_data["upcoming_count"],
+                "no_due_date_count": due_data["no_due_date_count"],
+                "open_due_amount": due_data["total_open_amount"],
+            })
+        else:
+            result.update({
+                "overdue_amount": 0.0, "overdue_count": 0, "due_today_count": 0,
+                "upcoming_count": 0, "no_due_date_count": 0, "open_due_amount": 0.0,
+            })
+        return result
 
     def project_financial_due_summary(self, project_id: str, as_of: str) -> dict[str, Any]:
         """Compact due-date control summary suitable for dashboard cards."""
