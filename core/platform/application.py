@@ -15,7 +15,7 @@ class StructuralProApp:
         self.takeoff=TakeoffEngine()
         self.qa=ProjectQA()
 
-    def create_project(self,project_id:str,name:str)->dict[str,Any]:
+    def create_project(self,name:str,project_id:str)->dict[str,Any]:
         project={"id":project_id,"name":name,"takeoffs":[],"boq":[],"metadata":{"offline":True}}
         self.store.save(project_id,project); return self.store.get(project_id)
 
