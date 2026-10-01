@@ -1,4 +1,4 @@
-"""End-to-end acceptance for the desktop project's commercial pipeline."""
+"""End-to-end acceptance gate for the desktop project commercial pipeline."""
 from core.platform.application import StructuralProApp
 
 
