@@ -129,7 +129,9 @@ def main()->int:
                 dtable.setCellWidget(i-1,0,cb)
                 vals=[r.get("description",""),r.get("quantity",""),r.get("unit",""),r.get("source",r.get("global_id",""))]
                 for j,val in enumerate(vals,1): dtable.setItem(i-1,j,QTableWidgetItem(str(val)))
-            if drawing_state.get("kind")=="cad":\n                caps=detect_dwg_capabilities()\n                outmsg=f'نقشه CAD: {drawing_state["summary"]["entities"]} المان | {caps.message}'
+            if drawing_state.get("kind")=="cad":
+                caps=detect_dwg_capabilities()
+                outmsg=f'نقشه CAD: {drawing_state["summary"]["entities"]} المان | {caps.message}'
             else: outmsg=f'تعداد کاندیدها: {len(drawing_state.get("candidates",[]))}'
             status.setText("🟢 "+outmsg+" | قبل از ورود به BOQ تأیید کنید")
         except Exception as e: QMessageBox.critical(w,"خطای نقشه",str(e))
