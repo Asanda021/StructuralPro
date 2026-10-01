@@ -24,7 +24,7 @@ def test_release_workflow_has_stable_placeholder_injection():
 
 def test_release_workflow_enforces_tag_version_consistency():
     text = read(".github/workflows/windows-release.yml")
-    assert 'if ("v$v" -ne "${{ github.ref_name }}"' in text
+    assert 'if ("${{ github.ref_type }}" -eq "tag" -and "v$v" -ne "${{ github.ref_name }}"' in text
 
 def test_release_workflow_generates_traceability_manifest():
     text = read(".github/workflows/windows-release.yml")
