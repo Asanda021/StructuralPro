@@ -1,0 +1,31 @@
+"""End-to-end acceptance for the desktop project's commercial pipeline."""
+from core.platform.application import StructuralProApp
+
+
+def test_project_pipeline_persists_estimate_and_snapshot(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه آزمایشی", "P1")
+    app.add_takeoff(
+        "P1", "building", "wall",
+        length=10, width=0.2, height=3,
+        price_code="W001", unit_price=1200,
+    )
+    app.add_takeoff(
+        "P1", "building", "wall",
+        length=5, width=0.2, height=3,
+        price_code="W001", unit_price=1200,
+    )
+
+    estimate = app.recalculate_estimate("P1", factors={"سربار": 0.10})
+    assert estimate["summary"]["line_count"] == 1
+    assert estimate["cost"]["base"] > 0
+    assert estimate["cost"]["grand_total"] == estimate["cost"]["base"] * 1.10
+
+    snapshot = app.build_commercial_snapshot("P1")
+    assert snapshot["project_id"] == "P1"
+    assert snapshot["estimate"]["summary"]["grand_total"] > 0
+    assert len(snapshot["progress"]["lines"]) == 1
+
+    saved = app.open_project("P1")
+    assert saved["estimate"]["cost"]["grand_total"] == estimate["cost"]["grand_total"]
+    assert saved["boq"][0]["price_code"] == "W001"
