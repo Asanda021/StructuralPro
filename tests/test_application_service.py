@@ -71,3 +71,21 @@ def test_financial_document_status_summary_uses_calculated_status(tmp_path):
     assert result["counts"]["paid"]==1
     assert result["amounts"]["unpaid"]==1000
     assert result["mismatch_count"]==0
+
+
+def test_counterparty_financial_rollup_uses_stable_ids_and_legacy_names(tmp_path):
+    a=StructuralProApp(tmp_path)
+    a.create_project("رول‌آپ طرف حساب","roll1")
+    cp=a.add_project_counterparty("roll1","پیمانکار")
+    a.add_project_commitment("roll1",1000,paid_amount=300,counterparty="پیمانکار")
+    a.add_project_cost("roll1","مصالح",200,counterparty="پیمانکار")
+    a.add_project_receipt("roll1",500,counterparty="پیمانکار")
+    a.add_project_financial_document("roll1","R-1","فاکتور",800,counterparty="پیمانکار")
+    rows=a.project_counterparty_financial_rollup("roll1")
+    assert len(rows)==1
+    assert rows[0]["counterparty_id"]==cp["id"]
+    assert rows[0]["commitment_amount"]==1000
+    assert rows[0]["paid_commitments"]==300
+    assert rows[0]["cost_amount"]==200
+    assert rows[0]["receipt_amount"]==500
+    assert rows[0]["document_amount"]==800
