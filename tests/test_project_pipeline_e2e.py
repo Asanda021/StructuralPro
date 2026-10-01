@@ -34,5 +34,5 @@ def test_project_pipeline_persists_estimate_and_snapshot(tmp_path):
     assert len(snapshot["progress"]["lines"]) == 1
 
     saved = app.open_project("P1")
-    assert saved["estimate"]["cost"]["grand_total"] == estimate["cost"]["grand_total"]
+    assert saved["estimate"]["cost"]["grand_total"] == snapshot["estimate"]["cost"]["grand_total"]
     assert saved["boq"][0]["price_code"] == "W001"
