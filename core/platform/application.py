@@ -286,6 +286,75 @@ class StructuralProApp:
             "by_type": by_type,
         }
 
+    def project_financial_reconciliation(self, project_id: str) -> dict[str, Any]:
+        """Audit financial-document links against linked settlement records without mutating data."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        commitments = {int(x.get("id", 0)): x for x in p.get("commitment_entries", [])}
+        costs = {int(x.get("id", 0)): x for x in p.get("cost_entries", [])}
+        receipts = {int(x.get("id", 0)): x for x in p.get("receipt_entries", [])}
+        rows = []
+        for doc in p.get("financial_documents", []):
+            amount = float(doc.get("amount", 0) or 0)
+            commitment = commitments.get(int(doc["commitment_id"])) if doc.get("commitment_id") is not None else None
+            cost = costs.get(int(doc["cost_entry_id"])) if doc.get("cost_entry_id") is not None else None
+            receipt = receipts.get(int(doc["receipt_id"])) if doc.get("receipt_id") is not None else None
+            commitment_paid = float(commitment.get("paid_amount", 0) or 0) if commitment else 0.0
+            receipt_amount = float(receipt.get("amount", 0) or 0) if receipt else 0.0
+            settlement_amount = max(commitment_paid, receipt_amount)
+            if settlement_amount <= 0:
+                derived_status = "unpaid"
+            elif settlement_amount >= amount:
+                derived_status = "paid"
+            else:
+                derived_status = "partial"
+            manual_status = str(doc.get("payment_status", "unpaid")).strip().lower()
+            rows.append({
+                "document_id": doc.get("id", ""),
+                "document_number": doc.get("document_number", ""),
+                "amount": amount,
+                "manual_status": manual_status,
+                "derived_status": derived_status,
+                "status_match": manual_status == derived_status,
+                "commitment_id": doc.get("commitment_id"),
+                "commitment_paid": commitment_paid,
+                "cost_entry_id": doc.get("cost_entry_id"),
+                "cost_amount": float(cost.get("amount", 0) or 0) if cost else 0.0,
+                "receipt_id": doc.get("receipt_id"),
+                "receipt_amount": receipt_amount,
+                "settlement_amount": settlement_amount,
+                "multiple_settlement_links": bool(commitment and receipt),
+                "linkage_state": "متصل" if any((commitment, cost, receipt)) else "بدون اتصال",
+            })
+        mismatches = [x for x in rows if not x["status_match"]]
+        return {
+            "project_id": project_id,
+            "rows": rows,
+            "document_count": len(rows),
+            "matched_count": len(rows) - len(mismatches),
+            "mismatch_count": len(mismatches),
+            "unlinked_count": sum(1 for x in rows if x["linkage_state"] == "بدون اتصال"),
+            "multiple_settlement_count": sum(1 for x in rows if x["multiple_settlement_links"]),
+        }
+
+    def project_financial_reconciliation_report(self, project_id: str, fmt: str, path):
+        """Export the financial-document reconciliation audit."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        reconciliation = self.project_financial_reconciliation(project_id)
+        rows = [{
+            "شناسه سند": x["document_id"], "شماره سند": x["document_number"], "مبلغ سند": x["amount"],
+            "وضعیت ثبت‌شده": x["manual_status"], "وضعیت محاسباتی": x["derived_status"],
+            "تطبیق": "تطبیق دارد" if x["status_match"] else "نیازمند بررسی",
+            "تعهد": x["commitment_id"] or "", "پرداخت تعهد": x["commitment_paid"],
+            "هزینه": x["cost_entry_id"] or "", "مبلغ هزینه": x["cost_amount"],
+            "دریافتی": x["receipt_id"] or "", "مبلغ دریافتی": x["receipt_amount"],
+            "مبلغ تسویه محاسباتی": x["settlement_amount"], "وضعیت اتصال": x["linkage_state"],
+        } for x in reconciliation["rows"]]
+        return build_report(f'{p.get("name", "")} — کنترل تطبیق اسناد مالی', rows, reconciliation).export(path, fmt)
+
     def add_project_cost(self, project_id: str, category: str, amount: float, *, description: str = "", date: str = "", document_id: int | None = None, counterparty: str = "") -> dict[str, Any]:
         """Persist an actual project cost entry for financial control."""
         p = self.store.get(project_id)
