@@ -178,22 +178,25 @@ class ProjectManagement:
     def schedule_summary(self, *, as_of: str | None = None):
         total = len(self.tasks)
         avg = sum(x.progress for x in self.tasks) / total if total else 0
-        weight_total = sum(x.weight for x in self.tasks)
-        weighted = sum(x.progress * x.weight for x in self.tasks) / weight_total if weight_total else 0
         completed = sum(x.progress >= 100 or x.status == "done" for x in self.tasks)
-        today = _date(as_of) if as_of else date.today()
-        overdue = sum(
-            bool(_date(x.planned_end) and _date(x.planned_end) < today
-                 and x.progress < 100 and x.status != "cancelled")
-            for x in self.tasks
-        )
-        return {
+        result = {
             "task_count": total,
             "completed_tasks": completed,
             "average_progress": avg,
-            "weighted_progress": weighted,
-            "overdue_tasks": overdue,
         }
+        if as_of is not None:
+            weight_total = sum(x.weight for x in self.tasks)
+            weighted = sum(x.progress * x.weight for x in self.tasks) / weight_total if weight_total else 0
+            today = _date(as_of)
+            if today is None:
+                raise ValueError("invalid schedule summary date")
+            overdue = sum(
+                bool(_date(x.planned_end) and _date(x.planned_end) < today
+                     and x.progress < 100 and x.status != "cancelled")
+                for x in self.tasks
+            )
+            result.update({"weighted_progress": weighted, "overdue_tasks": overdue})
+        return result
 
     def actual_vs_plan(self):
         rows = []
