@@ -18,8 +18,9 @@ class PriceItem:
     notes: str = ""
 
 class PriceCatalog:
-    def __init__(self, items: Iterable[PriceItem] = ()):
+    def __init__(self, items: Iterable[PriceItem] = (), source_registry=None):
         self._items: dict[tuple[int,str], PriceItem] = {}
+        self.source_registry=source_registry
         self.replace(items)
 
     def replace(self, items: Iterable[PriceItem]) -> None:
@@ -72,6 +73,9 @@ class PriceCatalog:
         if item.unit_price < 0: return {"status":"invalid_price", "code":code}
         if item.unit_price == 0: return {"status":"zero_price", "code":code, "item":item}
         return {"status":"ok", "code":code, "item":item, "unit_price":item.unit_price}
+
+    def source_info(self, year:int, discipline:str="building", source_id:str=""):
+        return self.source_registry.get(year,discipline,source_id) if self.source_registry else None
 
     def snapshot(self, codes: Iterable[str], year: int | None = None) -> list[dict[str, Any]]:
         out=[]
