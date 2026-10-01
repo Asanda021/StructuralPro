@@ -200,6 +200,7 @@ def main()->int:
     rperiod=QLineEdit(); rperiod.setPlaceholderText("شماره دوره؛ خالی = جاری")
     rfmt=QComboBox(); rfmt.addItems(["xlsx","pdf","docx","csv"])
     rgo=QPushButton("ساخت گزارش"); rgo.setObjectName("PrimaryAction")
+    rcost=QPushButton("گزارش هزینه پروژه")
     rv.addWidget(QLabel("پروژه")); rv.addWidget(rpid,1); rv.addWidget(QLabel("دوره")); rv.addWidget(rperiod); rv.addWidget(QLabel("فرمت")); rv.addWidget(rfmt); rv.addWidget(rgo); v.addWidget(rtools)
     rtitle=QLabel("خلاصه خروجی"); rtitle.setObjectName("SectionTitle"); v.addWidget(rtitle)
     rsummary=QLabel("پروژه را وارد کنید و گزارش را بسازید."); rsummary.setWordWrap(True); v.addWidget(rsummary)
@@ -230,6 +231,25 @@ def main()->int:
                               " با موفقیت ساخته شد.\n"+path+"\n\nمنبع گزارش: داده‌های پروژه و دوره انتخاب‌شده")
         except Exception as e: QMessageBox.critical(w,"خطای گزارش",str(e))
     rgo.clicked.connect(make_report)
+    def make_cost_report():
+        project_id=rpid.text().strip()
+        if not project_id:
+            QMessageBox.warning(w,"گزارش هزینه","شناسه پروژه را وارد کنید."); return
+        project=service.open_project(project_id)
+        if not project:
+            QMessageBox.warning(w,"گزارش هزینه","پروژه پیدا نشد."); return
+        fmt=rfmt.currentText()
+        default_name=f'{project.get("name","project")}_cost_report.{fmt}'
+        path=QFileDialog.getSaveFileName(w,"ذخیره گزارش هزینه",default_name,f'{fmt.upper()} (*.{fmt})')[0]
+        if not path:return
+        try:
+            service.project_cost_report(project_id,fmt,path)
+            s=service.project_cost_summary(project_id)
+            rsummary.setText(f'گزارش هزینه | موارد: {s["entry_count"]} | مجموع هزینه ثبت‌شده: {s["actual_cost"]:,.0f}')
+            rout.setPlainText("گزارش هزینه پروژه با موفقیت ساخته شد.\n"+path+"\n\nتفکیک هزینه‌ها: "+json.dumps(s["by_category"],ensure_ascii=False))
+        except Exception as e:
+            QMessageBox.critical(w,"خطای گزارش هزینه",str(e))
+    rcost.clicked.connect(make_cost_report)
     pages.addWidget(p); idx_reports=pages.count()-1
 
     # Professional tools: revisions, templates, formulas, search, sheets, markups
