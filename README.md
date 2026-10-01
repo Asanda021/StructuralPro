@@ -34,3 +34,15 @@ Core work remains offline-first. External provisioning is intentionally explicit
 The canonical application version is stored in `VERSION`. Windows packaging is reproducible through `packaging/build_windows.ps1` and `packaging/structuralpro.spec`. The installer template is `packaging/installer.iss` and the Windows release workflow runs on `v*` tags after verifying the tag matches `VERSION`.
 
 The release layer also defines an offline licensing boundary in `core/platform/release.py`. License signature verification is injected so a production asymmetric-key verifier can be supplied without embedding a signing secret in the desktop client.
+
+## Release documentation
+
+- [User Guide](docs/USER_GUIDE.md)
+- [Installation Guide](docs/INSTALLATION.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Licensing](docs/LICENSE.md)
+- [Backup and Restore](docs/BACKUP_RESTORE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Release Checklist](docs/RELEASE_CHECKLIST.md)
+- [Versioning and Release Process](docs/RELEASE_PROCESS.md)
