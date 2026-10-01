@@ -36,9 +36,10 @@ class DashboardPage(QWidget):
         self.commit_ref=QLineEdit(); self.commit_ref.setPlaceholderText("شماره مرجع")
         self.commit_date=QLineEdit(); self.commit_date.setPlaceholderText("تاریخ")
         self.commit_due=QLineEdit(); self.commit_due.setPlaceholderText("سررسید")
+        self.commit_counterparty=QComboBox(); self.commit_counterparty.setPlaceholderText("طرف حساب")
         self.commit_button=QPushButton("ثبت تعهد"); self.commit_button.setObjectName("SecondaryAction")
         self.commit_summary=QLabel("تعهدات: ۰"); self.commit_summary.setWordWrap(True)
-        for x in (self.commit_amount,self.commit_desc,self.commit_ref,self.commit_date,self.commit_due,self.commit_button,self.commit_summary): cv.addWidget(x)
+        for x in (self.commit_amount,self.commit_desc,self.commit_ref,self.commit_date,self.commit_due,self.commit_counterparty,self.commit_button,self.commit_summary): cv.addWidget(x)
         root.addWidget(commitments)
         receipts=QFrame(); rvh=QHBoxLayout(receipts); rvh.setContentsMargins(12,10,12,10)
         rvh.addWidget(QLabel("ثبت دریافتی"))
@@ -46,15 +47,16 @@ class DashboardPage(QWidget):
         self.receipt_desc=QLineEdit(); self.receipt_desc.setPlaceholderText("شرح دریافتی")
         self.receipt_ref=QLineEdit(); self.receipt_ref.setPlaceholderText("شماره مرجع")
         self.receipt_date=QLineEdit(); self.receipt_date.setPlaceholderText("تاریخ")
+        self.receipt_counterparty=QComboBox(); self.receipt_counterparty.setPlaceholderText("طرف حساب")
         self.receipt_button=QPushButton("ثبت دریافتی"); self.receipt_button.setObjectName("SecondaryAction")
         self.receipt_summary=QLabel("دریافتی: ۰"); self.receipt_summary.setWordWrap(True)
-        for x in (self.receipt_amount,self.receipt_desc,self.receipt_ref,self.receipt_date,self.receipt_button,self.receipt_summary): rvh.addWidget(x)
+        for x in (self.receipt_amount,self.receipt_desc,self.receipt_ref,self.receipt_date,self.receipt_counterparty,self.receipt_button,self.receipt_summary): rvh.addWidget(x)
         root.addWidget(receipts)
         documents=QFrame(); dv=QHBoxLayout(documents); dv.setContentsMargins(12,10,12,10)
         dv.addWidget(QLabel("مرکز اسناد مالی"))
         self.document_number=QLineEdit(); self.document_number.setPlaceholderText("شماره سند / فاکتور")
         self.document_type=QLineEdit(); self.document_type.setPlaceholderText("نوع سند")
-        self.document_counterparty=QLineEdit(); self.document_counterparty.setPlaceholderText("طرف حساب")
+        self.document_counterparty=QComboBox(); self.document_counterparty.setPlaceholderText("طرف حساب")
         self.document_amount=QDoubleSpinBox(); self.document_amount.setMaximum(999999999999999.0); self.document_amount.setDecimals(2)
         self.document_date=QLineEdit(); self.document_date.setPlaceholderText("تاریخ")
         self.document_due=QLineEdit(); self.document_due.setPlaceholderText("سررسید")
@@ -92,9 +94,10 @@ class DashboardPage(QWidget):
         self.cost_amount=QDoubleSpinBox(); self.cost_amount.setMaximum(999999999999999.0); self.cost_amount.setDecimals(2)
         self.cost_desc=QLineEdit(); self.cost_desc.setPlaceholderText("شرح هزینه")
         self.cost_date=QLineEdit(); self.cost_date.setPlaceholderText("تاریخ")
+        self.cost_counterparty=QComboBox(); self.cost_counterparty.setPlaceholderText("طرف حساب")
         self.cost_button=QPushButton("ثبت هزینه"); self.cost_button.setObjectName("SecondaryAction")
         self.cost_summary=QLabel("دفتر هزینه: ۰"); self.cost_summary.setWordWrap(True)
-        lv2.addWidget(self.cost_category); lv2.addWidget(self.cost_amount); lv2.addWidget(self.cost_desc,2); lv2.addWidget(self.cost_date); lv2.addWidget(self.cost_button); lv2.addWidget(self.cost_summary,1)
+        lv2.addWidget(self.cost_category); lv2.addWidget(self.cost_amount); lv2.addWidget(self.cost_desc,2); lv2.addWidget(self.cost_date); lv2.addWidget(self.cost_counterparty); lv2.addWidget(self.cost_button); lv2.addWidget(self.cost_summary,1)
         root.addWidget(ledger)
         body=QHBoxLayout(); body.setSpacing(14)
         left=QFrame(); left.setObjectName("DashboardCard"); lv=QVBoxLayout(left)
@@ -169,7 +172,7 @@ class DashboardPage(QWidget):
                 self.document_number.text(),
                 self.document_type.text() or "سند مالی",
                 float(self.document_amount.value()),
-                counterparty=self.document_counterparty.text(),
+                counterparty=self.document_counterparty.currentData() or "",
                 date=self.document_date.text(),
                 due_date=self.document_due.text(),
                 payment_status=self.document_status.currentData(),
@@ -179,7 +182,7 @@ class DashboardPage(QWidget):
             )
             summary=self.service.project_financial_document_summary(project_id)
             self.document_summary.setText(f'اسناد: {summary["document_count"]} مورد | مجموع: {summary["document_total"]:,.0f} | پرداخت‌نشده: {summary["by_payment_status"]["unpaid"]:,.0f}')
-            self.document_number.clear(); self.document_counterparty.clear(); self.document_commitment.clear(); self.document_cost.clear(); self.document_receipt.clear()
+            self.document_number.clear(); self.document_counterparty.setCurrentIndex(0); self.document_commitment.clear(); self.document_cost.clear(); self.document_receipt.clear()
         except Exception as exc:
             self.document_summary.setText(f"خطای ثبت سند: {exc}")
 
@@ -188,7 +191,7 @@ class DashboardPage(QWidget):
         if not project_id:
             self.commit_summary.setText("پروژه‌ای انتخاب نشده است."); return
         try:
-            self.service.add_project_commitment(project_id,float(self.commit_amount.value()),description=self.commit_desc.text(),date=self.commit_date.text(),due_date=self.commit_due.text(),reference=self.commit_ref.text())
+            self.service.add_project_commitment(project_id,float(self.commit_amount.value()),description=self.commit_desc.text(),date=self.commit_date.text(),due_date=self.commit_due.text(),reference=self.commit_ref.text(),counterparty=self.commit_counterparty.currentData() or "")
             self.on_control_project_changed(self.control_project.currentIndex())
             self.commit_desc.clear(); self.commit_ref.clear()
         except Exception as exc:
@@ -199,7 +202,7 @@ class DashboardPage(QWidget):
         if not project_id:
             self.receipt_summary.setText("پروژه‌ای انتخاب نشده است."); return
         try:
-            self.service.add_project_receipt(project_id,float(self.receipt_amount.value()),description=self.receipt_desc.text(),date=self.receipt_date.text(),reference=self.receipt_ref.text())
+            self.service.add_project_receipt(project_id,float(self.receipt_amount.value()),description=self.receipt_desc.text(),date=self.receipt_date.text(),reference=self.receipt_ref.text(),counterparty=self.receipt_counterparty.currentData() or "")
             self.on_control_project_changed(self.control_project.currentIndex())
             self.receipt_desc.clear(); self.receipt_ref.clear()
         except Exception as exc:
@@ -282,6 +285,14 @@ class DashboardPage(QWidget):
             parties=self.service.project_counterparties(project_id)
             preview=" | ".join(f'{x["name"]} ({x["role"] or "بدون نقش"})' for x in parties[:4])
             self.party_summary.setText(f"طرف حساب‌های ثبت‌شده: {len(parties)}" + (f" | {preview}" if preview else ""))
+            for widget in (self.commit_counterparty,self.receipt_counterparty,self.document_counterparty,self.cost_counterparty):
+                current=widget.currentData()
+                widget.blockSignals(True); widget.clear(); widget.addItem("بدون طرف حساب","")
+                for item in parties: widget.addItem(f'{item["name"]} — {item["role"] or "بدون نقش"}',item["name"])
+                idx=widget.findData(current)
+                widget.setCurrentIndex(idx if idx >= 0 else 0); widget.blockSignals(False)
+        except Exception as exc:
+            self.party_summary.setText(f"خطای دفتر طرف حساب‌ها: {exc}")
         except Exception as exc:
             self.party_summary.setText(f"خطای دفتر طرف حساب‌ها: {exc}")
 
@@ -294,7 +305,7 @@ class DashboardPage(QWidget):
         try:
             self.service.add_project_cost(
                 project_id, self.cost_category.currentText(), float(self.cost_amount.value()),
-                description=self.cost_desc.text(), date=self.cost_date.text()
+                description=self.cost_desc.text(), date=self.cost_date.text(), counterparty=self.cost_counterparty.currentData() or ""
             )
             s=self.service.project_cost_summary(project_id)
             self.cost_summary.setText(f'دفتر هزینه: {s["entry_count"]} مورد | مجموع: {s["actual_cost"]:,.0f}')
