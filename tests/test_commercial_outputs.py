@@ -51,3 +51,38 @@ def test_xlsx_contains_commercial_summary(tmp_path):
     assert "مبلغ نهایی" in values
     assert "کد" in values
     assert "W001" in values
+
+def test_payment_statement_calculates_period_and_deductions(tmp_path):
+    app = _seed(tmp_path)
+    project = app.open_project("R1")
+    project["boq"][0]["previous_quantity"] = 2
+    project["boq"][0]["current_quantity"] = 3
+    app.store.save("R1", project)
+    statement = app.build_statement(
+        "R1", previous_paid=500, retention_rate=0.05,
+        advance_recovery_rate=0.10, tax_rate=0.10, insurance_rate=0.02,
+    )
+    assert statement["lines"][0]["cumulative_quantity"] == 5
+    assert statement["gross_current"] == 3600
+    assert statement["retention"] == 180
+    assert statement["advance_recovery"] == 360
+    assert statement["taxable_current"] == 3060
+    assert statement["tax"] == 306
+    assert statement["insurance"] == 61.2
+    assert statement["payable_current"] == 3304.8
+    assert statement["balance_after_current"] == 2804.8
+
+
+def test_statement_export_contains_period_columns(tmp_path):
+    app = _seed(tmp_path)
+    project = app.open_project("R1")
+    project["boq"][0]["current_quantity"] = 4
+    app.store.save("R1", project)
+    path = tmp_path / "statement.xlsx"
+    app.report("R1", "xlsx", path)
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "قبلی" in values
+    assert "این دوره" in values
+    assert "تجمعی" in values
+    assert "مبلغ این دوره" in values
