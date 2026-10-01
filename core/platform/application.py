@@ -14,6 +14,7 @@ from core.validation.real_data import validate_project
 from core.engineering import EngineeringLibrary
 from core.projects.management import ProjectManagement, ScheduleTask, DailyReport, ResourceRecord, MaterialRecord, MeetingRecord
 from core.commercial.finance_depth import FinancePaymentControl, PaymentRecord, PaymentAllocation, BudgetLine
+from core.drawings.model_registry import ModelRegistry, ModelSource, ModelObject
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -79,6 +80,51 @@ class StructuralProApp:
         if project is None:
             raise KeyError(project_id)
         return evaluate_workflow(project)
+
+    def _model_registry(self, project_id: str) -> ModelRegistry:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return ModelRegistry(
+            sources=[ModelSource(**x) for x in p.get("model_sources", [])],
+            objects=[ModelObject(**x) for x in p.get("model_objects", [])],
+        )
+
+    def register_model_source(self, project_id: str, source: ModelSource) -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        registry = self._model_registry(project_id)
+        registry.register_source(source)
+        p["model_sources"] = [x.__dict__ for x in registry.sources]
+        self.store.save(project_id, p)
+        return dict(source.__dict__)
+
+    def add_model_object(self, project_id: str, obj: ModelObject) -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        registry = self._model_registry(project_id)
+        registry.add_object(obj)
+        p["model_objects"] = [x.__dict__ for x in registry.objects]
+        self.store.save(project_id, p)
+        return dict(obj.__dict__)
+
+    def project_model_inventory(self, project_id: str) -> dict[str, Any]:
+        return self._model_registry(project_id).source_inventory()
+
+    def project_model_revision_diff(self, project_id: str, old_revision: str, new_revision: str) -> dict[str, Any]:
+        return self._model_registry(project_id).revision_diff(old_revision, new_revision)
+
+    def project_model_takeoff_preview(self, project_id: str, *, mapping: dict[str, str] | None = None,
+                                      source_id: str | None = None, require_mapping: bool = False) -> dict[str, Any]:
+        """Convert BIM/CAD normalized objects to reviewable canonical takeoff rows."""
+        return self._model_registry(project_id).to_takeoff_rows(
+            mapping=mapping, source_id=source_id, require_mapping=require_mapping
+        )
+
+    def project_model_snapshot(self, project_id: str) -> dict[str, Any]:
+        return self._model_registry(project_id).export_dict()
 
     def add_takeoff(self,project_id:str,domain:str,item:str,**params)->dict[str,Any]:
         p=self.store.get(project_id)
