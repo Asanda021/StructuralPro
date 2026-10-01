@@ -44,7 +44,19 @@ class StructuralProApp:
     def recalculate_estimate(self, project_id: str, *, factors: dict[str,float] | None = None) -> dict[str,Any]:
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
-        estimate=build_estimate(p.get("boq",[]), factors=factors or {}, aggregate=False)
+        normalized_factors={str(k):float(v) for k,v in (factors or {}).items()}
+        estimate=build_estimate(p.get("boq",[]), factors=normalized_factors, aggregate=False)
+        # Keep the application service deterministic even if a downstream costing adapter is replaced.
+        if normalized_factors:
+            base=float(estimate["cost"].get("base",0) or 0)
+            subtotal=base
+            applied={}
+            for name,rate in normalized_factors.items():
+                delta=subtotal*rate
+                applied[name]=delta
+                subtotal+=delta
+            estimate["cost"]["factors"]=applied
+            estimate["cost"]["grand_total"]=subtotal
         p["estimate"]=estimate
         self.store.save(project_id,p)
         return estimate
