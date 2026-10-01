@@ -93,9 +93,19 @@ class StructuralProApp:
         boq_inputs=[]
         for takeoff in p["takeoffs"]:
             for q in takeoff.get("quantities",[]):
-                boq_inputs.append({"source":"manual","description":q.get("title",""),"quantity":q.get("amount",0),
-                                   "unit":q.get("unit",""),"price_code":q.get("price_code"),
-                                   "unit_price":q.get("unit_price")})
+                boq_inputs.append({
+                    "source": takeoff.get("source_id","") or "manual",
+                    "source_id": takeoff.get("source_id",""),
+                    "source_type": "takeoff",
+                    "description": q.get("title",""),
+                    "quantity": q.get("amount",0),
+                    "unit": q.get("unit",""),
+                    "item_code": q.get("code", item),
+                    "price_code": q.get("price_code"),
+                    "unit_price": q.get("unit_price"),
+                    "category": domain,
+                    "group": domain,
+                })
         p["boq"]=build_boq(boq_inputs)
         self.store.save(project_id,p); return row
 

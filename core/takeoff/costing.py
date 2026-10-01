@@ -7,8 +7,11 @@ def cost_breakdown(rows: Iterable[Any], factors: dict[str,float] | None = None) 
     base=0.0; by_group={}; by_code={}
     for r in rows:
         d=r if isinstance(r,dict) else vars(r)
+        status=str(d.get("status") or "active").strip().lower()
+        if status == "cancelled":
+            continue
         amount=float(d.get("total") or (float(d.get("quantity",0) or 0)*float(d.get("unit_price",0) or 0)))
-        group=str(d.get("group") or "سایر"); code=str(d.get("price_code") or "بدون کد")
+        group=str(d.get("group") or d.get("category") or "سایر"); code=str(d.get("price_code") or d.get("item_code") or "بدون کد")
         base += amount
         by_group[group]=by_group.get(group,0)+amount
         by_code[code]=by_code.get(code,0)+amount
