@@ -1,20 +1,24 @@
-; Inno Setup template for StructuralPro
+; StructuralPro Inno Setup template.
 #define MyAppName "StructuralPro"
 #define MyAppVersion "0.1.0"
 #define MyAppExeName "StructuralPro.exe"
 [Setup]
-AppId={{E2E3D4D5-7C21-4A1A-9D4A-STRUCTURALPRO}}
+AppId={{E2E3D4D5-7C21-4A1A-9D4A-123456789ABC}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-DefaultDirName={autopf}\StructuralPro
-OutputDir=dist\installer
-OutputBaseFilename=StructuralPro-Setup
+DefaultDirName={autopf}StructuralPro
+DefaultGroupName=StructuralPro
+OutputDir=dist
+OutputBaseFilename=StructuralPro-{#MyAppVersion}-Setup
 Compression=lzma
 SolidCompression=yes
+ArchitecturesInstallIn64BitMode=x64
+PrivilegesRequired=lowest
+WizardStyle=modern
 [Files]
-Source: "dist\StructuralPro\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "distStructuralPro*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 [Icons]
-Name: "{autoprograms}\StructuralPro"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\StructuralPro"; Filename: "{app}\{#MyAppExeName}"
-[UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+Name: "{group}StructuralPro"; Filename: "{app}{#MyAppExeName}"
+Name: "{autodesktop}StructuralPro"; Filename: "{app}{#MyAppExeName}"
+[Run]
+Filename: "{app}{#MyAppExeName}"; Description: "Launch StructuralPro"; Flags: nowait postinstall skipifsilent

@@ -1,5 +1,9 @@
-param([string]$Version="0.1.0")
+param([string]$Version="")
 $ErrorActionPreference="Stop"
-py -3.12 -m pip install -r requirements.txt pyinstaller
-pyinstaller --noconfirm --clean --onedir --windowed --name StructuralPro app/main.py
-Write-Host "StructuralPro Windows payload built in dist/StructuralPro"
+Set-Location (Split-Path -Parent $PSScriptRoot)
+if (-not $Version) { $Version=(Get-Content VERSION -Raw).Trim() }
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt pyinstaller
+python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpath dist --workpath build
+if (-not (Test-Path "dist/StructuralPro/StructuralPro.exe")) { throw "PyInstaller did not create dist/StructuralPro/StructuralPro.exe" }
+Write-Host "StructuralPro Windows payload built in dist/StructuralPro (version $Version)"
