@@ -508,6 +508,46 @@ class StructuralProApp:
         }
         return build_report(f'{p.get("name", "")} — گزارش هزینه پروژه', rows, summary_payload).export(path, fmt)
 
+    def add_project_counterparty(self, project_id: str, name: str, *, role: str = "", notes: str = "") -> dict[str, Any]:
+        """Create a normalized project counterparty master record."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        name = " ".join(str(name).strip().split())
+        role = " ".join(str(role).strip().split())
+        if not name:
+            raise ValueError("counterparty name cannot be empty")
+        records = list(p.get("counterparties", []))
+        key = name.casefold()
+        if any(str(x.get("name", "")).strip().casefold() == key for x in records):
+            raise ValueError("counterparty already exists")
+        record = {
+            "id": f"CP{len(records)+1:04d}",
+            "name": name,
+            "role": role,
+            "notes": str(notes).strip(),
+        }
+        records.append(record)
+        p["counterparties"] = records
+        self.store.save(project_id, p)
+        return record
+
+    def project_counterparties(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("counterparties", []))
+
+    def find_project_counterparty(self, project_id: str, name: str) -> dict[str, Any] | None:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        key = " ".join(str(name).strip().split()).casefold()
+        if not key:
+            return None
+        return next((x for x in p.get("counterparties", []) if str(x.get("name", "")).casefold() == key), None)
+
+
     def project_counterparty_summary(self, project_id: str) -> dict[str, Any]:
         """Aggregate project financial exposure by counterparty."""
         p = self.store.get(project_id)
