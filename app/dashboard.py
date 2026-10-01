@@ -66,6 +66,17 @@ class DashboardPage(QWidget):
         self.counterparty_summary=QLabel("طرف حساب‌ها: ۰"); self.counterparty_summary.setWordWrap(True)
         for x in (self.document_number,self.document_type,self.document_counterparty,self.document_amount,self.document_date,self.document_due,self.document_status,self.document_commitment,self.document_cost,self.document_receipt,self.document_button,self.document_summary,self.counterparty_summary): dv.addWidget(x)
         root.addWidget(documents)
+        aging=QFrame(); aging.setObjectName("DashboardCard"); av=QVBoxLayout(aging); av.setContentsMargins(12,10,12,10)
+        ah=QHBoxLayout()
+        ah.addWidget(QLabel("کنترل سررسید مالی"))
+        self.aging_as_of=QLineEdit(); self.aging_as_of.setPlaceholderText("تاریخ مبنا؛ مثال ۱۴۰۵/۰۷/۱۰"); self.aging_as_of.setMinimumWidth(180)
+        self.aging_button=QPushButton("بررسی سررسید"); self.aging_button.setObjectName("SecondaryAction")
+        self.aging_summary=QLabel("برای مشاهده وضعیت سررسید، تاریخ مبنا را وارد کنید."); self.aging_summary.setWordWrap(True)
+        ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
+        self.aging_table=QTableWidget(0,7); self.aging_table.setHorizontalHeaderLabels(["نوع","شناسه","طرف حساب","مرجع","سررسید","وضعیت","مانده"])
+        self.aging_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.aging_table.setAlternatingRowColors(True)
+        av.addWidget(self.aging_table)
+        root.addWidget(aging)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
         self.cost_category=QComboBox(); self.cost_category.addItems(["مصالح","دستمزد","پیمانکار","تجهیزات","سایر"])
@@ -94,6 +105,7 @@ class DashboardPage(QWidget):
         self.receipt_button.clicked.connect(self.add_receipt)
         self.commit_button.clicked.connect(self.add_commitment)
         self.document_button.clicked.connect(self.add_financial_document)
+        self.aging_button.clicked.connect(self.refresh_aging)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -206,6 +218,27 @@ class DashboardPage(QWidget):
             )
         except Exception as exc:
             self.control_result.setText(f"خطای داشبورد مالی: {exc}")
+
+    def refresh_aging(self):
+        project_id=self.control_project.currentData()
+        as_of=self.aging_as_of.text().strip()
+        if not project_id:
+            self.aging_summary.setText("پروژه‌ای انتخاب نشده است."); return
+        if not as_of:
+            self.aging_summary.setText("تاریخ مبنا را وارد کنید."); return
+        try:
+            aging=self.service.project_financial_aging(project_id, as_of)
+            self.aging_table.setRowCount(0)
+            for i,row in enumerate(aging["rows"]):
+                self.aging_table.insertRow(i)
+                values=[row["source"],row["id"],row["counterparty"],row["reference"],row["due_date"],row["status"],"" if row["outstanding"] is None else f'{row["outstanding"]:,.0f}']
+                for j,value in enumerate(values): self.aging_table.setItem(i,j,QTableWidgetItem(str(value)))
+            self.aging_summary.setText(
+                f'معوق: {aging["overdue_count"]} مورد | مبلغ معوق: {aging["overdue_amount"]:,.0f} | '
+                f'سررسید امروز: {aging["due_today_count"]} | آتی: {aging["upcoming_count"]} | بدون سررسید: {aging["no_due_date_count"]}'
+            )
+        except Exception as exc:
+            self.aging_summary.setText(f"خطای کنترل سررسید: {exc}")
 
     def add_cost(self):
         project_id=self.control_project.currentData()
