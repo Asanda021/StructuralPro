@@ -1,14 +1,10 @@
 name: StructuralPro Windows Release
-
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
-
+    tags: ["v*"]
 permissions:
   contents: read
-
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -18,33 +14,40 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Resolve version
-        id: version
+      - name: Validate version
         shell: pwsh
         run: |
           $v=(Get-Content VERSION -Raw).Trim()
-          if ("v$v" -ne "${{ github.ref_name }}" -and "${{ github.ref_type }}" -eq "tag") { throw "Git tag does not match VERSION: expected v$v, got ${{ github.ref_name }}" }
-          "version=$v" >> $env:GITHUB_OUTPUT
-      - name: Build Windows payload
+          if ("v$v" -ne "${{ github.ref_name }}" -and "${{ github.ref_type }}" -eq "tag") { throw "Tag/version mismatch" }
+      - name: Build payload
         shell: pwsh
-        run: ./packaging/build_windows.ps1 -Version "${{ steps.version.outputs.version }}"
-      - name: Validate packaged executable
+        run: ./packaging/build_windows.ps1
+      - name: Validate payload
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist/StructuralPro/StructuralPro.exe")) { throw "StructuralPro.exe was not produced" }
+          if (-not (Test-Path "dist/StructuralPro/StructuralPro.exe")) { throw "Missing executable" }
+          if (-not (Test-Path "dist/StructuralPro/VERSION")) { throw "Missing embedded VERSION" }
+          $expected=(Get-Content VERSION -Raw).Trim()
+          $actual=(Get-Content "dist/StructuralPro/VERSION" -Raw).Trim()
+          if ($expected -ne $actual) { throw "Embedded VERSION mismatch" }
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
       - name: Build installer
         shell: pwsh
         run: |
-          $v="${{ steps.version.outputs.version }}"
+          $v=(Get-Content VERSION -Raw).Trim()
           (Get-Content packaging/installer.iss) -replace '#define MyAppVersion "0.1.0"', ('#define MyAppVersion "'+$v+'"') | Set-Content packaging/installer.generated.iss
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging/installer.generated.iss
-      - name: Upload Windows artifacts
+      - name: Validate installer
+        shell: pwsh
+        run: |
+          $v=(Get-Content VERSION -Raw).Trim()
+          if (-not (Test-Path "dist/StructuralPro-$v-Setup.exe")) { throw "Installer missing" }
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: StructuralPro-Windows-${{ steps.version.outputs.version }}
+          name: StructuralPro-Windows-${{ github.ref_name }}
           path: |
-            dist/StructuralPro-${{ steps.version.outputs.version }}-Setup.exe
             dist/StructuralPro/
+            dist/StructuralPro-*-Setup.exe
