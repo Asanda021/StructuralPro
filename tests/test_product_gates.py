@@ -6,6 +6,7 @@ from core.ai.hardware_profiles import select_profile, validate_model_manifest
 from core.platform.mobile_runtime import AndroidRuntime, TelegramRuntime
 from core.sync.memory import MemorySyncProvider\nfrom core.sync.manager import SyncManager\nfrom core.sync.offline_queue import OfflineQueue
 from core.pricing.source_registry import PriceSource, PriceSourceRegistry
+from core.platform.application import StructuralProApp
 
 def _fake_converter(tmp_path):
     exe=tmp_path/"fake-dwg2dxf"
@@ -93,3 +94,14 @@ def test_sync_manager_end_to_end(tmp_path):
     result=manager.sync("P2")
     assert result.pushed==1 and result.pulled==1
     assert manager.queue.peek()==[]
+
+
+def test_windows_shared_application_workflow(tmp_path):
+    app=StructuralProApp(tmp_path)
+    app.create_project("P1","پروژه")
+    app.add_takeoff("P1","building","slab",length=2,width=3,height=0.2)
+    app.add_takeoff("P1","building","wall",length=4,height=3)
+    p=app.open_project("P1")
+    assert p["name"]=="پروژه" and len(p["takeoffs"])==2
+    assert len(p["boq"])==2
+    assert app.validate("P1")==[]
