@@ -36,6 +36,15 @@ class TakeoffWorkflow:
         x["assembly_total"]=sum(float(c["cost"]) for c in x["assembly"])
         return x
 
+    def graphical_rows(self, session, selected_ids=None):
+        """Convert a DrawingTakeoffSession into validated BOQ-ready rows."""
+        if not hasattr(session, "boq_rows") or not hasattr(session, "validate"):
+            raise TypeError("session must be a DrawingTakeoffSession")
+        validation = session.validate()
+        if not validation["valid"]:
+            raise ValueError("؛ ".join(validation["issues"]))
+        return session.boq_rows(selected_ids)
+
     def build_estimate(self,rows,price_lookup=None):
         result=[]
         for row in rows:
