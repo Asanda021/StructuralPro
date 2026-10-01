@@ -252,3 +252,24 @@ def test_project_financial_report_exports_consolidated_rows(tmp_path):
     assert 2500 in values
     assert 12000 in values
     assert 5000 in values
+
+
+def test_project_counterparty_summary_and_report(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("طرف حساب", "CP1")
+    app.add_project_commitment("CP1", 12000, category="پیمانکار", paid_amount=3000, counterparty="شرکت الف")
+    app.add_project_cost("CP1", "پیمانکار", 2500, description="اجرا", counterparty="شرکت الف")
+    app.add_project_receipt("CP1", 5000, description="دریافت", counterparty="کارفرمای اصلی")
+    app.add_project_financial_document("CP1", "INV-CP-1", "فاکتور", 2500, counterparty="شرکت الف", payment_status="partial")
+    summary = app.project_counterparty_summary("CP1")
+    assert summary["counterparty_count"] == 2
+    rows = {x["counterparty"]: x for x in summary["counterparties"]}
+    assert rows["شرکت الف"]["committed_amount"] == 12000
+    assert rows["شرکت الف"]["paid_commitments"] == 3000
+    assert rows["شرکت الف"]["unpaid_commitments"] == 9000
+    assert rows["شرکت الف"]["actual_cost"] == 2500
+    assert rows["شرکت الف"]["document_amount"] == 2500
+    assert rows["کارفرمای اصلی"]["received"] == 5000
+    path = tmp_path / "counterparties.xlsx"
+    assert app.project_counterparty_report("CP1", "xlsx", path) == path
+    assert path.exists() and path.stat().st_size > 0
