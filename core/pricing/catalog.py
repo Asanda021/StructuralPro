@@ -95,7 +95,8 @@ class PriceCatalog:
     def get(self, code: str, year: int | None = None) -> PriceItem | None:
         code = code.strip()
         if year is not None:
-            return self._items.get((int(year), code))
+            key = self._key(year, code)
+            return self._overrides.get(key) or self._items.get(key)
         matches = [self._overrides.get((y, code)) or x for (y,c), x in self._items.items() if c == code]
         return sorted(matches, key=lambda x: x.year, reverse=True)[0] if matches else None
 
