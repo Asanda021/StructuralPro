@@ -12,6 +12,7 @@ from core.ai.qa_engine import ProjectQA
 from core.projects.user_workflow import evaluate_workflow
 from core.validation.real_data import validate_project
 from core.engineering import EngineeringLibrary
+from core.projects.management import ProjectManagement, ScheduleTask, DailyReport, ResourceRecord, MaterialRecord, MeetingRecord
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -429,6 +430,40 @@ class StructuralProApp:
         """Return one persisted statement period by number."""
         period_no = int(period_no)
         return next((x for x in self.statement_periods(project_id) if int(x.get("number", 0)) == period_no), None) or (_ for _ in ()).throw(KeyError(period_no))
+
+    def project_management_snapshot(self, project_id: str, *, as_of: str | None = None) -> dict[str, Any]:
+        """Return a read-only operational management dashboard for a project."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        def _load(cls, key):
+            return [cls(**row) for row in p.get(key, [])]
+        manager = ProjectManagement(
+            tasks=_load(ScheduleTask, "project_schedule_tasks"),
+            daily_reports=_load(DailyReport, "project_daily_reports"),
+            resources=_load(ResourceRecord, "project_resources"),
+            materials=_load(MaterialRecord, "project_materials"),
+            meetings=_load(MeetingRecord, "project_meetings"),
+        )
+        return {"project_id": project_id, "dashboard": manager.dashboard(as_of=as_of),
+                "actual_vs_plan": manager.actual_vs_plan(), "export": manager.export_dict()}
+
+    def save_project_management(self, project_id: str, management: ProjectManagement) -> dict[str, Any]:
+        """Persist a validated management snapshot without changing legacy project fields."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        management.validate()
+        exported = management.export_dict()
+        p.update({
+            "project_schedule_tasks": exported["tasks"],
+            "project_daily_reports": exported["daily_reports"],
+            "project_resources": exported["resources"],
+            "project_materials": exported["materials"],
+            "project_meetings": exported["meetings"],
+        })
+        self.store.save(project_id, p)
+        return self.project_management_snapshot(project_id)
 
     def project_activity_summary(self, project_id: str) -> dict[str, Any]:
         """Provide a compact project activity inventory for dashboards."""
