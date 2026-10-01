@@ -130,6 +130,7 @@ class DashboardPage(QWidget):
         self.document_button.clicked.connect(self.add_financial_document)
         self.document_button.clicked.connect(self.refresh_financial_document_status)
         self.aging_button.clicked.connect(self.refresh_aging)
+        self.aging_button.clicked.connect(self.refresh_due_summary)
         self.aging_export_button.clicked.connect(self.export_aging)
         self.reconcile_button.clicked.connect(self.refresh_reconciliation)
         self.party_button.clicked.connect(self.add_counterparty)
@@ -287,6 +288,24 @@ class DashboardPage(QWidget):
             )
         except Exception as exc:
             self.document_summary.setText(f"خطای خلاصه اسناد: {exc}")
+
+    def refresh_due_summary(self):
+        project_id=self.control_project.currentData()
+        as_of=self.aging_as_of.text().strip()
+        if not project_id or not as_of:
+            return
+        try:
+            s=self.service.project_financial_due_summary(project_id,as_of)
+            risk="—"
+            if s["highest_risk"]:
+                risk=f'{s["highest_risk"].get("source","")} #{s["highest_risk"].get("id","")}'
+            self.aging_summary.setText(
+                f'معوق: {s["overdue_count"]} / {s["overdue_amount"]:,.0f} | '
+                f'امروز: {s["due_today_count"]} | آتی: {s["upcoming_count"]} | '
+                f'بدون سررسید: {s["no_due_date_count"]} | مانده باز: {s["total_open_amount"]:,.0f} | ریسک اول: {risk}'
+            )
+        except Exception as exc:
+            self.aging_summary.setText(f"خطای خلاصه سررسید: {exc}")
 
     def refresh_aging(self):
         project_id=self.control_project.currentData()
