@@ -15,7 +15,7 @@ def test_priority18_dependencies_and_atomic_validation():
     m = ProjectManagement(tasks=[ScheduleTask("T1", "A", "2026-01-01", "2026-01-02", progress=100, status="done"), ScheduleTask("T2", "B", "2026-01-03", "2026-01-04", predecessor_ids=("T1",))])
     assert m.dependency_ready("T2") is True
     m.add_task(ScheduleTask("T3", "C", "2026-01-05", "2026-01-06", predecessor_ids=("T2",)))
-    assert "T3" not in m.blocked_tasks()
+    assert "T3" in m.blocked_tasks()
     with pytest.raises(ValueError):
         m.add_task(ScheduleTask("T4", "D", "2026-01-07", "2026-01-08", predecessor_ids=("UNKNOWN",)))
 
