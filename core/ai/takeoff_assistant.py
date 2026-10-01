@@ -28,3 +28,9 @@ class LocalTakeoffAssistant:
             if not str(r.get("unit","")).strip(): issues.append({"row":i,"severity":"warning","code":"missing_unit"})
             if not str(r.get("price_code","")).strip(): issues.append({"row":i,"severity":"warning","code":"missing_price_code"})
         return issues
+
+
+class SafeTakeoffSuggestion:
+    """Presentation boundary: suggestions require explicit human confirmation."""
+    def __init__(self, assistant=None): self.assistant=assistant or LocalTakeoffAssistant()
+    def explain(self, suggestion): return {"suggestion":suggestion,"requires_user_confirmation":True,"deterministic":False}
