@@ -344,3 +344,17 @@ def test_project_financial_aging_rejects_invalid_as_of_date(tmp_path):
     app.create_project("تاریخ نامعتبر", "AGE2")
     with pytest.raises(ValueError):
         app.project_financial_aging("AGE2", "1405/99/99")
+
+
+def test_project_counterparty_master_registry_normalizes_and_prevents_duplicates(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("دفتر طرف حساب", "CP1")
+    first = app.add_project_counterparty("CP1", "  شرکت   نمونه  ", role="پیمانکار", notes="اصلی")
+    assert first["id"] == "CP0001"
+    assert first["name"] == "شرکت نمونه"
+    assert app.find_project_counterparty("CP1", "شرکت نمونه")["id"] == "CP0001"
+    with pytest.raises(ValueError):
+        app.add_project_counterparty("CP1", "شرکت نمونه")
+    second = app.add_project_counterparty("CP1", "فروشنده الف", role="فروشنده")
+    assert second["id"] == "CP0002"
+    assert [x["name"] for x in app.project_counterparties("CP1")] == ["شرکت نمونه", "فروشنده الف"]
