@@ -117,3 +117,22 @@ def test_project_cost_report_exports_rows_and_category_totals(tmp_path):
     assert 2000 in values
     assert "مصالح" in values
     assert "دستمزد" in values
+
+
+def test_financial_dashboard_includes_actual_cost_and_gross_margin(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("داشبورد مالی", "FD1")
+    app.add_takeoff(
+        "FD1", "building", "wall",
+        length=10, width=0.2, height=3,
+        price_code="W001", unit_price=1200,
+    )
+    p = app.open_project("FD1")
+    p["boq"][0]["current_quantity"] = 5
+    app.store.save("FD1", p)
+    app.add_project_cost("FD1", "مصالح", 1500)
+    dash = app.financial_dashboard("FD1")
+    assert dash["actual_cost"] == 1500
+    assert dash["cost_entry_count"] == 1
+    assert dash["gross_margin"] == dash["cumulative_work"] - 1500
+    assert dash["cost_by_category"]["مصالح"] == 1500
