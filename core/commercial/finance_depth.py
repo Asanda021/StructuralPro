@@ -123,7 +123,7 @@ class FinancePaymentControl:
         for b in self.budget:
             _text(b.code, "budget code", True)
             _text(b.category, "budget category", True)
-            _text(b.description, "budget description", True)
+            _text(b.description, "budget description")
             _money(b.planned, "planned budget")
         self._validate_payment_totals()
         return self
