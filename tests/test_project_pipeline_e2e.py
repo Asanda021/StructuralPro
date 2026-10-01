@@ -175,3 +175,52 @@ def test_project_commitment_rejects_invalid_paid_amount(tmp_path):
     app.create_project("تعهد نامعتبر", "C2")
     with pytest.raises(ValueError):
         app.add_project_commitment("C2", 1000, paid_amount=1200)
+
+
+def test_project_financial_document_center_links_ledgers_and_summarizes(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("اسناد مالی", "FDOC1")
+    commitment = app.add_project_commitment("FDOC1", 12000, category="پیمانکار", paid_amount=2000)
+    cost = app.add_project_cost("FDOC1", "پیمانکار", 9000, description="صورت‌حساب پیمانکار")
+    receipt = app.add_project_receipt("FDOC1", 5000, description="دریافت کارفرما")
+    doc = app.add_project_financial_document(
+        "FDOC1", "INV-1405-001", "فاکتور پیمانکار", 9000,
+        counterparty="شرکت اجرا", date="1405/07/10", due_date="1405/07/30",
+        reference="REF-001", notes="فاکتور مرحله اول", payment_status="partial",
+        commitment_id=commitment["id"], cost_entry_id=cost["id"], receipt_id=receipt["id"],
+    )
+    assert doc["id"] == 1
+    assert doc["document_number"] == "INV-1405-001"
+    assert doc["commitment_id"] == commitment["id"]
+    assert doc["cost_entry_id"] == cost["id"]
+    assert doc["receipt_id"] == receipt["id"]
+    summary = app.project_financial_document_summary("FDOC1")
+    assert summary["document_count"] == 1
+    assert summary["document_total"] == 9000
+    assert summary["by_payment_status"]["partial"] == 9000
+    assert summary["by_type"]["فاکتور پیمانکار"] == 9000
+    assert app.project_financial_documents("FDOC1")[0]["counterparty"] == "شرکت اجرا"
+
+
+def test_project_financial_document_validates_links_and_unique_number(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("اعتبارسنجی سند", "FDOC2")
+    with pytest.raises(KeyError):
+        app.add_project_financial_document("FDOC2", "INV-1", "فاکتور", 1000, commitment_id=99)
+    app.add_project_financial_document("FDOC2", "INV-1", "فاکتور", 1000)
+    with pytest.raises(ValueError):
+        app.add_project_financial_document("FDOC2", "INV-1", "فاکتور", 500)
+    with pytest.raises(ValueError):
+        app.add_project_financial_document("FDOC2", "INV-2", "فاکتور", 500, payment_status="unknown")
+
+
+def test_project_ledger_entries_can_reference_financial_documents(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("ارتباط دفترها", "FDOC3")
+    doc = app.add_project_financial_document("FDOC3", "DOC-1", "سند هزینه", 1500)
+    cost = app.add_project_cost("FDOC3", "مصالح", 1500, document_id=doc["id"])
+    commitment = app.add_project_commitment("FDOC3", 2000, document_id=doc["id"])
+    receipt = app.add_project_receipt("FDOC3", 500, document_id=doc["id"])
+    assert cost["document_id"] == doc["id"]
+    assert commitment["document_id"] == doc["id"]
+    assert receipt["document_id"] == doc["id"]
