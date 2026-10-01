@@ -15,7 +15,7 @@ class StructuralProApp:
         self.takeoff=TakeoffEngine()
         self.qa=ProjectQA()
 
-    def create_project(self,name:str,project_id:str)->dict[str,Any]:
+    def create_project(self,project_id:str,name:str)->dict[str,Any]:
         project={"id":project_id,"name":name,"takeoffs":[],"boq":[],"metadata":{"offline":True}}
         self.store.save(project_id,project); return self.store.get(project_id)
 
@@ -29,8 +29,13 @@ class StructuralProApp:
              "description":item,"quantities":[{"code":item,"title":item,"unit":result.unit,"amount":result.quantity,
              "formula":result.formula,"warning":result.warning}]}
         p["takeoffs"].append(row)
-        p["boq"]=build_boq([{"source":"manual","description":item,"quantity":result.quantity,"unit":result.unit,
-                             "price_code":params.get("price_code"),"unit_price":params.get("unit_price")}])
+        boq_inputs=[]
+        for takeoff in p["takeoffs"]:
+            for q in takeoff.get("quantities",[]):
+                boq_inputs.append({"source":"manual","description":q.get("title",""),"quantity":q.get("amount",0),
+                                   "unit":q.get("unit",""),"price_code":q.get("price_code"),
+                                   "unit_price":q.get("unit_price")})
+        p["boq"]=build_boq(boq_inputs)
         self.store.save(project_id,p); return row
 
     def validate(self,project_id:str): 
