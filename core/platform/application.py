@@ -290,6 +290,9 @@ class StructuralProApp:
         remaining = max(contract - cumulative, 0.0)
         percent = (cumulative / contract * 100.0) if contract else 0.0
         total_payable = sum(float(x.get("payable_current", 0) or 0) for x in periods)
+        cost_summary = self.project_cost_summary(project_id)
+        actual_cost = float(cost_summary["actual_cost"])
+        gross_margin = cumulative - actual_cost
         return {
             "project_id": project_id,
             "project_name": p.get("name", ""),
@@ -303,6 +306,10 @@ class StructuralProApp:
             "latest_statement_no": latest.get("number") if latest else None,
             "latest_payable": float(latest.get("payable_current", 0) or 0) if latest else 0.0,
             "total_payable": total_payable,
+            "actual_cost": actual_cost,
+            "gross_margin": gross_margin,
+            "cost_entry_count": cost_summary["entry_count"],
+            "cost_by_category": cost_summary["by_category"],
             "warnings": list((estimate.get("warnings") or [])),
         }
 
