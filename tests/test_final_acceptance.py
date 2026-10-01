@@ -6,8 +6,8 @@ from core.pricing.datasets import export_dataset,load_dataset
 
 def test_offline_project_store_and_revisions(tmp_path):
     s=ProjectStore(tmp_path/"p.db")
-    assert s.save("p1",{"name":"A","takeoffs":[{"q":2]})["version"]==1
-    assert s.save("p1",{"name":"A2","takeoffs":[{"q":3]})["version"]==2
+    assert s.save("p1",{"name":"A","takeoffs":[{"q":2}]}["version"]==1
+    assert s.save("p1",{"name":"A2","takeoffs":[{"q":3}]}["version"]==2
     assert s.get("p1")["name"]=="A2" and len(s.revisions("p1"))==2
     s.close()
 
