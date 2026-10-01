@@ -193,23 +193,39 @@ def main()->int:
     bgo.clicked.connect(show_boq)
     pages.addWidget(p); idx_boq=pages.count()-1
 
-    # Reports — export center
-    p,v=page("گزارشات","مرکز خروجی حرفه‌ای برای Excel، PDF، Word و CSV")
+    # Reports — commercial output center connected to the application service
+    p,v=page("گزارشات","مرکز خروجی حرفه‌ای متصل به برآورد تجاری پروژه")
     rtools=QFrame(); rtools.setObjectName("DashboardCard"); rv=QHBoxLayout(rtools); rv.setContentsMargins(12,10,12,10)
     rpid=QLineEdit(); rpid.setPlaceholderText("شناسه پروژه")
     rfmt=QComboBox(); rfmt.addItems(["xlsx","pdf","docx","csv"])
     rgo=QPushButton("ساخت گزارش"); rgo.setObjectName("PrimaryAction")
     rv.addWidget(QLabel("پروژه")); rv.addWidget(rpid,1); rv.addWidget(QLabel("فرمت")); rv.addWidget(rfmt); rv.addWidget(rgo); v.addWidget(rtools)
-    rtitle=QLabel("وضعیت خروجی"); rtitle.setObjectName("SectionTitle"); v.addWidget(rtitle)
+    rtitle=QLabel("خلاصه خروجی"); rtitle.setObjectName("SectionTitle"); v.addWidget(rtitle)
+    rsummary=QLabel("پروژه را وارد کنید و گزارش را بسازید."); rsummary.setWordWrap(True); v.addWidget(rsummary)
     rout=QTextEdit(); rout.setReadOnly(True); v.addWidget(rout,1)
     def make_report():
-        project=service.open_project(rpid.text().strip())
+        project_id=rpid.text().strip()
+        if not project_id: QMessageBox.warning(w,"گزارش","شناسه پروژه را وارد کنید."); return
+        project=service.open_project(project_id)
         if not project: QMessageBox.warning(w,"گزارش","پروژه پیدا نشد."); return
-        rows=[{"source":"manual","price_code":q.get("price_code"),"description":q.get("title",""),"quantity":q.get("amount",0),"unit":q.get("unit",""),"unit_price":q.get("unit_price")} for t in project.get("takeoffs",[]) for q in t.get("quantities",[])]
-        rows=prepare_rows(rows,"fa")
-        path=QFileDialog.getSaveFileName(w,"ذخیره گزارش",f'{project.get("name","project")}.{rfmt.currentText()}',f'{rfmt.currentText().upper()} (*.{rfmt.currentText()})')[0]
+        fmt=rfmt.currentText()
+        default_name=f'{project.get("name","project")}_report.{fmt}'
+        path=QFileDialog.getSaveFileName(w,"ذخیره گزارش",default_name,f'{fmt.upper()} (*.{fmt})')[0]
         if not path:return
-        try: build_report(project.get("name",""),rows,{"rtl":True}).export(path,rfmt.currentText()); rout.setPlainText("گزارش با موفقیت ساخته شد.\n"+path)
+        try:
+            service.recalculate_estimate(project_id)
+            service.report(project_id,fmt,path)
+            latest=service.open_project(project_id)
+            estimate=latest.get("estimate",{}) or {}
+            cost=estimate.get("cost",{}) or {}
+            summary=estimate.get("summary",{}) or {}
+            rsummary.setText(
+                f'پروژه: {latest.get("name","")} | ردیف‌ها: {summary.get("line_count",0)} | '
+                f'مبلغ پایه: {float(cost.get("base",0) or 0):,.2f} | '
+                f'مبلغ نهایی: {float(cost.get("grand_total",0) or 0):,.2f}'
+            )
+            rout.setPlainText("گزارش تجاری با موفقیت ساخته شد.\n"+path+"\n\n"
+                              "منبع گزارش: BOQ/Estimate ذخیره‌شده پروژه")
         except Exception as e: QMessageBox.critical(w,"خطای گزارش",str(e))
     rgo.clicked.connect(make_report)
     pages.addWidget(p); idx_reports=pages.count()-1
