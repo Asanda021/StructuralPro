@@ -1,6 +1,6 @@
 """Commercial dashboard widgets for StructuralPro Windows UI."""
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QPushButton,QFrame,QTableWidget,QTableWidgetItem,QHeaderView,QComboBox,QDoubleSpinBox
 
 def _card(title, value, hint):
     f=QFrame(); f.setObjectName("KpiCard")
@@ -19,6 +19,15 @@ class DashboardPage(QWidget):
         desc=QLabel("نمای عملیاتی پروژه‌ها، متره، نقشه‌ها و وضعیت داده‌های مالی"); desc.setObjectName("PageDescription")
         root.addWidget(title); root.addWidget(desc)
         self.cards=QGridLayout(); self.cards.setSpacing(12); root.addLayout(self.cards)
+        control=QFrame(); control.setObjectName("DashboardCard"); cv=QHBoxLayout(control); cv.setContentsMargins(12,10,12,10)
+        cv.addWidget(QLabel("کنترل مالی"))
+        self.control_project=QComboBox(); self.control_project.setMinimumWidth(180)
+        self.planned_cost=QDoubleSpinBox(); self.planned_cost.setMaximum(999999999999999.0); self.planned_cost.setDecimals(2); self.planned_cost.setPrefix("برنامه: ")
+        self.actual_cost=QDoubleSpinBox(); self.actual_cost.setMaximum(999999999999999.0); self.actual_cost.setDecimals(2); self.actual_cost.setPrefix("واقعی: ")
+        self.control_button=QPushButton("محاسبه کنترل"); self.control_button.setObjectName("PrimaryAction")
+        self.control_result=QLabel("برای محاسبه، پروژه و هزینه‌های برنامه‌ای/واقعی را انتخاب کنید."); self.control_result.setWordWrap(True)
+        cv.addWidget(self.control_project); cv.addWidget(self.planned_cost); cv.addWidget(self.actual_cost); cv.addWidget(self.control_button); cv.addWidget(self.control_result,2)
+        root.addWidget(control)
         body=QHBoxLayout(); body.setSpacing(14)
         left=QFrame(); left.setObjectName("DashboardCard"); lv=QVBoxLayout(left)
         lt=QLabel("پروژه‌های اخیر"); lt.setObjectName("SectionTitle"); lv.addWidget(lt)
@@ -32,6 +41,7 @@ class DashboardPage(QWidget):
             if on_open_page: b.clicked.connect(lambda _=False,i=idx: on_open_page(i))
             rv.addWidget(b)
         rv.addStretch(); body.addWidget(left,3); body.addWidget(right,1); root.addLayout(body,1)
+        self.control_button.clicked.connect(self.calculate_control)
         self.refresh()
     def refresh(self):
         projects=self.service.store.list()
@@ -49,21 +59,39 @@ class DashboardPage(QWidget):
             except Exception:
                 status="آماده"
             for j,val in enumerate([p.get("id",""),p.get("name",""),status]): self.table.setItem(i,j,QTableWidgetItem(str(val)))
+        self.control_project.blockSignals(True)
+        self.control_project.clear()
+        for p in projects: self.control_project.addItem(f'{p.get("id","")} | {p.get("name","")}', p.get("id",""))
+        self.control_project.blockSignals(False)
         if projects:
             self.refresh_financial(projects[-1].get("id",""))
-    def show_cost_control(self, project_id):
-        try:
-            control=self.service.project_financial_control(project_id)
-        except Exception:
+            self.control_project.setCurrentIndex(self.control_project.count()-1)
+            try:
+                d=self.service.financial_dashboard(projects[-1].get("id",""))
+                self.planned_cost.setValue(float(d["contract_amount"]))
+            except Exception:
+                pass
+    def calculate_control(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.control_result.setText("پروژه‌ای برای کنترل مالی انتخاب نشده است.")
             return
-        cards=[
-            ("ارزش کارکرد",f'{control["earned_value"]:,.0f}',"کارکرد تجمعی"),
-            ("انحراف هزینه",f'{control["cost_variance"]:,.0f}',"کارکرد منهای هزینه واقعی"),
-            ("انحراف برنامه",f'{control["schedule_variance"]:,.0f}',"مقایسه با برنامه"),
-            ("شاخص هزینه",("—" if control["cost_performance_index"] is None else f'{control["cost_performance_index"]:.2f}'),"CPI"),
-        ]
-        for i,(a,b,h) in enumerate(cards):
-            self.cards.addWidget(_card(a,b,h),1,i)
+        try:
+            d=self.service.project_financial_control(
+                project_id,
+                planned_cost=float(self.planned_cost.value()),
+                actual_cost=float(self.actual_cost.value()),
+            )
+            cpi=d["cost_performance_index"]
+            cpi_text="—" if cpi is None else f'{cpi:.2f}'
+            self.control_result.setText(
+                f'ارزش کارکرد: {d["earned_value"]:,.0f} | '
+                f'انحراف هزینه: {d["cost_variance"]:,.0f} | '
+                f'انحراف برنامه: {d["schedule_variance"]:,.0f} | '
+                f'CPI: {cpi_text} | پیشرفت: {d["progress_percent"]:.1f}%'
+            )
+        except Exception as exc:
+            self.control_result.setText(f"خطای کنترل مالی: {exc}")
 
     def refresh_financial(self, project_id):
         try:
