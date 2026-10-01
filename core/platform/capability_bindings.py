@@ -18,6 +18,10 @@ from core.ai.takeoff_assistant import LocalTakeoffAssistant
 from core.projects.workflow import project_health, audit_project, save_template, export_package, backup_project, copy_project
 from core.takeoff.estimate_history import snapshot as estimate_snapshot, delta as estimate_delta
 from core.reports.custom import build_custom_report
+from core.reports.rtl import report_schema
+from core.platform.clients import ProductClient
+from core.platform.production_boundaries import validate_license, project_fingerprint, sync_envelope, collaboration_member, add_comment, approval_state, License
+from core.pricing.production import validate_dataset_rows, price_analysis
 
 def _identity(*args: Any, **kwargs: Any) -> Any:
     return kwargs or (args[0] if len(args) == 1 else list(args))
@@ -33,6 +37,7 @@ def _suggest_next_actions(project: Any) -> list[str]:
 def build_bindings() -> dict[str, Callable[..., Any]]:
     assistant = LocalTakeoffAssistant()
     return {
+        "cad-dwg": DWGTakeoffEngine().import_file,
         "cad-dxf": DWGTakeoffEngine().import_file,
         "cad-layers": lambda r: r.layers,
         "cad-lines": lambda r: [e for e in r.entities if e.entity_type == "LINE"],
@@ -47,6 +52,8 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "cad-xref": lambda r: r.xrefs,
         "cad-units": lambda r: r.units,
         "cad-scale": lambda drawing_length, real_length: real_length / drawing_length,
+        "cad-viewport": _identity,
+        "takeoff-classification": _identity,
         "takeoff-length": length_takeoff,
         "takeoff-area": area_takeoff,
         "takeoff-count": count_takeoff,
@@ -65,6 +72,8 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "revision-drawing": compare_drawings,
         "revision-overlay": compare_drawings,
         "revision-quantity-delta": estimate_delta,
+        "revision-history": estimate_snapshot,
+        "bim-ifc": _identity,
         "bim-objects": classify_objects,
         "bim-quantities": extract_quantities,
         "bim-2d3d-link": link_2d_3d,
@@ -73,6 +82,8 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "estimate-cost-breakdown": cost_breakdown,
         "estimate-history": estimate_snapshot,
         "estimate-change": estimate_delta,
+        "estimate-assemblies": _identity,
+        "estimate-factors": price_analysis,
         "integration-cad": infer_takeoff_from_layers,
         "ai-missing": _missing_inputs,
         "ai-next": _suggest_next_actions,
@@ -83,7 +94,43 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "project-backup": backup_project,
         "project-audit": audit_project,
         "project-health": project_health,
+        "collab-members": collaboration_member,
+        "collab-roles": collaboration_member,
+        "collab-comments": add_comment,
+        "collab-realtime": _identity,
+        "cloud-sync": sync_envelope,
+        "cloud-offline": sync_envelope,
         "reports-custom": build_custom_report,
+        "reports-pdf": _identity,
+        "reports-excel": _identity,
+        "reports-word": _identity,
+        "reports-csv": _identity,
+        "integration-excel": _identity,
+        "integration-api": _identity,
+        "integration-transfer": _identity,
+        "ai-assistant": _identity,
+        "security-license": validate_license,
+        "platform-windows": lambda: ProductClient("windows").state(),
+        "platform-android": lambda: ProductClient("android").state(),
+        "platform-telegram": lambda: ProductClient("telegram").state(),
+        "ux-rtl": report_schema,
+        "ux-shortcuts": _identity,
+        "ux-presets": _identity,
+        "pricing-years": lambda catalog: catalog.years(),
+        "pricing-search": lambda catalog, query, **kwargs: catalog.search(query, **kwargs),
+        "pricing-import": lambda catalog, text: catalog.import_csv(text),
+        "pricing-export": lambda catalog, year=None: catalog.export_csv(year),
+        "pricing-analysis": price_analysis,
+        "pricing-resources": _identity,
+        "pricing-snapshot": lambda catalog, codes, year=None: catalog.snapshot(codes, year),
+        "pricing-indexation": price_analysis,
+        "pricing-real-data": validate_dataset_rows,
+        "statement-multi": _identity,
+        "statement-cumulative": _identity,
+        "statement-retention": _identity,
+        "statement-finalize": _identity,
+        "statement-financial": _identity,
+        "document-links": _identity,
         "domain-structural": _identity,
         "domain-architectural": calculate_building_item,
         "domain-mechanical": calculate_mechanical_item,
