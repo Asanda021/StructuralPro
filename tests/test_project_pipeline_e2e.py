@@ -99,3 +99,21 @@ def test_project_cost_ledger_persists_and_feeds_financial_control(tmp_path):
     assert summary["by_category"]["مصالح"] == 1500
     control = app.project_financial_control("C1")
     assert control["actual_cost"] == 2000
+
+
+def test_project_cost_report_exports_rows_and_category_totals(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("گزارش هزینه", "CR1")
+    app.add_project_cost("CR1", "مصالح", 1200, description="بتن", date="1405/07/01")
+    app.add_project_cost("CR1", "دستمزد", 800, description="اجرای سقف", date="1405/07/02")
+    path = tmp_path / "costs.xlsx"
+    result = app.project_cost_report("CR1", "xlsx", path)
+    assert result == path
+    assert path.exists() and path.stat().st_size > 0
+    from openpyxl import load_workbook
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "مبلغ نهایی" in values
+    assert 2000 in values
+    assert "مصالح" in values
+    assert "دستمزد" in values
