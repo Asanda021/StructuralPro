@@ -29,6 +29,12 @@
 - [ ] Any bundled/required DWG converter has verified redistribution/installation terms.
 - [ ] Official price-list data is sourced and licensed/verified.
 
+## Commercial security
+- [ ] Commercial security gates are satisfied.
+- [ ] No private signing key or credential is embedded in source/package.
+- [ ] Third-party dependency/model/converter/catalog licensing evidence is recorded.
+- [ ] Code-signing policy and certificate provisioning are defined when required.
+
 ## Documentation
 - [ ] User Guide is current.
 - [ ] Installation Guide is current.
