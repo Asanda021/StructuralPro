@@ -37,20 +37,22 @@ def main()->int:
         from core.commercial.progress import build_progress
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
+        from app.theme import APP_STYLESHEET
     except ImportError as exc:
         print("StructuralPro dependencies are required:",exc); return 2
 
     app=QApplication(sys.argv)
     app.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     app.setApplicationName("StructuralPro")
+    app.setStyleSheet(APP_STYLESHEET)
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — متره و برآورد حرفه‌ای"); w.resize(1500,920)
 
-    root=QWidget(); layout=QHBoxLayout(root); nav_widget=QWidget(); nav=QVBoxLayout(nav_widget); pages=QStackedWidget()
+    root=QWidget(); layout=QHBoxLayout(root); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); pages=QStackedWidget()
     title=QLabel("StructuralPro")
-    title.setStyleSheet("font-size:24px;font-weight:700;padding:12px;")
+    title.setObjectName("BrandTitle")
     nav.addWidget(title)
     status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند")
     nav.addWidget(status)
@@ -63,7 +65,7 @@ def main()->int:
     buttons=[]
     sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","گزارشات","ابزارهای حرفه‌ای","هوش مصنوعی آفلاین"]
     for name in sections:
-        b=QPushButton(name); b.setMinimumHeight(46); buttons.append(b); nav.addWidget(b)
+        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setMinimumHeight(46); buttons.append(b); nav.addWidget(b)
 
     # Dashboard
     p,v=page("داشبورد","نمای کلی پروژه و وضعیت موتورهای محلی")
@@ -307,7 +309,9 @@ def main()->int:
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
     # navigation
-    for b,i in zip(buttons,range(pages.count())): b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
+    for b,i in zip(buttons,range(pages.count())):
+        b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
+        b.clicked.connect(lambda checked=False,btn=b: [x.setChecked(x is btn) for x in buttons])
     nav.addStretch()
     layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
