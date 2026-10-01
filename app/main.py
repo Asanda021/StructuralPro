@@ -197,9 +197,10 @@ def main()->int:
     p,v=page("گزارشات","مرکز خروجی حرفه‌ای متصل به برآورد تجاری پروژه")
     rtools=QFrame(); rtools.setObjectName("DashboardCard"); rv=QHBoxLayout(rtools); rv.setContentsMargins(12,10,12,10)
     rpid=QLineEdit(); rpid.setPlaceholderText("شناسه پروژه")
+    rperiod=QLineEdit(); rperiod.setPlaceholderText("شماره دوره؛ خالی = جاری")
     rfmt=QComboBox(); rfmt.addItems(["xlsx","pdf","docx","csv"])
     rgo=QPushButton("ساخت گزارش"); rgo.setObjectName("PrimaryAction")
-    rv.addWidget(QLabel("پروژه")); rv.addWidget(rpid,1); rv.addWidget(QLabel("فرمت")); rv.addWidget(rfmt); rv.addWidget(rgo); v.addWidget(rtools)
+    rv.addWidget(QLabel("پروژه")); rv.addWidget(rpid,1); rv.addWidget(QLabel("دوره")); rv.addWidget(rperiod); rv.addWidget(QLabel("فرمت")); rv.addWidget(rfmt); rv.addWidget(rgo); v.addWidget(rtools)
     rtitle=QLabel("خلاصه خروجی"); rtitle.setObjectName("SectionTitle"); v.addWidget(rtitle)
     rsummary=QLabel("پروژه را وارد کنید و گزارش را بسازید."); rsummary.setWordWrap(True); v.addWidget(rsummary)
     rout=QTextEdit(); rout.setReadOnly(True); v.addWidget(rout,1)
@@ -214,7 +215,8 @@ def main()->int:
         if not path:return
         try:
             service.recalculate_estimate(project_id)
-            service.report(project_id,fmt,path)
+            period_no=int(rperiod.text()) if rperiod.text().strip() else None
+            service.report(project_id,fmt,path,period_no=period_no)
             latest=service.open_project(project_id)
             estimate=latest.get("estimate",{}) or {}
             cost=estimate.get("cost",{}) or {}
@@ -224,8 +226,8 @@ def main()->int:
                 f'مبلغ پایه: {float(cost.get("base",0) or 0):,.2f} | '
                 f'مبلغ نهایی: {float(cost.get("grand_total",0) or 0):,.2f}'
             )
-            rout.setPlainText("گزارش تجاری با موفقیت ساخته شد.\n"+path+"\n\n"
-                              "منبع گزارش: BOQ/Estimate ذخیره‌شده پروژه")
+            rout.setPlainText(("صورت‌وضعیت دوره "+str(period_no) if period_no else "گزارش تجاری جاری")+
+                              " با موفقیت ساخته شد.\n"+path+"\n\nمنبع گزارش: داده‌های پروژه و دوره انتخاب‌شده")
         except Exception as e: QMessageBox.critical(w,"خطای گزارش",str(e))
     rgo.clicked.connect(make_report)
     pages.addWidget(p); idx_reports=pages.count()-1
