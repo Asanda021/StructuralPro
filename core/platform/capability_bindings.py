@@ -17,6 +17,7 @@ from core.projects.statement_engine import build_statement_lines,statement_total
 from core.pricing.analysis import analyze as analyze_resources
 from core.takeoff.indexation import adjusted_amount
 from core.takeoff.ai_ready import missing_inputs,suggest_next_actions
+from core.takeoff.modules import calculate_building_item,calculate_mechanical_item,calculate_electrical_item,calculate_civil_item
 from core.ai.takeoff_assistant import LocalTakeoffAssistant
 
 def _identity(*args:Any,**kwargs:Any)->Any:
@@ -51,7 +52,7 @@ def build_bindings()->dict[str,Callable[...,Any]]:
         "statement-retention":payment_summary,"statement-financial":payment_summary,
         "reports-custom":_identity,"integration-transfer":_identity,"integration-cad":infer_takeoff_from_layers,
         "ai-missing":missing_inputs,"ai-next":suggest_next_actions,"ai-qa":assistant.qa,
-        "domain-structural":_identity,"domain-architectural":_identity,"domain-mechanical":_identity,
-        "domain-electrical":_identity,"domain-civil":_identity,"domain-mep-coordination":_identity,
+        "domain-structural":_identity,"domain-architectural":calculate_building_item,"domain-mechanical":calculate_mechanical_item,
+        "domain-electrical":calculate_electrical_item,"domain-civil":calculate_civil_item,"domain-mep-coordination":_identity,
         "document-links":_identity,
     }
