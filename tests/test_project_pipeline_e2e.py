@@ -358,3 +358,19 @@ def test_project_counterparty_master_registry_normalizes_and_prevents_duplicates
     second = app.add_project_counterparty("CP1", "فروشنده الف", role="فروشنده")
     assert second["id"] == "CP0002"
     assert [x["name"] for x in app.project_counterparties("CP1")] == ["شرکت نمونه", "فروشنده الف"]
+
+
+def test_project_financial_alerts_summarize_actionable_aging(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("هشدار مالی", "AL1")
+    app.add_project_commitment("AL1", 10000, due_date="۱۴۰۵/۰۷/۰۹")
+    app.add_project_commitment("AL1", 5000, due_date="۱۴۰۵/۰۷/۱۰")
+    app.add_project_commitment("AL1", 3000)
+    alerts = app.project_financial_alerts("AL1", "۱۴۰۵/۰۷/۱۰")
+    assert alerts["overdue_amount"] == 10000
+    assert alerts["overdue_count"] == 1
+    assert alerts["due_today_count"] == 1
+    assert alerts["no_due_date_count"] == 1
+    assert alerts["has_overdue"] is True
+    assert alerts["has_due_today"] is True
+    assert alerts["has_missing_due_date"] is True
