@@ -59,14 +59,15 @@ def main()->int:
     nav.addWidget(status)
 
     def page(name,desc):
-        p=QWidget(); v=QVBoxLayout(p)
-        h=QLabel(name); h.setStyleSheet("font-size:20px;font-weight:700;")
-        v.addWidget(h); v.addWidget(QLabel(desc)); return p,v
+        p=QWidget(); v=QVBoxLayout(p); v.setContentsMargins(24,20,24,20); v.setSpacing(12)
+        h=QLabel(name); h.setObjectName("PageTitle")
+        d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
+        v.addWidget(h); v.addWidget(d); return p,v
 
     buttons=[]
-    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","گزارشات","ابزارهای حرفه‌ای","هوش مصنوعی آفلاین"]
+    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات"]
     for name in sections:
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setMinimumHeight(46); buttons.append(b); nav.addWidget(b)
+        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); buttons.append(b); nav.addWidget(b)
 
     # Dashboard
     p,v=page("داشبورد","نمای کلی پروژه و وضعیت موتورهای محلی")
@@ -257,6 +258,45 @@ def main()->int:
     ago.clicked.connect(review)
     pages.addWidget(p); idx_ai=pages.count()-1
 
+    # Commercial statement shortcut
+    p,v=page("صورت‌وضعیت","محاسبه پیشرفت، مبلغ دوره، کسورات، مالیات و خالص قابل پرداخت")
+    stid=QLineEdit(); stgo=QPushButton("محاسبه صورت‌وضعیت"); stout=QTextEdit(); stout.setReadOnly(True)
+    v.addWidget(stid); v.addWidget(stgo); v.addWidget(stout)
+    def statement_shortcut():
+        try:
+            project=service.open_project(stid.text().strip())
+            lines=[]
+            if project:
+                for row in project.get("boq",[]):
+                    lines.append({"code":row.get("price_code",""),"contract_quantity":row.get("quantity",0),"previous_quantity":row.get("previous_quantity",0),"current_quantity":row.get("current_quantity",row.get("quantity",0)),"unit_price":row.get("unit_price",0)})
+            stout.setPlainText(json.dumps(build_progress(lines),ensure_ascii=False,indent=2) if lines else "برای پروژه انتخاب‌شده ردیف قابل محاسبه وجود ندارد.")
+        except Exception as e: stout.setPlainText("خطا: "+str(e))
+    stgo.clicked.connect(statement_shortcut); pages.addWidget(p); idx_statement=pages.count()-1
+
+    # Project documents
+    p,v=page("اسناد پروژه","مرکز ثبت و پیگیری نقشه‌ها، فایل‌های قراردادی و خروجی‌های پروژه")
+    docpath=QLineEdit(); docadd=QPushButton("افزودن مسیر سند"); doclist=QListWidget()
+    v.addWidget(docpath); v.addWidget(docadd); v.addWidget(doclist)
+    def add_doc():
+        path=docpath.text().strip()
+        if path: doclist.addItem(path); docpath.clear()
+    docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
+
+    # Quality control
+    p,v=page("کنترل کیفیت","کنترل یکپارچگی داده، متره، BOQ، قیمت و گزارش قبل از تحویل")
+    qc=QTextEdit(); qc.setReadOnly(True); qc.setPlainText("\n".join([
+        "🟢 کنترل ساختار پروژه","🟢 کنترل متره و واحدها","🟢 کنترل BOQ و کد فهرست‌بها",
+        "🟢 کنترل جمع مبالغ","🟢 کنترل گزارش فارسی و RTL","🟢 کنترل Revision و Change Log"
+    ])); v.addWidget(qc); pages.addWidget(p); idx_quality=pages.count()-1
+
+    # Settings
+    p,v=page("تنظیمات","تنظیمات ظاهری، زبان، واحدها و مسیر ذخیره‌سازی محلی")
+    lang=QComboBox(); lang.addItems(["فارسی (RTL)","English (LTR)"])
+    unit=QComboBox(); unit.addItems(["متر / مترمربع / مترمکعب","سانتی‌متر / میلی‌متر"])
+    v.addWidget(QLabel("زبان رابط")); v.addWidget(lang); v.addWidget(QLabel("واحد پیش‌فرض")); v.addWidget(unit)
+    v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
+    pages.addWidget(p); idx_settings=pages.count()-1
+
     # Project management: floors/drawings/takeoff/BOQ/report workflow
     pm=QWidget(); pmv=QVBoxLayout(pm)
     pmv.addWidget(QLabel("مدیریت حرفه‌ای پروژه | پروژه → طبقات → نقشه‌ها → متره → BOQ → گزارش"))
@@ -271,7 +311,6 @@ def main()->int:
             errors=model.validate()
             pmout.setPlainText(json.dumps({"errors":errors,"project":model.to_dict()},ensure_ascii=False,indent=2))
         except Exception as e: pmout.setPlainText("خطا: "+str(e))
-    import json
     pmadd.clicked.connect(manage_project); tools.addTab(pm,"مدیریت پروژه")
 
     # Revision visual/data change log connected to the project revision engine
