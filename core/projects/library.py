@@ -13,7 +13,7 @@ class ProjectLibrary:
     def clone(self,source_id,target_id,target_name=None):
         project=self.store.get(source_id)
         if not project: raise KeyError(source_id)
-        return self.store.save({"id":target_id,"name":target_name or project.get("name","")+" (copy)",
+        return self.store.save(target_id, {"id":target_id,"name":target_name or project.get("name","")+" (copy)",
             "takeoffs":project.get("takeoffs",[]),"boq":project.get("boq",[]),"revisions":[]})
     def revisions(self,project_id): return self.store.revisions(project_id)
     def export(self,project_id,path): return export_package(self.store.get(project_id),path)
