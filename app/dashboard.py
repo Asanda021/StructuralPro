@@ -128,6 +128,7 @@ class DashboardPage(QWidget):
         self.receipt_button.clicked.connect(self.add_receipt)
         self.commit_button.clicked.connect(self.add_commitment)
         self.document_button.clicked.connect(self.add_financial_document)
+        self.document_button.clicked.connect(self.refresh_financial_document_status)
         self.aging_button.clicked.connect(self.refresh_aging)
         self.aging_export_button.clicked.connect(self.export_aging)
         self.reconcile_button.clicked.connect(self.refresh_reconciliation)
@@ -249,6 +250,7 @@ class DashboardPage(QWidget):
             ds=self.service.project_financial_document_summary(project_id)
             self.document_summary.setText(f'اسناد: {ds["document_count"]} مورد | مجموع: {ds["document_total"]:,.0f} | پرداخت‌نشده: {ds["by_payment_status"]["unpaid"]:,.0f}')
             self.refresh_counterparties(project_id)
+            self.refresh_financial_document_status()
             cp=self.service.project_counterparty_summary(project_id)
             self.counterparty_summary.setText(f'طرف حساب‌ها: {cp["counterparty_count"]} | ' + " | ".join(f'{x["counterparty"]}: {x["committed_amount"] + x["document_amount"]:,.0f}' for x in cp["counterparties"][:3]))
             self.control_result.setText(
@@ -271,6 +273,20 @@ class DashboardPage(QWidget):
             if a["has_missing_due_date"]: parts.append(f"📝 بدون سررسید: {a["no_due_date_count"]} مورد")
             self.alerts.setText(" | ".join(parts) if parts else "✅ هشدار مالی فعالی وجود ندارد.")
         except Exception as exc: self.alerts.setText(f"خطای کنترل هشدار مالی: {exc}")
+
+    def refresh_financial_document_status(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            return
+        try:
+            s=self.service.project_financial_document_status_summary(project_id)
+            self.document_summary.setText(
+                f'اسناد: {s["document_count"]} | پرداخت‌نشده: {s["counts"]["unpaid"]} '
+                f'| جزئی: {s["counts"]["partial"]} | پرداخت‌شده: {s["counts"]["paid"]} '
+                f'| مغایرت: {s["mismatch_count"]}'
+            )
+        except Exception as exc:
+            self.document_summary.setText(f"خطای خلاصه اسناد: {exc}")
 
     def refresh_aging(self):
         project_id=self.control_project.currentData()
