@@ -527,6 +527,58 @@ class StructuralProApp:
         return {"project_id": project_id, "counterparties": list(result.values()),
                 "counterparty_count": len(result)}
 
+    def project_counterparty_ledger(self, project_id: str, counterparty: str) -> dict[str, Any]:
+        """Return chronological financial activity for one project counterparty."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        name = str(counterparty).strip()
+        if not name:
+            raise ValueError("counterparty cannot be empty")
+        rows = []
+        def add(source: str, entry: dict[str, Any], amount: float, direction: str):
+            rows.append({
+                "source": source, "id": entry.get("id", ""), "date": entry.get("date", ""),
+                "reference": entry.get("reference", ""), "description": entry.get("description", ""),
+                "amount": float(amount), "direction": direction,
+                "cash_in": float(amount) if direction == "in" else 0.0,
+                "cash_out": float(amount) if direction == "out" else 0.0,
+                "document_id": entry.get("document_id"),
+            })
+        for entry in p.get("financial_documents", []):
+            if str(entry.get("counterparty", "")).strip() == name:
+                add("سند مالی", entry, entry.get("amount", 0), "info")
+        for entry in p.get("commitment_entries", []):
+            if str(entry.get("counterparty", "")).strip() == name:
+                add("تعهد", entry, entry.get("amount", 0), "out")
+        for entry in p.get("cost_entries", []):
+            if str(entry.get("counterparty", "")).strip() == name:
+                add("هزینه", entry, entry.get("amount", 0), "out")
+        for entry in p.get("receipt_entries", []):
+            if str(entry.get("counterparty", "")).strip() == name:
+                add("دریافتی", entry, entry.get("amount", 0), "in")
+        rows.sort(key=lambda x: (str(x.get("date", "")), str(x.get("source", "")), int(x.get("id", 0) or 0)))
+        cash_in = sum(x["cash_in"] for x in rows)
+        cash_out = sum(x["cash_out"] for x in rows)
+        return {
+            "project_id": project_id, "counterparty": name, "rows": rows,
+            "row_count": len(rows), "cash_in": cash_in, "cash_out": cash_out,
+            "net_cash": cash_in - cash_out,
+        }
+
+    def project_counterparty_ledger_report(self, project_id: str, counterparty: str, fmt: str, path):
+        """Export a detailed counterparty transaction ledger."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        ledger = self.project_counterparty_ledger(project_id, counterparty)
+        rows = [{
+            "نوع": x["source"], "شناسه": x["id"], "تاریخ": x["date"], "مرجع": x["reference"],
+            "شرح": x["description"], "مبلغ": x["amount"], "جهت": x["direction"],
+            "دریافت": x["cash_in"], "پرداخت": x["cash_out"], "سند مالی": x["document_id"] or "",
+        } for x in ledger["rows"]]
+        return build_report(f'{p.get("name", "")} — گردش حساب {counterparty}', rows, ledger).export(path, fmt)
+
     def project_counterparty_report(self, project_id: str, fmt: str, path):
         """Export the counterparty financial ledger."""
         p = self.store.get(project_id)
