@@ -16,6 +16,7 @@ from core.engineering import EngineeringLibrary
 from core.projects.management import ProjectManagement, ScheduleTask, DailyReport, ResourceRecord, MaterialRecord, MeetingRecord
 from core.commercial.finance_depth import FinancePaymentControl, PaymentRecord, PaymentAllocation, BudgetLine
 from core.drawings.model_registry import ModelRegistry, ModelSource, ModelObject
+from core.performance.project_performance import paginate, project_performance_snapshot
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -84,6 +85,29 @@ class StructuralProApp:
             "deterministic": response.deterministic,
             "offline": True,
         }
+
+    def project_performance_snapshot(self, project_id: str) -> dict[str, Any]:
+        """Return deterministic size/collection metrics without mutating project data."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        return project_performance_snapshot(project)
+
+    def project_collection_page(self, project_id: str, collection: str, *, page: int = 1,
+                                page_size: int = 100) -> dict[str, Any]:
+        """Read a bounded page from a large project collection."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        allowed = {
+            "takeoffs", "boq", "estimates", "reports", "drawings", "floors",
+            "model_sources", "model_objects", "project_schedule_tasks",
+            "project_daily_reports", "project_resources", "project_materials",
+            "project_meetings", "financial_documents",
+        }
+        if collection not in allowed:
+            raise ValueError(f"unsupported project collection: {collection}")
+        return paginate(project.get(collection, []) or [], page=page, page_size=page_size)
 
     def engineering_library_snapshot(self) -> dict[str, list[dict[str, Any]]]:
         """Return the immutable reference-library snapshot for clients and reports."""
