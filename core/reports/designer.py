@@ -6,7 +6,10 @@ class ReportLayout:
     title:str="گزارش متره و برآورد"; columns:list[str]=field(default_factory=lambda:["ردیف","کد","شرح","مقدار","واحد","بهای واحد","مبلغ"]); group_by:str=""; rtl:bool=True
     page_size:int=35; header:str=""; footer:str=""
     def visible(self,row):
-        return {label:row.get(_FIELD_MAP.get(label,label),row.get(label,"")) for label in self.columns}
+        out={label:row.get(_FIELD_MAP.get(label,label),row.get(label,"")) for label in self.columns}
+        for key in ("item_no","price_code","description","quantity","unit","unit_price","total","source"):
+            out.setdefault(key,row.get(key,""))
+        return out
     def reorder(self,columns): self.columns=list(columns); return self
     def render_rows(self,rows):
         rows=[self.visible(r) for r in rows]
