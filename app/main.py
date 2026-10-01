@@ -9,7 +9,7 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget
         )
         from PySide6.QtCore import Qt
         from core.platform.application import StructuralProApp
