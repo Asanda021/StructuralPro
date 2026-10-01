@@ -240,6 +240,8 @@ class StructuralProApp:
         periods = list(p.get("statement_periods", []))
         latest = periods[-1] if periods else None
         cumulative = float(progress.get("completed_total", 0) or 0)
+        if latest is not None:
+            cumulative = float(latest.get("completed_total", cumulative) or cumulative)
         remaining = max(contract - cumulative, 0.0)
         percent = (cumulative / contract * 100.0) if contract else 0.0
         total_payable = sum(float(x.get("payable_current", 0) or 0) for x in periods)
