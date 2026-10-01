@@ -11,6 +11,7 @@ from core.reports.project_report import build_report
 from core.ai.qa_engine import ProjectQA
 from core.projects.user_workflow import evaluate_workflow
 from core.validation.real_data import validate_project
+from core.engineering import EngineeringLibrary
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -43,12 +44,25 @@ class StructuralProApp:
         self.store=ProjectStore(self.data_dir/"projects.db")
         self.takeoff=TakeoffEngine()
         self.qa=ProjectQA()
+        self.engineering = EngineeringLibrary()
 
     def create_project(self,name:str,project_id:str)->dict[str,Any]:
         project={"id":project_id,"name":name,"takeoffs":[],"boq":[],"metadata":{"offline":True}}
         self.store.save(project_id,project); return self.store.get(project_id)
 
     def open_project(self,project_id:str)->dict[str,Any]|None: return self.store.get(project_id)
+
+    def engineering_library_snapshot(self) -> dict[str, list[dict[str, Any]]]:
+        """Return the immutable reference-library snapshot for clients and reports."""
+        return self.engineering.snapshot()
+
+    def search_engineering_library(self, query: str = "", *, category: str | None = None) -> list[dict[str, Any]]:
+        """Search engineering references without touching project data."""
+        return self.engineering.search(query, category=category)
+
+    def engineering_library_status(self) -> dict[str, Any]:
+        """Return deterministic health and item counts for engineering references."""
+        return self.engineering.validate()
 
     def validate_project_data(self, project_id: str) -> dict[str, Any]:
         """Run the Priority 14 real-data validation gates for a persisted project."""
