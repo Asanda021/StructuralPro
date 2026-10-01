@@ -33,3 +33,28 @@ def test_counterparty_master_lifecycle_and_stable_ids(tmp_path):
         assert False, "duplicate counterparty should be rejected"
     except ValueError:
         pass
+
+
+def test_financial_reconciliation_audits_status_without_mutation(tmp_path):
+    a = StructuralProApp(tmp_path)
+    a.create_project("پروژه تطبیق", "rec1")
+    cp = a.add_project_counterparty("rec1", "طرف حساب")
+    commitment = a.add_project_commitment("rec1", 1000, paid_amount=400, counterparty=cp["name"])
+    a.add_project_financial_document("rec1", "DOC-1", "فاکتور", 1000, counterparty=cp["name"],
+                                     payment_status="unpaid", commitment_id=commitment["id"])
+    a.add_project_financial_document("rec1", "DOC-2", "فاکتور", 500, counterparty=cp["name"],
+                                     payment_status="unpaid")
+    receipt = a.add_project_receipt("rec1", 500, counterparty=cp["name"])
+    p = a.open_project("rec1")
+    p["financial_documents"][1]["receipt_id"] = receipt["id"]
+    a.store.save("rec1", p)
+
+    result = a.project_financial_reconciliation("rec1")
+    assert result["document_count"] == 2
+    assert result["mismatch_count"] == 1
+    assert result["unlinked_count"] == 0
+    assert result["rows"][0]["derived_status"] == "partial"
+    assert result["rows"][0]["status_match"] is False
+    assert result["rows"][1]["derived_status"] == "paid"
+    assert a.project_financial_documents("rec1")[0]["payment_status"] == "unpaid"
+    assert a.project_financial_reconciliation_report("rec1", "csv", tmp_path/"reconciliation.csv").exists()
