@@ -825,6 +825,18 @@ class StructuralProApp:
             })
         return build_report(f'{p.get("name", "")} — گردش مالی طرف حساب‌ها', rows, summary).export(path, fmt)
 
+    def project_financial_due_summary(self, project_id: str, as_of: str) -> dict[str, Any]:
+        """Compact due-date control summary suitable for dashboard cards."""
+        aging=self.project_financial_aging(project_id,as_of)
+        return {
+            "project_id":project_id, "as_of":aging["as_of"],
+            "overdue_count":aging["overdue_count"], "overdue_amount":aging["overdue_amount"],
+            "due_today_count":aging["due_today_count"], "upcoming_count":aging["upcoming_count"],
+            "no_due_date_count":aging["no_due_date_count"],
+            "total_open_amount":sum(float(x.get("outstanding",0) or 0) for x in aging["rows"]),
+            "highest_risk":aging["rows"][0] if aging["rows"] else None,
+        }
+
     def project_financial_aging(self, project_id: str, as_of: str) -> dict[str, Any]:
         """Return deterministic due-date aging for unpaid project financial items.
 
