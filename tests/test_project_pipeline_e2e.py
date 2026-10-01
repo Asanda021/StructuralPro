@@ -224,3 +224,31 @@ def test_project_ledger_entries_can_reference_financial_documents(tmp_path):
     assert cost["document_id"] == doc["id"]
     assert commitment["document_id"] == doc["id"]
     assert receipt["document_id"] == doc["id"]
+
+
+def test_project_financial_report_exports_consolidated_rows(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("گزارش مالی تجمیعی", "FR1")
+    commitment = app.add_project_commitment("FR1", 12000, category="پیمانکار", paid_amount=3000, date="1405/07/01", due_date="1405/07/30")
+    cost = app.add_project_cost("FR1", "مصالح", 2500, description="بتن", date="1405/07/02")
+    receipt = app.add_project_receipt("FR1", 5000, description="پرداخت کارفرما", reference="REC-01")
+    app.add_project_financial_document(
+        "FR1", "INV-01", "فاکتور", 2500,
+        counterparty="پیمانکار", payment_status="partial",
+        commitment_id=commitment["id"], cost_entry_id=cost["id"], receipt_id=receipt["id"],
+    )
+    path = tmp_path / "financial.xlsx"
+    result = app.project_financial_report("FR1", "xlsx", path)
+    assert result == path
+    assert path.exists() and path.stat().st_size > 0
+    from openpyxl import load_workbook
+    ws = load_workbook(path, data_only=True).active
+    values = [cell.value for row in ws.iter_rows() for cell in row]
+    assert "نوع" in values
+    assert "سند مالی" in values
+    assert "تعهد" in values
+    assert "هزینه" in values
+    assert "دریافتی" in values
+    assert 2500 in values
+    assert 12000 in values
+    assert 5000 in values
