@@ -5,7 +5,7 @@ class SyncManager:
     def __init__(self,provider=None,queue=None): self.provider=provider; self.queue=queue
     @property
     def online(self): return self.provider is not None
-    def enqueue(self,record):
+    def record_local_change(self,record):\n        """Queue a local change for later synchronization."""\n        return self.enqueue(record)\n    def enqueue(self,record):
         if self.queue is None: raise RuntimeError("sync queue is not configured")
         return self.queue.push(record)
     def sync(self):
