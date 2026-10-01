@@ -28,3 +28,12 @@ def test_product_hub_project_qa_and_bulk_operations():
     assert changed["takeoffs"][0]["price_year"] == 1405
     copied = hub.duplicate_takeoff(project, "F1", 1)
     assert len(copied["takeoffs"]) == 2
+
+
+def test_product_hub_connects_local_ai_and_dwg_bindings():
+    hub = ProductHub()
+    ai = hub.get("ai-assistant").handler
+    response = ai("هل يعمل آفلاین؟")
+    assert response.source == "local-rule-engine"
+    assert hub.get("cad-dwg").handler is not None
+    assert hub.get("pricing-import").handler is not None
