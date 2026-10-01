@@ -79,6 +79,56 @@ class StructuralProApp:
         return {"project_id":project_id,"estimate":estimate,"progress":progress,
                 "boq_summary":boq_summary(p.get("boq",[]))}
 
+    def build_statement(self, project_id: str, *, previous_paid: float = 0.0,
+                        retention_rate: float = 0.0, advance_recovery_rate: float = 0.0,
+                        tax_rate: float = 0.0, insurance_rate: float = 0.0) -> dict[str, Any]:
+        """Build a period payment statement directly from the project's BOQ."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        if min(previous_paid, retention_rate, advance_recovery_rate, tax_rate, insurance_rate) < 0:
+            raise ValueError("statement rates and previous payment cannot be negative")
+        lines = []
+        for row in p.get("boq", []):
+            lines.append({
+                "code": row.get("price_code", ""),
+                "description": row.get("description", ""),
+                "unit": row.get("unit", ""),
+                "contract_quantity": row.get("quantity", 0),
+                "unit_price": row.get("unit_price", 0),
+                "previous_quantity": row.get("previous_quantity", 0),
+                "current_quantity": row.get("current_quantity", 0),
+            })
+        progress = build_progress(lines) if lines else {
+            "lines": [], "contract_total": 0, "completed_total": 0, "current_total": 0,
+            "gross_current": 0, "deductions": 0, "payable_current": 0,
+            "payments": 0, "balance_current": 0, "remaining_contract": 0, "progress_percent": 0,
+        }
+        gross = float(progress.get("gross_current", 0) or 0)
+        retention = gross * float(retention_rate)
+        advance = gross * float(advance_recovery_rate)
+        taxable = max(gross - retention - advance, 0.0)
+        tax = taxable * float(tax_rate)
+        insurance = taxable * float(insurance_rate)
+        payable = max(taxable + tax - insurance, 0.0)
+        return {
+            **progress,
+            "retention": retention,
+            "advance_recovery": advance,
+            "taxable_current": taxable,
+            "tax": tax,
+            "insurance": insurance,
+            "payable_current": payable,
+            "previous_paid": float(previous_paid),
+            "balance_after_current": payable - float(previous_paid),
+            "rates": {
+                "retention_rate": float(retention_rate),
+                "advance_recovery_rate": float(advance_recovery_rate),
+                "tax_rate": float(tax_rate),
+                "insurance_rate": float(insurance_rate),
+            },
+        }
+
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
@@ -86,9 +136,23 @@ class StructuralProApp:
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
         estimate=p.get("estimate") or build_estimate(p.get("boq",[]), aggregate=False)
+        statement=self.build_statement(project_id)
         rows=[]
-        for row in estimate.get("boq",[]):
-            rows.append({"کد":row.get("price_code",""),"شرح":row.get("description",""),
-                "مقدار":row.get("quantity",0),"واحد":row.get("unit",""),"قیمت واحد":row.get("unit_price",0),
-                "مبلغ":row.get("total",0)})
-        return build_report(p.get("name",""),rows,estimate.get("cost",{})).export(path,fmt)
+        for row in statement.get("lines",[]):
+            rows.append({"کد":row.get("code",""),"شرح":row.get("description",""),
+                "واحد":row.get("unit",""),"مقدار قرارداد":row.get("contract_quantity",0),
+                "قبلی":row.get("previous_quantity",0),"این دوره":row.get("current_quantity",0),
+                "تجمعی":row.get("cumulative_quantity",0),"قیمت واحد":row.get("unit_price",0),
+                "مبلغ این دوره":row.get("current_amount",0),"مبلغ تجمعی":row.get("completed_amount",0)})
+        summary={**estimate.get("cost",{}), "statement": {
+            "gross_current":statement.get("gross_current",0),
+            "retention":statement.get("retention",0),
+            "advance_recovery":statement.get("advance_recovery",0),
+            "taxable_current":statement.get("taxable_current",0),
+            "tax":statement.get("tax",0),
+            "insurance":statement.get("insurance",0),
+            "payable_current":statement.get("payable_current",0),
+            "previous_paid":statement.get("previous_paid",0),
+            "balance_after_current":statement.get("balance_after_current",0),
+        }}
+        return build_report(p.get("name",""),rows,summary).export(path,fmt)
