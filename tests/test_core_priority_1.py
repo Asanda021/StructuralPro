@@ -76,3 +76,32 @@ def test_application_rejects_duplicate_takeoff_source(tmp_path):
     with pytest.raises(ValueError, match="دوباره"):
         app.add_takeoff("P3", "building", "wall", source_id="DRAW-9",
                         length=2, width=0.2, height=3, price_code="W001", unit_price=100)
+
+from core.pricing.catalog import PriceCatalog, PriceItem
+from core.takeoff.estimate import build_estimate, compare_estimates
+
+def test_stage3_price_catalog_custom_price_and_history():
+    catalog = PriceCatalog([PriceItem(1405,"ابنیه","فصل 1","W001","دیوار","m",1200)])
+    catalog.add(PriceItem(1405,"ابنیه","فصل 1","W001","دیوار","m",1300))
+    assert catalog.price_history("W001",1405)[0]["old_price"] == 1200
+    catalog.set_custom_price("W001",1405,1450,reason="قیمت پیمانکار")
+    assert catalog.get("W001",1405).unit_price == 1450
+    catalog.clear_custom_price("W001",1405)
+    assert catalog.get("W001",1405).unit_price == 1300
+    with pytest.raises(ValueError):
+        catalog.add(PriceItem(1405,"","","BAD","x","m",float("nan")))
+
+def test_stage3_estimate_comparison_reports_line_changes():
+    old = build_estimate([{"source":"A","description":"دیوار","quantity":10,"unit":"m","price_code":"W001","unit_price":100}], aggregate=False)
+    new = build_estimate([{"source":"B","description":"دیوار","quantity":12,"unit":"m","price_code":"W001","unit_price":110}], aggregate=False)
+    result = compare_estimates(old,new)
+    assert result["delta"] == 320
+    assert result["line_changes"][0]["quantity_delta"] == 2
+    assert result["line_changes"][0]["unit_price_delta"] == 10
+
+def test_stage3_boq_blocks_duplicate_sources():
+    with pytest.raises(ValueError, match="دوباره"):
+        build_boq([
+            {"source":"DWG-1","description":"ستون","quantity":2,"unit":"عدد","unit_price":100},
+            {"source":"DWG-1","description":"ستون","quantity":2,"unit":"عدد","unit_price":100},
+        ])
