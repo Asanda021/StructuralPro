@@ -99,8 +99,8 @@ def test_sync_manager_end_to_end(tmp_path):
 def test_windows_shared_application_workflow(tmp_path):
     app=StructuralProApp(tmp_path)
     app.create_project("P1","پروژه")
-    app.add_takeoff("P1","building","slab",length=2,width=3,height=0.2)
-    app.add_takeoff("P1","building","wall",length=4,height=3)
+    app.add_takeoff("P1","building","slab",length=2,width=3,height=0.2,price_code="S1",unit_price=100)
+    app.add_takeoff("P1","building","wall",length=4,height=3,price_code="W1",unit_price=50)
     p=app.open_project("P1")
     assert p["name"]=="پروژه" and len(p["takeoffs"])==2
     assert len(p["boq"])==2
