@@ -1,6 +1,7 @@
 """Deep IFC/BIM normalization: spatial level, properties, quantities and duplicate safety."""
 from __future__ import annotations
 from typing import Any, Iterable
+import math
 
 QUANTITY_UNITS={"Length":"m","Width":"m","Height":"m","Area":"m2","NetArea":"m2",
                 "GrossArea":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
@@ -15,7 +16,11 @@ def normalize_ifc_rows(rows:Iterable[dict[str,Any]])->list[dict[str,Any]]:
         props=dict(r.get("properties") or {})
         quantities={}
         for k,v in dict(r.get("quantities") or {}).items():
-            try: quantities[str(k)]=float(v)
+            try:
+                value=float(v)
+                if not math.isfinite(value) or value < 0:
+                    continue
+                quantities[str(k)]=value
             except (TypeError,ValueError): continue
         level=str(r.get("level") or props.get("Level") or props.get("Storey") or props.get("BuildingStorey") or "")
         out.append({"global_id":gid,"ifc_type":str(r.get("ifc_type") or ""),
@@ -41,5 +46,5 @@ def map_ifc_to_boq(rows:Iterable[dict[str,Any]],mapping:dict[str,str]):
             unit=QUANTITY_UNITS.get(key,"")
             result.append({"global_id":r["global_id"],"level":r["level"],"price_code":code,
                            "description":r["name"] or r["ifc_type"],"quantity":value,"unit":unit,
-                           "source":"ifc","needs_confirmation":True})
+                           "source":f'ifc:{r["global_id"] or r["name"]}:{key}',"needs_confirmation":True})
     return {"rows":result,"unmapped":unmapped}
