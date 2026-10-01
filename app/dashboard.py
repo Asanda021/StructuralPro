@@ -21,6 +21,8 @@ class DashboardPage(QWidget):
         self.cards=QGridLayout(); self.cards.setSpacing(12); root.addLayout(self.cards)
         self.alerts=QLabel("کنترل مالی: برای مشاهده هشدارها، پروژه و تاریخ مبنا را انتخاب کنید."); self.alerts.setObjectName("DashboardCard"); self.alerts.setWordWrap(True); root.addWidget(self.alerts)
         self.kpi_summary=QLabel("شاخص‌های مالی پروژه پس از انتخاب پروژه نمایش داده می‌شوند."); self.kpi_summary.setObjectName("DashboardCard"); self.kpi_summary.setWordWrap(True); root.addWidget(self.kpi_summary)
+        self.integrity_summary=QLabel("کنترل صحت داده‌های مالی: آماده بررسی"); self.integrity_summary.setObjectName("DashboardCard"); self.integrity_summary.setWordWrap(True); root.addWidget(self.integrity_summary)
+        self.activity_summary=QLabel("فعالیت پروژه: آماده"); self.activity_summary.setObjectName("DashboardCard"); self.activity_summary.setWordWrap(True); root.addWidget(self.activity_summary)
         control=QFrame(); control.setObjectName("DashboardCard"); cv=QHBoxLayout(control); cv.setContentsMargins(12,10,12,10)
         cv.addWidget(QLabel("کنترل مالی"))
         self.control_project=QComboBox(); self.control_project.setMinimumWidth(180)
@@ -79,7 +81,9 @@ class DashboardPage(QWidget):
         self.reconcile_button=QPushButton("تطبیق اسناد"); self.reconcile_button.setObjectName("SecondaryAction")
         self.reconcile_summary=QLabel("برای کنترل تطبیق وضعیت اسناد با پرداخت‌ها و دریافتی‌های لینک‌شده، این گزینه را اجرا کنید."); self.reconcile_summary.setWordWrap(True)
         self.reconcile_export_button=QPushButton("خروجی تطبیق"); self.reconcile_export_button.setObjectName("SecondaryAction")
-        ah.addWidget(self.reconcile_export_button)
+        self.control_export_button=QPushButton("گزارش کنترل مالی"); self.control_export_button.setObjectName("SecondaryAction")
+        self.statement_export_button=QPushButton("خلاصه صورت‌وضعیت"); self.statement_export_button.setObjectName("SecondaryAction")
+        ah.addWidget(self.reconcile_export_button); ah.addWidget(self.control_export_button); ah.addWidget(self.statement_export_button)
         self.aging_summary=QLabel("برای مشاهده وضعیت سررسید، تاریخ مبنا را وارد کنید."); self.aging_summary.setWordWrap(True)
         ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_export_button); ah.addWidget(self.reconcile_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
         av.addWidget(self.reconcile_summary)
@@ -149,6 +153,8 @@ class DashboardPage(QWidget):
         self.party_rollup_button.clicked.connect(self.export_counterparty_rollup)
         self.party_ledger_button.clicked.connect(self.export_selected_counterparty_ledger)
         self.reconcile_export_button.clicked.connect(self.export_reconciliation)
+        self.control_export_button.clicked.connect(self.export_financial_control)
+        self.statement_export_button.clicked.connect(self.export_statement_summary)
         self.party_table.itemSelectionChanged.connect(self.load_selected_counterparty)
         self.refresh()
     def refresh(self):
@@ -265,6 +271,7 @@ class DashboardPage(QWidget):
             self.refresh_counterparties(project_id)
             self.refresh_financial_document_status()
             self.refresh_financial_kpis(project_id)
+            self.refresh_financial_controls(project_id)
             cp=self.service.project_counterparty_summary(project_id)
             self.counterparty_summary.setText(f'طرف حساب‌ها: {cp["counterparty_count"]} | ' + " | ".join(f'{x["counterparty"]}: {x["committed_amount"] + x["document_amount"]:,.0f}' for x in cp["counterparties"][:3]))
             self.control_result.setText(
@@ -454,6 +461,43 @@ class DashboardPage(QWidget):
             )
         except Exception as exc:
             self.reconcile_summary.setText(f"خطای تطبیق اسناد: {exc}")
+
+    def refresh_financial_controls(self, project_id):
+        try:
+            audit=self.service.project_financial_integrity_audit(project_id)
+            self.integrity_summary.setText("کنترل صحت مالی: " + ("✅ بدون ایراد" if audit["healthy"] else f'⚠️ {audit["issue_count"]} ایراد'))
+            act=self.service.project_activity_summary(project_id)
+            self.activity_summary.setText(
+                f'فعالیت پروژه | متره: {act["takeoffs"]} | ردیف BOQ: {act["boq_items"]} | '
+                f'صورت‌وضعیت: {act["statement_periods"]} | اسناد: {act["documents"]} | '
+                f'تعهدات: {act["commitments"]} | هزینه‌ها: {act["costs"]} | دریافتی: {act["receipts"]} | طرف حساب: {act["counterparties"]}'
+            )
+        except Exception as exc:
+            self.integrity_summary.setText(f"خطای کنترل صحت: {exc}")
+
+    def export_financial_control(self):
+        project_id=self.control_project.currentData()
+        if not project_id: return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره گزارش کنترل مالی","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path: return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_financial_control_report(project_id,self.aging_as_of.text().strip(),suffix,path)
+            self.integrity_summary.setText(f"گزارش کنترل مالی ذخیره شد: {path}")
+        except Exception as exc:
+            self.integrity_summary.setText(f"خطای خروجی کنترل مالی: {exc}")
+
+    def export_statement_summary(self):
+        project_id=self.control_project.currentData()
+        if not project_id: return
+        path,_=QFileDialog.getSaveFileName(self,"ذخیره خلاصه صورت‌وضعیت","","Excel (*.xlsx);;CSV (*.csv);;PDF (*.pdf);;Word (*.docx)")
+        if not path: return
+        try:
+            suffix=path.rsplit(".",1)[-1].lower() if "." in path else "xlsx"
+            self.service.project_statement_report(project_id,suffix,path)
+            self.activity_summary.setText(f"خلاصه صورت‌وضعیت ذخیره شد: {path}")
+        except Exception as exc:
+            self.activity_summary.setText(f"خطای خروجی صورت‌وضعیت: {exc}")
 
     def refresh_financial_kpis(self, project_id):
         try:
