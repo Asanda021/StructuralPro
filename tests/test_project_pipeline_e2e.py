@@ -58,3 +58,21 @@ def test_financial_dashboard_summarizes_contract_progress_and_statements(tmp_pat
     assert dash["latest_statement_no"] == 1
     assert dash["latest_payable"] == period["payable_current"]
     assert 0 <= dash["progress_percent"] <= 100
+
+
+def test_project_financial_control_calculates_cost_variance(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("کنترل مالی", "F1")
+    app.add_takeoff(
+        "F1", "building", "wall",
+        length=10, width=0.2, height=3,
+        price_code="W001", unit_price=1200,
+    )
+    p = app.open_project("F1")
+    p["boq"][0]["current_quantity"] = 5
+    app.store.save("F1", p)
+    control = app.project_financial_control("F1", planned_cost=5000, actual_cost=4000)
+    assert control["earned_value"] == 3600
+    assert control["cost_variance"] == -400
+    assert control["schedule_variance"] == 0
+    assert control["cost_performance_index"] == pytest.approx(0.9)
