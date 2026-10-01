@@ -4,7 +4,11 @@ import sys
 from pathlib import Path
 import json
 
+from core.platform.logging import configure_logging, install_exception_hook
+
 def main()->int:
+    logger = install_exception_hook(configure_logging())
+    logger.info("StructuralPro starting")
     try:
         from PySide6.QtWidgets import (
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
@@ -42,7 +46,9 @@ def main()->int:
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
     except ImportError as exc:
-        print("StructuralPro dependencies are required:",exc); return 2
+        logger.exception("Required dependency import failed")
+        print("StructuralPro dependencies are required:", exc)
+        return 2
 
     app=QApplication(sys.argv)
     app.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
@@ -433,6 +439,10 @@ def main()->int:
     layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
     refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash)
-    w.show(); return app.exec()
+    w.show()
+    logger.info("StructuralPro UI initialized")
+    result = app.exec()
+    logger.info("StructuralPro shutdown with exit code %s", result)
+    return result
 
 if __name__=="__main__": raise SystemExit(main())
