@@ -197,6 +197,50 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("statement_periods", []))
 
+    def add_project_cost(self, project_id: str, category: str, amount: float, *, description: str = "", date: str = "") -> dict[str, Any]:
+        """Persist an actual project cost entry for financial control."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        amount = float(amount)
+        if amount < 0:
+            raise ValueError("cost amount cannot be negative")
+        categories = {"مصالح", "دستمزد", "پیمانکار", "تجهیزات", "سایر"}
+        category = str(category).strip()
+        if category not in categories:
+            raise ValueError(f"unsupported cost category: {category}")
+        entries = list(p.get("cost_entries", []))
+        entry = {
+            "id": len(entries) + 1,
+            "category": category,
+            "amount": amount,
+            "description": str(description).strip(),
+            "date": str(date).strip(),
+        }
+        entries.append(entry)
+        p["cost_entries"] = entries
+        self.store.save(project_id, p)
+        return entry
+
+    def project_costs(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("cost_entries", []))
+
+    def project_cost_summary(self, project_id: str) -> dict[str, Any]:
+        entries = self.project_costs(project_id)
+        by_category = {}
+        for entry in entries:
+            category = str(entry.get("category", "سایر"))
+            by_category[category] = by_category.get(category, 0.0) + float(entry.get("amount", 0) or 0)
+        return {
+            "project_id": project_id,
+            "entry_count": len(entries),
+            "actual_cost": sum(by_category.values()),
+            "by_category": by_category,
+        }
+
     def project_financial_control(self, project_id: str, *, planned_cost: float | None = None,
                                   actual_cost: float = 0.0) -> dict[str, Any]:
         """Calculate cost variance indicators from explicit project cost inputs."""
@@ -206,7 +250,8 @@ class StructuralProApp:
         contract = float(dashboard["contract_amount"])
         work = float(dashboard["cumulative_work"])
         planned = contract if planned_cost is None else float(planned_cost)
-        actual = float(actual_cost)
+        ledger_actual = float(self.project_cost_summary(project_id)["actual_cost"])
+        actual = ledger_actual if actual_cost == 0 else float(actual_cost)
         earned = work
         cost_variance = earned - actual
         schedule_variance = earned - (planned * dashboard["progress_percent"] / 100.0 if planned else 0.0)
