@@ -73,7 +73,7 @@ class EngineeringLibrary:
         code = self._code(item.code)
         if not str(item.title).strip():
             raise ValueError("standard title is required")
-        self._standards[code] = StandardReference(code, str(item.title).strip(), str(item.jurisdiction).strip(), str(item.scope).strip(), str(item.version or "").strip(), str(item.source_id).strip() or "unknown", str(item.notes or "").strip())
+        self._standards[code] = StandardReference(code, str(item.title).strip(), str(item.jurisdiction).strip(), str(item.scope).strip(), str(item.version or "").strip(), str(item.source_version).strip() or "1", str(item.source_id).strip() or "unknown", str(item.notes or "").strip())
 
     def material(self, code): return self._materials.get(self._code(code))
     def concrete(self, code): return self._concretes.get(self._code(code))
