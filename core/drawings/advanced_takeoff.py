@@ -9,6 +9,22 @@ class TakeoffResult:
     unit: str
     source: str = ""
 
+def length_takeoff(length: float, count: int = 1) -> TakeoffResult:
+    if length < 0 or count < 0: raise ValueError("length and count must be non-negative")
+    return TakeoffResult("length", float(length) * int(count), "m")
+
+def area_takeoff(area: float, count: int = 1) -> TakeoffResult:
+    if area < 0 or count < 0: raise ValueError("area and count must be non-negative")
+    return TakeoffResult("area", float(area) * int(count), "m2")
+
+def count_takeoff(count: int) -> TakeoffResult:
+    if count < 0: raise ValueError("count must be non-negative")
+    return TakeoffResult("count", int(count), "count")
+
+def perimeter_takeoff(perimeter: float, count: int = 1) -> TakeoffResult:
+    if perimeter < 0 or count < 0: raise ValueError("perimeter and count must be non-negative")
+    return TakeoffResult("perimeter", float(perimeter) * int(count), "m")
+
 def depth_volume(area: float, depth: float) -> TakeoffResult:
     if area < 0 or depth < 0: raise ValueError("area and depth must be non-negative")
     return TakeoffResult("volume", area * depth, "m3")
