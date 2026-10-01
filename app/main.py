@@ -169,18 +169,27 @@ def main()->int:
     p,v=page("برآورد و BOQ","نمایش ساختاریافته مقادیر، کد فهرست‌بها و مبلغ هر ردیف")
     btools=QFrame(); btools.setObjectName("DashboardCard"); bv=QHBoxLayout(btools); bv.setContentsMargins(12,10,12,10)
     bpid=QLineEdit(); bpid.setPlaceholderText("شناسه پروژه")
-    bgo=QPushButton("نمایش BOQ"); bgo.setObjectName("PrimaryAction")
-    bv.addWidget(QLabel("پروژه")); bv.addWidget(bpid,1); bv.addWidget(bgo); v.addWidget(btools)
+    bgo=QPushButton("بازسازی برآورد"); bgo.setObjectName("PrimaryAction")
+bfactors=QLineEdit(); bfactors.setPlaceholderText("ضرایب اختیاری: سربار=0.1,منطقه=0.05")
+    bv.addWidget(QLabel("پروژه")); bv.addWidget(bpid,1); bv.addWidget(bfactors,2); bv.addWidget(bgo); v.addWidget(btools)
     btitle=QLabel("جدول برآورد پروژه"); btitle.setObjectName("SectionTitle"); v.addWidget(btitle)
     btable=QTableWidget(0,6); btable.setAlternatingRowColors(True); btable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); btable.setHorizontalHeaderLabels(["ردیف","شرح","مقدار","واحد","کد","مبلغ"]); btable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(btable,1)
     def show_boq():
-        project=service.open_project(bpid.text().strip())
-        if not project: QMessageBox.warning(w,"پروژه","پروژه پیدا نشد."); return
-        rows=project.get("boq",[]); btable.setRowCount(0)
-        for i,r in enumerate(rows):
-            btable.insertRow(i)
-            vals=[r.get("item_no",i+1),r.get("description",""),r.get("quantity",0),r.get("unit",""),r.get("price_code",""),r.get("total","")]
-            for j,val in enumerate(vals): btable.setItem(i,j,QTableWidgetItem(str(val)))
+        try:
+            project=service.open_project(bpid.text().strip())
+            if not project: QMessageBox.warning(w,"پروژه","پروژه پیدا نشد."); return
+            factors={}
+            for token in bfactors.text().split(","):
+                if "=" in token:
+                    k,val=token.split("=",1); factors[k.strip()]=float(val.strip())
+            estimate=service.recalculate_estimate(bpid.text().strip(),factors=factors)
+            rows=estimate["boq"]; btable.setRowCount(0)
+            for i,r in enumerate(rows):
+                btable.insertRow(i)
+                vals=[r.get("item_no",i+1),r.get("description",""),r.get("quantity",0),r.get("unit",""),r.get("price_code",""),r.get("total","")]
+                for j,val in enumerate(vals): btable.setItem(i,j,QTableWidgetItem(str(val)))
+            status.setText(f'🟢 برآورد به‌روزرسانی شد | مبلغ پایه: {estimate["cost"]["base"]:,.2f} | مبلغ نهایی: {estimate["cost"]["grand_total"]:,.2f}')
+        except Exception as e: QMessageBox.critical(w,"خطای برآورد",str(e))
     bgo.clicked.connect(show_boq)
     pages.addWidget(p); idx_boq=pages.count()-1
 
@@ -272,12 +281,12 @@ def main()->int:
     stout=QTextEdit(); stout.setReadOnly(True); v.addWidget(stout,1)
     def statement_shortcut():
         try:
-            project=service.open_project(stid.text().strip())
-            lines=[]
-            if project:
-                for row in project.get("boq",[]):
-                    lines.append({"code":row.get("price_code",""),"contract_quantity":row.get("quantity",0),"previous_quantity":row.get("previous_quantity",0),"current_quantity":row.get("current_quantity",row.get("quantity",0)),"unit_price":row.get("unit_price",0)})
-            stout.setPlainText(json.dumps(build_progress(lines),ensure_ascii=False,indent=2) if lines else "برای پروژه انتخاب‌شده ردیف قابل محاسبه وجود ندارد.")
+            snapshot=service.build_commercial_snapshot(stid.text().strip())
+            stout.setPlainText(json.dumps({
+                "خلاصه برآورد": snapshot["estimate"]["summary"],
+                "هزینه": snapshot["estimate"]["cost"],
+                "پیشرفت": snapshot["progress"]
+            },ensure_ascii=False,indent=2))
         except Exception as e: stout.setPlainText("خطا: "+str(e))
     stgo.clicked.connect(statement_shortcut); pages.addWidget(p); idx_statement=pages.count()-1
 
