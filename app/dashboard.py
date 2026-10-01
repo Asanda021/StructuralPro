@@ -28,7 +28,7 @@ class DashboardPage(QWidget):
         right=QFrame(); right.setObjectName("DashboardCard"); rv=QVBoxLayout(right)
         rt=QLabel("اقدامات سریع"); rt.setObjectName("SectionTitle"); rv.addWidget(rt)
         for label,idx in [("➕ پروژه جدید",1),("📐 متره گرافیکی",3),("💰 فهرست‌بها",4),("📄 گزارشات",7),("🧾 صورت‌وضعیت",6)]:
-            b=QPushButton(label); b.setMinimumHeight(40)
+            b=QPushButton(label); b.setMinimumHeight(40); b.setObjectName("SecondaryAction")
             if on_open_page: b.clicked.connect(lambda _=False,i=idx: on_open_page(i))
             rv.addWidget(b)
         rv.addStretch(); body.addWidget(left,3); body.addWidget(right,1); root.addLayout(body,1)
