@@ -102,3 +102,30 @@ def test_project_financial_due_summary_exposes_risk_totals(tmp_path):
     assert result["upcoming_count"]==1
     assert result["total_open_amount"]==1500
     assert result["highest_risk"]["status"]=="معوق"
+
+def test_jalali_date_validation_rejects_invalid_days_and_accepts_leap_esfand(tmp_path):
+    from core.platform.application import _normalize_date_key
+    assert _normalize_date_key("۱۴۰۵/۰۶/۳۱") == "1405/06/31"
+    assert _normalize_date_key("۱۴۰۵/۰۷/۳۱") is None
+    assert _normalize_date_key("۱۴۰۳/۱۲/۳۰") == "1403/12/30"
+    assert _normalize_date_key("۱۴۰۲/۱۲/۳۰") is None
+    assert _normalize_date_key("۱۴۰۵/۰۲/۳۲") is None
+
+
+def test_financial_rollup_report_kpi_audit_and_id_ledger(tmp_path):
+    a=StructuralProApp(tmp_path)
+    a.create_project("کنترل جامع","audit1")
+    cp=a.add_project_counterparty("audit1","پیمانکار")
+    a.add_project_commitment("audit1",1000,paid_amount=250,counterparty=cp["name"],due_date="1405/06/01")
+    a.add_project_cost("audit1","مصالح",200,counterparty=cp["name"])
+    a.add_project_receipt("audit1",500,counterparty=cp["name"])
+    a.add_project_financial_document("audit1","A-1","فاکتور",800,counterparty=cp["name"],payment_status="unpaid")
+    roll=a.project_counterparty_financial_rollup("audit1")
+    assert roll[0]["counterparty_id"]==cp["id"]
+    assert a.project_counterparty_financial_rollup_report("audit1","csv",tmp_path/"rollup.csv").exists()
+    ledger=a.project_counterparty_ledger_by_id("audit1",cp["id"])
+    assert ledger["row_count"]==4
+    k=a.project_financial_kpi_summary("audit1","1405/07/01")
+    assert k["overdue_count"]==1 and k["overdue_amount"]==750
+    audit=a.project_financial_audit_summary("audit1")
+    assert audit["document_count"]==1 and audit["unpaid_documents"]==1
