@@ -7,12 +7,14 @@ import hashlib
 @dataclass(frozen=True)
 class PriceSource:
     year:int; discipline:str; title:str; publisher:str; source_id:str
-    revision:str=""; license_status:str="unknown"; retrieved_at:str=""; sha256:str=""
+    revision:str=""; checksum:str=""; verified:bool=False; license_status:str="unknown"; retrieved_at:str=""; sha256:str=""
 
 class PriceSourceRegistry:
     def __init__(self): self._sources={}
     def register(self,source:PriceSource): self._sources[(source.year,source.discipline,source.source_id)]=source
     def add(self,source:PriceSource): self.register(source); return source
+    def verify_record(self,source:PriceSource,checksum:str)->bool:
+        return str(checksum)==str(source.checksum or source.sha256)
     def get(self,year,discipline,source_id):
         return self._sources.get((int(year),discipline,source_id))
     def all(self): return [asdict(x) for x in self._sources.values()]
