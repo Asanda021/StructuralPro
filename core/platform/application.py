@@ -316,6 +316,47 @@ class StructuralProApp:
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
+    def add_project_receipt(self, project_id: str, amount: float, *, description: str = "", date: str = "", reference: str = "") -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        amount = float(amount)
+        if amount < 0:
+            raise ValueError("receipt amount cannot be negative")
+        entries = list(p.get("receipt_entries", []))
+        entry = {"id": len(entries) + 1, "amount": amount, "description": str(description).strip(), "date": str(date).strip(), "reference": str(reference).strip()}
+        entries.append(entry)
+        p["receipt_entries"] = entries
+        self.store.save(project_id, p)
+        return entry
+
+    def project_receipts(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("receipt_entries", []))
+
+    def project_receipt_summary(self, project_id: str) -> dict[str, Any]:
+        entries = self.project_receipts(project_id)
+        return {"project_id": project_id, "entry_count": len(entries), "total_received": sum(float(x.get("amount", 0) or 0) for x in entries)}
+
+    def project_financial_position(self, project_id: str) -> dict[str, Any]:
+        dashboard = self.financial_dashboard(project_id)
+        receipts = self.project_receipt_summary(project_id)
+        contract = float(dashboard["contract_amount"])
+        received = float(receipts["total_received"])
+        receivable = max(contract - received, 0.0)
+        return {
+            "project_id": project_id,
+            "contract_amount": contract,
+            "earned_value": float(dashboard["cumulative_work"]),
+            "actual_cost": float(dashboard["actual_cost"]),
+            "received": received,
+            "receivable": receivable,
+            "cost_margin": float(dashboard["gross_margin"]),
+            "receipt_count": receipts["entry_count"],
+        }
+
     def project_cost_report(self, project_id: str, fmt: str, path):
         """Export the project's persisted cost ledger with category totals."""
         p = self.store.get(project_id)
@@ -332,6 +373,8 @@ class StructuralProApp:
         } for entry in entries]
         by_category = summary["by_category"]
         summary_payload = {
+            "receipts": self.project_receipt_summary(project_id),
+            "financial_position": self.project_financial_position(project_id),
             "cost": {
                 "line_count": summary["entry_count"],
                 "grand_total": summary["actual_cost"],
