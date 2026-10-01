@@ -75,8 +75,11 @@ class DashboardPage(QWidget):
         self.aging_as_of=QLineEdit(); self.aging_as_of.setPlaceholderText("تاریخ مبنا؛ مثال ۱۴۰۵/۰۷/۱۰"); self.aging_as_of.setMinimumWidth(180)
         self.aging_button=QPushButton("بررسی سررسید"); self.aging_button.setObjectName("SecondaryAction")
         self.aging_export_button=QPushButton("خروجی"); self.aging_export_button.setObjectName("SecondaryAction")
+        self.reconcile_button=QPushButton("تطبیق اسناد"); self.reconcile_button.setObjectName("SecondaryAction")
+        self.reconcile_summary=QLabel("برای کنترل تطبیق وضعیت اسناد با پرداخت‌ها و دریافتی‌های لینک‌شده، این گزینه را اجرا کنید."); self.reconcile_summary.setWordWrap(True)
         self.aging_summary=QLabel("برای مشاهده وضعیت سررسید، تاریخ مبنا را وارد کنید."); self.aging_summary.setWordWrap(True)
-        ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_export_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
+        ah.addWidget(self.aging_as_of); ah.addWidget(self.aging_button); ah.addWidget(self.aging_export_button); ah.addWidget(self.reconcile_button); ah.addWidget(self.aging_summary,2); av.addLayout(ah)
+        av.addWidget(self.reconcile_summary)
         self.aging_table=QTableWidget(0,7); self.aging_table.setHorizontalHeaderLabels(["نوع","شناسه","طرف حساب","مرجع","سررسید","وضعیت","مانده"])
         self.aging_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); self.aging_table.setAlternatingRowColors(True)
         av.addWidget(self.aging_table)
@@ -127,6 +130,7 @@ class DashboardPage(QWidget):
         self.document_button.clicked.connect(self.add_financial_document)
         self.aging_button.clicked.connect(self.refresh_aging)
         self.aging_export_button.clicked.connect(self.export_aging)
+        self.reconcile_button.clicked.connect(self.refresh_reconciliation)
         self.party_button.clicked.connect(self.add_counterparty)
         self.party_update_button.clicked.connect(self.update_counterparty)
         self.party_toggle_button.clicked.connect(self.toggle_counterparty)
@@ -382,6 +386,20 @@ class DashboardPage(QWidget):
             self.party_summary.setText(f"گزارش طرف حساب‌ها ذخیره شد: {path}")
         except Exception as exc:
             self.party_summary.setText(f"خطای خروجی طرف حساب‌ها: {exc}")
+
+    def refresh_reconciliation(self):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.reconcile_summary.setText("پروژه‌ای انتخاب نشده است.")
+            return
+        try:
+            r=self.service.project_financial_reconciliation(project_id)
+            self.reconcile_summary.setText(
+                f'تطبیق اسناد: {r["matched_count"]} | نیازمند بررسی: {r["mismatch_count"]} | '
+                f'بدون اتصال: {r["unlinked_count"]} | چند اتصال تسویه: {r["multiple_settlement_count"]}'
+            )
+        except Exception as exc:
+            self.reconcile_summary.setText(f"خطای تطبیق اسناد: {exc}")
 
     def export_aging(self):
         project_id=self.control_project.currentData()
