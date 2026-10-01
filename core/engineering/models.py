@@ -42,5 +42,6 @@ class StandardReference:
     jurisdiction: str
     scope: str
     version: str = ""
+    source_version: str = "1"
     source_id: str = "builtin-reference"
     notes: str = ""
