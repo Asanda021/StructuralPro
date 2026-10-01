@@ -15,6 +15,8 @@ from core.takeoff.quantity_tools import apply_waste
 from core.takeoff.transport import calculate_transport
 from core.takeoff.modules import calculate_building_item, calculate_mechanical_item, calculate_electrical_item, calculate_civil_item
 from core.ai.takeoff_assistant import LocalTakeoffAssistant
+from core.ai.local_engine import LocalAIEngine
+from core.pricing.annual_update import AnnualPriceImporter
 from core.projects.workflow import project_health, audit_project, save_template, export_package, backup_project, copy_project
 from core.takeoff.estimate_history import snapshot as estimate_snapshot, delta as estimate_delta
 from core.reports.custom import build_custom_report
@@ -36,8 +38,11 @@ def _suggest_next_actions(project: Any) -> list[str]:
 
 def build_bindings() -> dict[str, Callable[..., Any]]:
     assistant = LocalTakeoffAssistant()
+    local_ai = LocalAIEngine()
+    annual_prices = AnnualPriceImporter()
     return {
         "cad-dwg": DWGTakeoffEngine().import_file,
+        "cad-dwg-summary": DWGTakeoffEngine().summarize,
         "cad-dxf": DWGTakeoffEngine().import_file,
         "cad-layers": lambda r: r.layers,
         "cad-lines": lambda r: [e for e in r.entities if e.entity_type == "LINE"],
@@ -108,7 +113,8 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "integration-excel": _identity,
         "integration-api": _identity,
         "integration-transfer": _identity,
-        "ai-assistant": _identity,
+        "ai-assistant": local_ai.answer,
+        "ai-project-inspection": local_ai.inspect_project,
         "security-license": validate_license,
         "platform-windows": lambda: ProductClient("windows").state(),
         "platform-android": lambda: ProductClient("android").state(),
@@ -119,6 +125,8 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "pricing-years": lambda catalog: catalog.years(),
         "pricing-search": lambda catalog, query, **kwargs: catalog.search(query, **kwargs),
         "pricing-import": lambda catalog, text: catalog.import_csv(text),
+        "pricing-annual-validate": annual_prices.validate,
+        "pricing-annual-convert": annual_prices.convert,
         "pricing-export": lambda catalog, year=None: catalog.export_csv(year),
         "pricing-analysis": price_analysis,
         "pricing-resources": _identity,
