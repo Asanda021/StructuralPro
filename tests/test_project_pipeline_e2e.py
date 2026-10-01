@@ -1,4 +1,5 @@
 """"End-to-end acceptance for the desktop project's commercial pipeline."""
+import pytest
 from core.platform.application import StructuralProApp
 
 
@@ -20,7 +21,7 @@ def test_project_pipeline_persists_estimate_and_snapshot(tmp_path):
     estimate = app.recalculate_estimate("P1", factors={"سربار": 0.10})
     assert estimate["summary"]["line_count"] == 1
     assert estimate["cost"]["base"] > 0
-    assert estimate["cost"]["grand_total"] == estimate["cost"]["base"] * 1.10
+    assert estimate["cost"]["grand_total"] == pytest.approx(estimate["cost"]["base"] * 1.10)
 
     snapshot = app.build_commercial_snapshot("P1")
     assert snapshot["project_id"] == "P1"
