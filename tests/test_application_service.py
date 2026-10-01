@@ -129,3 +129,41 @@ def test_financial_rollup_report_kpi_audit_and_id_ledger(tmp_path):
     assert k["overdue_count"]==1 and k["overdue_amount"]==750
     audit=a.project_financial_audit_summary("audit1")
     assert audit["document_count"]==1 and audit["unpaid_documents"]==1
+
+def test_financial_control_filters_exposure_matrix_and_integrity(tmp_path):
+    a=StructuralProApp(tmp_path); a.create_project("کنترل","fc1")
+    cp=a.add_project_counterparty("fc1","پیمانکار")
+    c=a.add_project_commitment("fc1",1000,paid_amount=400,counterparty=cp["name"])
+    a.add_project_financial_document("fc1","F-1","فاکتور",600,counterparty=cp["name"],payment_status="unpaid",commitment_id=c["id"])
+    assert len(a.project_financial_documents_by_status("fc1","unpaid"))==1
+    assert len(a.project_financial_documents_by_counterparty("fc1",cp["id"]))==1
+    ex=a.project_counterparty_exposure("fc1",cp["id"])
+    assert ex["unpaid_commitments"]==600
+    matrix=a.project_financial_document_status_matrix("fc1")
+    assert matrix["matrix"]["partial"]["count"]==1
+    assert a.project_financial_integrity_audit("fc1")["healthy"] is True
+
+
+def test_statement_activity_snapshot_and_exports(tmp_path):
+    a=StructuralProApp(tmp_path); a.create_project("صورت","st1")
+    a.add_takeoff("st1","building","slab",length=2,width=3,member_code="S1")
+    a.open_project("st1")["boq"][0]["price_code"]="S1"
+    p=a.open_project("st1"); p["boq"][0]["unit_price"]=100; p["boq"][0]["quantity"]=6; a.store.save("st1",p)
+    a.save_statement_period("st1",current_quantities={"S1":2})
+    assert a.project_statement_summary("st1")["period_count"]==1
+    assert a.project_statement_period("st1",1)["number"]==1
+    assert a.project_statement_report("st1","csv",tmp_path/"statement.csv").exists()
+    act=a.project_activity_summary("st1")
+    assert act["takeoffs"]==1 and act["statement_periods"]==1
+    snap=a.project_financial_control_snapshot("st1","1405/07/01")
+    assert snap["integrity"]["healthy"] is True
+    assert a.project_financial_control_report("st1","1405/07/01","csv",tmp_path/"control.csv").exists()
+
+
+def test_financial_integrity_detects_broken_reference(tmp_path):
+    a=StructuralProApp(tmp_path); a.create_project("صحت","int1")
+    a.add_project_financial_document("int1","BAD","فاکتور",100,commitment_id=None)
+    p=a.open_project("int1"); p["financial_documents"][0]["receipt_id"]=999; a.store.save("int1",p)
+    audit=a.project_financial_integrity_audit("int1")
+    assert audit["healthy"] is False
+    assert audit["issue_count"]==1
