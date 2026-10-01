@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any
 from core.projects.store import ProjectStore
 from core.takeoff.engine import TakeoffEngine
-from core.takeoff.boq import build_boq
+from core.takeoff.boq import build_boq, boq_summary
+from core.takeoff.estimate import build_estimate
+from core.commercial.progress import build_progress
 from core.reports.project_report import build_report
 from core.ai.qa_engine import ProjectQA
 
@@ -37,6 +39,33 @@ class StructuralProApp:
                                    "unit_price":q.get("unit_price")})
         p["boq"]=build_boq(boq_inputs)
         self.store.save(project_id,p); return row
+
+
+    def recalculate_estimate(self, project_id: str, *, factors: dict[str,float] | None = None) -> dict[str,Any]:
+        p=self.store.get(project_id)
+        if p is None: raise KeyError(project_id)
+        estimate=build_estimate(p.get("boq",[]), factors=factors or {}, aggregate=False)
+        p["estimate"]=estimate
+        self.store.save(project_id,p)
+        return estimate
+
+    def build_commercial_snapshot(self, project_id: str, *, factors: dict[str,float] | None = None) -> dict[str,Any]:
+        p=self.store.get(project_id)
+        if p is None: raise KeyError(project_id)
+        estimate=self.recalculate_estimate(project_id,factors=factors)
+        p=self.store.get(project_id) or p
+        lines=[]
+        for row in p.get("boq",[]):
+            lines.append({
+                "code":row.get("price_code",""),
+                "contract_quantity":row.get("quantity",0),
+                "previous_quantity":row.get("previous_quantity",0),
+                "current_quantity":row.get("current_quantity",0),
+                "unit_price":row.get("unit_price",0),
+            })
+        progress=build_progress(lines) if lines else {"lines":[],"contract_total":0,"current_total":0,"payable_current":0,"balance_current":0}
+        return {"project_id":project_id,"estimate":estimate,"progress":progress,
+                "boq_summary":boq_summary(p.get("boq",[]))}
 
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
