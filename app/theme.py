@@ -14,6 +14,17 @@ QLabel#BrandTitle {
     font-weight: 800;
     padding: 10px 12px;
 }
+QLabel#PageTitle {
+    color: #111827;
+    font-size: 22px;
+    font-weight: 800;
+    padding-top: 4px;
+}
+QLabel#PageDescription {
+    color: #64748B;
+    font-size: 10.5pt;
+    padding-bottom: 8px;
+}
 QLabel#StatusPill {
     color: #CFE7D5;
     background: #1F2937;
@@ -55,6 +66,29 @@ QPushButton#NavButton:hover {
 QPushButton#NavButton:checked {
     background: #2563EB;
     color: #FFFFFF;
+    font-weight: 700;
+    padding-right: 18px;
+}
+QPushButton#NavButton:checked:hover {
+    background: #1D4ED8;
+}
+QTabWidget::pane {
+    border: 1px solid #D8DEE8;
+    background: #FFFFFF;
+    border-radius: 8px;
+    padding: 6px;
+}
+QTabBar::tab {
+    background: #EEF2F7;
+    color: #334155;
+    padding: 8px 14px;
+    margin-left: 3px;
+    border-radius: 6px;
+}
+QTabBar::tab:selected {
+    background: #2563EB;
+    color: #FFFFFF;
+    font-weight: 700;
 }
 QLineEdit, QComboBox, QSpinBox, QTextEdit {
     background: #FFFFFF;
