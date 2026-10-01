@@ -1,5 +1,5 @@
 ; StructuralPro Inno Setup installer template.
-; VERSION is injected into the stable __VERSION__ placeholder by the release workflow.
+; VERSION is injected into the stable installer placeholder by the release workflow.
 #define MyAppName "StructuralPro"
 #define MyAppVersion "__VERSION__"
 #define MyAppExeName "StructuralPro.exe"
