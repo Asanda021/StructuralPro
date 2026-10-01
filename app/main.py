@@ -48,7 +48,7 @@ def main()->int:
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — متره و برآورد حرفه‌ای"); w.resize(1500,920)
 
-    root=QWidget(); layout=QHBoxLayout(root); nav=QVBoxLayout(); pages=QStackedWidget()
+    root=QWidget(); layout=QHBoxLayout(root); nav_widget=QWidget(); nav=QVBoxLayout(nav_widget); pages=QStackedWidget()
     title=QLabel("StructuralPro")
     title.setStyleSheet("font-size:24px;font-weight:700;padding:12px;")
     nav.addWidget(title)
@@ -309,7 +309,7 @@ def main()->int:
     # navigation
     for b,i in zip(buttons,range(pages.count())): b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
     nav.addStretch()
-    layout.addLayout(nav,1); layout.addWidget(pages,4); w.setCentralWidget(root)
+    layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
     refresh_projects(); refresh_dash(); pages.setCurrentIndex(idx_dash)
     w.show(); return app.exec()
