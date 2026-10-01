@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-import math, os, shutil, subprocess, tempfile
+import math
 
 @dataclass(frozen=True)
 class DWGEntity:
@@ -85,21 +85,8 @@ class DWGTakeoffEngine:
         return self._read_dxf(converted)
 
     def _convert_dwg(self,p:Path)->Path:
-        converter=os.getenv("STRUCTURALPRO_DWG_CONVERTER") or shutil.which("dwg2dxf") or shutil.which("ODAFileConverter")
-        if not converter: raise RuntimeError("Native DWG needs an installed offline converter. Set STRUCTURALPRO_DWG_CONVERTER.")
-        temp=Path(tempfile.mkdtemp(prefix="structuralpro_dwg_"))
-        if Path(converter).name.lower().startswith("odafileconverter"):
-            outdir=temp/"out"; outdir.mkdir()
-            proc=subprocess.run([converter,str(p.parent),str(outdir),"ACAD2018","DXF","0","1","*.dwg"],capture_output=True,text=True)
-            if proc.returncode: raise RuntimeError(proc.stderr or "DWG conversion failed")
-            matches=list(outdir.glob("*.dxf"))
-        else:
-            target=temp/(p.stem+".dxf")
-            proc=subprocess.run([converter,str(p),str(target)],capture_output=True,text=True)
-            if proc.returncode: raise RuntimeError(proc.stderr or "DWG conversion failed")
-            matches=[target]
-        if not matches: raise RuntimeError("DWG converter produced no DXF")
-        return matches[0]
+        from core.drawings.dwg_converter import OfflineDWGConverter
+        return OfflineDWGConverter().convert(p).output
 
     def summarize(self,doc:DWGDocument)->dict[str,Any]:
         return {"entities":len(doc.entities),"layers":doc.layers,"blocks":doc.block_counts,
