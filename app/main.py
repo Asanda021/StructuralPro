@@ -39,6 +39,8 @@ def main()->int:
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
         from app.theme import APP_STYLESHEET
+        from app.dashboard import DashboardPage
+        from core.drawings.dwg_capabilities import detect_dwg_capabilities
     except ImportError as exc:
         print("StructuralPro dependencies are required:",exc); return 2
 
@@ -69,22 +71,9 @@ def main()->int:
     for name in sections:
         b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); buttons.append(b); nav.addWidget(b)
 
-    # Dashboard
-    p,v=page("داشبورد","نمای کلی پروژه و وضعیت موتورهای محلی")
-    dash=QTextEdit(); dash.setReadOnly(True); v.addWidget(dash)
-    def refresh_dash():
-        projects=service.store.list()
-        dash.setPlainText(
-            f"تعداد پروژه‌ها: {len(projects)}\n"
-            f"ذخیره‌سازی: SQLite محلی\n"
-            f"متره: فعال\nنقشه: PDF / DXF / DWG / IFC\n"
-            f"فهرست‌بها: {len(catalog.years())} سال بارگذاری‌شده\n"
-            f"هوش مصنوعی: محلی و آفلاین\n\n"
-            "اینترنت برای هسته نرم‌افزار الزامی نیست."
-        )
-    v.addWidget(QPushButton("بازخوانی داشبورد"))
-    v.itemAt(v.count()-1).widget().clicked.connect(refresh_dash)
-    pages.addWidget(p); idx_dash=pages.count()-1
+    # Dashboard — Canva-aligned commercial shell with real project data
+    dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
+    pages.addWidget(dashboard_page); idx_dash=pages.count()-1
 
     # Projects
     p,v=page("پروژه‌ها","ساخت، بازکردن و ذخیره پروژه‌ها")
@@ -140,7 +129,7 @@ def main()->int:
                 dtable.setCellWidget(i-1,0,cb)
                 vals=[r.get("description",""),r.get("quantity",""),r.get("unit",""),r.get("source",r.get("global_id",""))]
                 for j,val in enumerate(vals,1): dtable.setItem(i-1,j,QTableWidgetItem(str(val)))
-            if drawing_state.get("kind")=="cad": outmsg=f'نقشه CAD: {drawing_state["summary"]["entities"]} المان'
+            if drawing_state.get("kind")=="cad":\n                caps=detect_dwg_capabilities()\n                outmsg=f'نقشه CAD: {drawing_state["summary"]["entities"]} المان | {caps.message}'
             else: outmsg=f'تعداد کاندیدها: {len(drawing_state.get("candidates",[]))}'
             status.setText("🟢 "+outmsg+" | قبل از ورود به BOQ تأیید کنید")
         except Exception as e: QMessageBox.critical(w,"خطای نقشه",str(e))
@@ -356,7 +345,7 @@ def main()->int:
     nav.addStretch()
     layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
-    refresh_projects(); refresh_dash(); pages.setCurrentIndex(idx_dash)
+    refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash)
     w.show(); return app.exec()
 
 if __name__=="__main__": raise SystemExit(main())
