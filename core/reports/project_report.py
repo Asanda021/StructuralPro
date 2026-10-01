@@ -19,7 +19,7 @@ class ProjectReport:
         }
         if f not in exporters:
             raise ValueError(f"unsupported report format: {fmt}")
-        return exporters[f](self.rows, path, title=self.project_name)
+        return exporters[f](self.rows, path, title=self.project_name, summary=self.summary)
 
 def build_report(project_name, rows, summary=None):
     return ProjectReport(project_name, list(rows), summary or {})
