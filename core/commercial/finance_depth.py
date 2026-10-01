@@ -97,9 +97,13 @@ class FinancePaymentControl:
 
     def validate(self) -> "FinancePaymentControl":
         payment_ids = self._unique(self.payments, "payment")
-        allocation_ids = self._unique(self.allocations, "allocation")
-        budget_ids = self._unique(self.budget, "budget")
-        _ = allocation_ids, budget_ids
+        self._unique(self.allocations, "allocation")
+        budget_codes: set[str] = set()
+        for budget in self.budget:
+            code = _text(budget.code, "budget code", True)
+            if code in budget_codes:
+                raise ValueError(f"duplicate budget id: {code}")
+            budget_codes.add(code)
         for p in self.payments:
             _money(p.amount, "payment amount")
             if p.status not in PAYMENT_STATUSES:
