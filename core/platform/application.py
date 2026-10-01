@@ -129,6 +129,74 @@ class StructuralProApp:
             },
         }
 
+    def save_statement_period(self, project_id: str, *, period_no: int | None = None,
+                              current_quantities: dict[str, float] | None = None,
+                              retention_rate: float = 0.0, advance_recovery_rate: float = 0.0,
+                              tax_rate: float = 0.0, insurance_rate: float = 0.0) -> dict[str, Any]:
+        """Persist a numbered statement period and roll its quantities into the next period."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        periods = list(p.get("statement_periods", []))
+        if period_no is None:
+            period_no = (max((int(x.get("number", 0)) for x in periods), default=0) + 1)
+        period_no = int(period_no)
+        if period_no <= 0 or any(int(x.get("number", 0)) == period_no for x in periods):
+            raise ValueError("statement period number must be positive and unique")
+        previous = {}
+        if periods:
+            previous = {
+                str(x.get("code", "")): float(x.get("cumulative_quantity", 0) or 0)
+                for x in periods[-1].get("lines", [])
+            }
+        overrides = {str(k): float(v) for k, v in (current_quantities or {}).items()}
+        lines = []
+        for row in p.get("boq", []):
+            code = str(row.get("price_code", "") or "")
+            cur = float(overrides.get(code, row.get("current_quantity", 0)) or 0)
+            prev = float(previous.get(code, row.get("previous_quantity", 0)) or 0)
+            if cur < 0 or prev < 0:
+                raise ValueError("statement quantities cannot be negative")
+            lines.append({
+                "code": code, "description": row.get("description", ""), "unit": row.get("unit", ""),
+                "contract_quantity": float(row.get("quantity", 0) or 0),
+                "unit_price": float(row.get("unit_price", 0) or 0),
+                "previous_quantity": prev, "current_quantity": cur,
+            })
+        progress = build_progress(lines)
+        period = {
+            "number": period_no,
+            "lines": progress["lines"],
+            "gross_current": progress["gross_current"],
+            "completed_total": progress["completed_total"],
+            "remaining_contract": progress["remaining_contract"],
+            "progress_percent": progress["progress_percent"],
+            "rates": {
+                "retention_rate": float(retention_rate), "advance_recovery_rate": float(advance_recovery_rate),
+                "tax_rate": float(tax_rate), "insurance_rate": float(insurance_rate),
+            },
+        }
+        gross = float(period["gross_current"])
+        retention = gross * float(retention_rate)
+        advance = gross * float(advance_recovery_rate)
+        taxable = max(gross - retention - advance, 0.0)
+        tax = taxable * float(tax_rate)
+        insurance = taxable * float(insurance_rate)
+        period.update({
+            "retention": retention, "advance_recovery": advance, "taxable_current": taxable,
+            "tax": tax, "insurance": insurance, "payable_current": max(taxable + tax - insurance, 0.0),
+        })
+        periods.append(period)
+        p["statement_periods"] = periods
+        self.store.save(project_id, p)
+        return period
+
+    def statement_periods(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("statement_periods", []))
+
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
