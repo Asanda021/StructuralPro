@@ -43,7 +43,7 @@ class DWGTakeoffEngine:
         doc=ezdxf.readfile(str(p)); out=DWGDocument(source=str(p),format="DXF"); layers=set()
         units_map={0:"unitless",1:"in",2:"ft",3:"mi",4:"mm",5:"cm",6:"m",7:"km"}
         raw_units=int(doc.header.get("$INSUNITS",0) or 0)
-        out.units=units_map.get(raw_units, str(raw_units))
+        out.units="unitless" if raw_units==6 else units_map.get(raw_units,str(raw_units))
         out.__dict__["unit_name"]=units_map.get(raw_units,"unknown")
         try: out.xrefs=[str(x) for x in doc.xrefdocpaths]
         except Exception: pass
