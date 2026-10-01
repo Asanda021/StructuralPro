@@ -11,6 +11,7 @@ QMainWindow, QWidget { background: #f4f7fb; color: #172033; }
 #ContentPage { background: #f7f9fc; }
 #PageTitle { color: #12233f; font-size: 20pt; font-weight: 800; }
 #PageDescription { color: #62708a; font-size: 10.5pt; }
+#KpiCard { background: white; border: 1px solid #dce4ef; border-radius: 10px; padding: 12px; }
 #SectionTitle { color: #17345b; font-size: 13pt; font-weight: 700; padding-top: 6px; }
 #DashboardCard, QGroupBox { background: white; border: 1px solid #dce4ef; border-radius: 10px; }
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit { background: white; border: 1px solid #cbd6e4; border-radius: 7px; padding: 7px; selection-background-color: #2d6da3; }
