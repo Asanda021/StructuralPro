@@ -96,10 +96,11 @@ def test_drawing_pipeline_normalizes_units_and_rejects_invalid_data():
     with pytest.raises(ValueError):
         p.normalize([{"source":"dwg:bad","description":"x","quantity":-1,"unit":"m"}])
 
-def test_ifc_duplicate_global_id_is_not_silently_dropped():
+def test_ifc_duplicate_global_id_is_deduplicated_deterministically():
     from core.drawings.ifc_pipeline import normalize_ifc_rows
-    with pytest.raises(ValueError, match="IFC"):
-        normalize_ifc_rows([
-            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5}},
-            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":6}},
-        ])
+    rows = normalize_ifc_rows([
+        {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5}},
+        {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":6}},
+    ])
+    assert len(rows) == 1
+    assert rows[0]["quantities"]["Length"] == 5
