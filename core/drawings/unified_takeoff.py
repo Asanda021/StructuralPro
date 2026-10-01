@@ -8,7 +8,8 @@ from core.drawings.bim_quantities import read_ifc
 from core.ai.auto_takeoff import LocalAutoTakeoff
 _BIM_UNITS={"Length":"m","Area":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
 class UnifiedDrawingTakeoff:
-    def __init__(self,price_resolver=None):\n        self.price_resolver=price_resolver
+    def __init__(self,price_resolver=None):
+        self.price_resolver=price_resolver
         self.auto=LocalAutoTakeoff()
     def inspect(self,path:str|Path)->dict[str,Any]:
         p=Path(path)
@@ -17,7 +18,7 @@ class UnifiedDrawingTakeoff:
         if ext==".pdf":
             a=PDFTakeoffAdapter(); pages=a.inspect(p)
             candidates=a.text_takeoff_candidates(pages)
-            scales=self.auto.auto_scale("\\n".join(x.text for x in pages))\n            return {"kind":"pdf","source":str(p),"pages":len(pages),"scale_candidate":scales,"candidates":candidates}
+            scales=self.auto.auto_scale("\n".join(x.text for x in pages))\n            return {"kind":"pdf","source":str(p),"pages":len(pages),"scale_candidate":scales,"candidates":candidates}
         if ext in {".dwg",".dxf"}:
             e=DWGTakeoffEngine(); doc=e.import_file(p); candidates=[]
             for layer in doc.layers:
