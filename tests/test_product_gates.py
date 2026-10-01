@@ -12,9 +12,7 @@ from core.platform.application import StructuralProApp
 
 def _fake_converter(tmp_path):
     exe=tmp_path/"fake-dwg2dxf"
-    exe.write_text("#!/bin/sh
-cp \"$1\" \"$2\"
-",encoding="utf-8")
+    exe.write_text("#!/bin/sh\\ncp \"$1\" \"$2\"\\n",encoding="utf-8")
     exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
     return exe
 
@@ -49,13 +47,15 @@ EOF
 
 def test_offline_dwg_converter_contract(tmp_path):
     exe=_fake_converter(tmp_path)
-    src=tmp_path/"plan.dwg"; src.write_text("DXF-FIXTURE",encoding="utf-8")
+    src=tmp_path/"plan.dwg"
+    src.write_text("DXF-FIXTURE",encoding="utf-8")
     r=OfflineDWGConverter(str(exe)).convert(src,tmp_path/"out")
     assert r.output.read_text()=="DXF-FIXTURE"
 
 def test_dwg_engine_reads_converter_output(tmp_path, monkeypatch):
     exe=_fake_converter(tmp_path)
-    src=tmp_path/"plan.dwg"; src.write_text(_minimal_dxf(),encoding="utf-8")
+    src=tmp_path/"plan.dwg"
+    src.write_text(_minimal_dxf(),encoding="utf-8")
     monkeypatch.setenv("STRUCTURALPRO_DWG_CONVERTER",str(exe))
     doc=DWGTakeoffEngine().import_file(src)
     assert doc.entities[0].entity_type=="LINE"
@@ -84,13 +84,6 @@ def test_e2e_sync_provider():
     p.push([{"project_id":"P1","version":2,"payload":{"name":"B"}}])
     assert p.pull("P1")[-1]["payload"]["name"]=="B"
 
-def test_price_source_registry():
-    r=PriceSourceRegistry()
-    s=PriceSource(1405,"ابنیه","verified","https://example.invalid","licensed","2026-10-01","abc",True)
-    r.add(s)
-    assert r.verify_record(s,"abc")
-
-
 def test_sync_manager_end_to_end(tmp_path):
     provider=MemorySyncProvider()
     manager=SyncManager(provider,OfflineQueue(tmp_path/"queue.json"))
@@ -99,6 +92,11 @@ def test_sync_manager_end_to_end(tmp_path):
     assert result.pushed==1 and result.pulled==1
     assert manager.queue.peek()==[]
 
+def test_price_source_registry():
+    r=PriceSourceRegistry()
+    s=PriceSource(1405,"ابنیه","verified","https://example.invalid","licensed","2026-10-01","abc",True)
+    r.add(s)
+    assert r.verify_record(s,"abc")
 
 def test_windows_shared_application_workflow(tmp_path):
     app=StructuralProApp(tmp_path)
