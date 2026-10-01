@@ -88,7 +88,17 @@ def export_xlsx(rows, path, title="StructuralPro", summary=None, metadata=None, 
     detail.cell(1, 1).font = Font(bold=True, size=16)
     detail.cell(1, 1).alignment = Alignment(horizontal="right", readingOrder=2)
     detail.append([])
-    header_row = 3
+    detail.cell(3, 1, "خلاصه تجاری")
+    detail.cell(3, 1).font = Font(bold=True)
+    detail.cell(3, 1).alignment = Alignment(horizontal="right", readingOrder=2)
+    summary_items = _summary_items(summary)
+    for i, (label, value) in enumerate(summary_items, 4):
+        detail.cell(i, 1, label)
+        detail.cell(i, 2, value)
+    header_row = max(6, 4 + len(summary_items))
+    detail.cell(header_row, 1, "ریز متره و برآورد")
+    detail.cell(header_row, 1).font = Font(bold=True)
+    header_row += 1
     detail.append([label for _, label in cols])
     for row in rows:
         detail.append([row.get(key, "") for key, _ in cols])
@@ -100,7 +110,7 @@ def export_xlsx(rows, path, title="StructuralPro", summary=None, metadata=None, 
     for row in detail.iter_rows(min_row=header_row + 1):
         for cell in row:
             cell.alignment = Alignment(horizontal="right", readingOrder=2, vertical="top", wrap_text=True)
-    detail.freeze_panes = "A4"
+    detail.freeze_panes = f"A{header_row + 1}"
     detail.auto_filter.ref = f"A{header_row}:{get_column_letter(max(1, len(cols)))}{detail.max_row}"
     for idx, (key, label) in enumerate(cols, 1):
         width = max(12, min(42, max([len(str(label))] + [len(_cell(r.get(key))) for r in rows]) + 2))
