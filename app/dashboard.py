@@ -63,7 +63,8 @@ class DashboardPage(QWidget):
         self.document_receipt=QLineEdit(); self.document_receipt.setPlaceholderText("شناسه دریافتی")
         self.document_button=QPushButton("ثبت سند"); self.document_button.setObjectName("SecondaryAction")
         self.document_summary=QLabel("اسناد: ۰"); self.document_summary.setWordWrap(True)
-        for x in (self.document_number,self.document_type,self.document_counterparty,self.document_amount,self.document_date,self.document_due,self.document_status,self.document_commitment,self.document_cost,self.document_receipt,self.document_button,self.document_summary): dv.addWidget(x)
+        self.counterparty_summary=QLabel("طرف حساب‌ها: ۰"); self.counterparty_summary.setWordWrap(True)
+        for x in (self.document_number,self.document_type,self.document_counterparty,self.document_amount,self.document_date,self.document_due,self.document_status,self.document_commitment,self.document_cost,self.document_receipt,self.document_button,self.document_summary,self.counterparty_summary): dv.addWidget(x)
         root.addWidget(documents)
         ledger=QFrame(); ledger.setObjectName("DashboardCard"); lv2=QHBoxLayout(ledger); lv2.setContentsMargins(12,10,12,10)
         lv2.addWidget(QLabel("ثبت هزینه"))
@@ -195,6 +196,8 @@ class DashboardPage(QWidget):
             self.receipt_summary.setText(f'دریافتی: {pos["received"]:,.0f} | مطالبات: {pos["receivable"]:,.0f} | {pos["receipt_count"]} ثبت')
             ds=self.service.project_financial_document_summary(project_id)
             self.document_summary.setText(f'اسناد: {ds["document_count"]} مورد | مجموع: {ds["document_total"]:,.0f} | پرداخت‌نشده: {ds["by_payment_status"]["unpaid"]:,.0f}')
+            cp=self.service.project_counterparty_summary(project_id)
+            self.counterparty_summary.setText(f'طرف حساب‌ها: {cp["counterparty_count"]} | ' + " | ".join(f'{x["counterparty"]}: {x["committed_amount"] + x["document_amount"]:,.0f}' for x in cp["counterparties"][:3]))
             self.control_result.setText(
                 f'ارزش کارکرد: {d["cumulative_work"]:,.0f} | '
                 f'هزینه واقعی: {d["actual_cost"]:,.0f} | '
