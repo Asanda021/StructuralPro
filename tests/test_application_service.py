@@ -43,7 +43,7 @@ def test_financial_reconciliation_audits_status_without_mutation(tmp_path):
     a.add_project_financial_document("rec1", "DOC-1", "فاکتور", 1000, counterparty=cp["name"],
                                      payment_status="unpaid", commitment_id=commitment["id"])
     a.add_project_financial_document("rec1", "DOC-2", "فاکتور", 500, counterparty=cp["name"],
-                                     payment_status="unpaid")
+                                     payment_status="paid")
     receipt = a.add_project_receipt("rec1", 500, counterparty=cp["name"])
     p = a.open_project("rec1")
     p["financial_documents"][1]["receipt_id"] = receipt["id"]
