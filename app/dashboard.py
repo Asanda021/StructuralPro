@@ -18,6 +18,19 @@ class DashboardPage(QWidget):
         title=QLabel("داشبورد"); title.setObjectName("PageTitle")
         desc=QLabel("نمای عملیاتی پروژه‌ها، متره، نقشه‌ها و وضعیت داده‌های مالی"); desc.setObjectName("PageDescription")
         root.addWidget(title); root.addWidget(desc)
+        workflow=QFrame(); workflow.setObjectName("DashboardCard")
+        wv=QVBoxLayout(workflow); wv.setContentsMargins(12,10,12,10); wv.setSpacing(8)
+        self.workflow_summary=QLabel("گردش‌کار پروژه: یک پروژه را انتخاب کنید."); self.workflow_summary.setWordWrap(True)
+        wv.addWidget(self.workflow_summary)
+        self.workflow_buttons=QHBoxLayout()
+        self.workflow_stage_buttons=[]
+        workflow_pages={"project":1,"takeoff":2,"boq":5,"estimate":5,"progress":6,"payment":6,"finance":0,"report":7}
+        for key,title_text in [("project","پروژه"),("takeoff","متره"),("boq","BOQ"),("estimate","برآورد"),("progress","پیشرفت"),("payment","صورت‌وضعیت"),("finance","مالی"),("report","گزارش")]:
+            b=QPushButton(title_text); b.setMinimumHeight(34); b.setObjectName("SecondaryAction")
+            b.clicked.connect(lambda _=False,k=key: self.open_workflow_stage(k,workflow_pages[k]))
+            self.workflow_stage_buttons.append((key,b)); self.workflow_buttons.addWidget(b)
+        wv.addLayout(self.workflow_buttons)
+        root.addWidget(workflow)
         self.cards=QGridLayout(); self.cards.setSpacing(12); root.addLayout(self.cards)
         self.alerts=QLabel("کنترل مالی: برای مشاهده هشدارها، پروژه و تاریخ مبنا را انتخاب کنید."); self.alerts.setObjectName("DashboardCard"); self.alerts.setWordWrap(True); root.addWidget(self.alerts)
         self.kpi_summary=QLabel("شاخص‌های مالی پروژه پس از انتخاب پروژه نمایش داده می‌شوند."); self.kpi_summary.setObjectName("DashboardCard"); self.kpi_summary.setWordWrap(True); root.addWidget(self.kpi_summary)
@@ -181,6 +194,7 @@ class DashboardPage(QWidget):
             self.control_project.currentIndexChanged.connect(self.on_control_project_changed)
             self._control_signal_connected=True
         if projects:
+            self.refresh_workflow(projects[-1].get("id",""))
             self.refresh_financial(projects[-1].get("id",""))
             try: self.refresh_alerts(projects[-1].get("id",""))
             except Exception: pass
@@ -196,6 +210,33 @@ class DashboardPage(QWidget):
                 self.planned_cost.setValue(float(d["contract_amount"]))
             except Exception:
                 pass
+    def open_workflow_stage(self, stage, page_index):
+        project_id=self.control_project.currentData()
+        if not project_id:
+            self.workflow_summary.setText("ابتدا یک پروژه را انتخاب کنید.")
+            return
+        if self.on_open_page:
+            self.on_open_page(page_index)
+        self.refresh_workflow(project_id)
+
+    def refresh_workflow(self, project_id):
+        try:
+            snapshot=self.service.workflow_summary(project_id)
+            self.workflow_summary.setText(
+                f'گردش‌کار پروژه: {snapshot["project_name"] or project_id} | '
+                f'پیشرفت چرخه: {snapshot["completed"]}/{snapshot["total"]} '
+                f'({snapshot["completion_percent"]:.0f}%) | '
+                f'مرحله بعد: {snapshot["current_title"]} — {snapshot["next_action"]}'
+            )
+            status_map={item["key"]:item["status"] for item in snapshot["stages"]}
+            for key,button in self.workflow_stage_buttons:
+                status=status_map.get(key,"ready")
+                button.setToolTip({"complete":"تکمیل‌شده","ready":"آماده انجام","blocked":"منتظر پیش‌نیاز","in_progress":"در حال انجام"}.get(status,status))
+                button.setEnabled(status != "blocked")
+                button.setText({"complete":"✓ ","ready":"","blocked":"🔒 ","in_progress":"• "}.get(status,"")+button.text().lstrip("✓ 🔒• "))
+        except Exception as exc:
+            self.workflow_summary.setText(f"خطای گردش‌کار پروژه: {exc}")
+
     def add_financial_document(self):
         project_id=self.control_project.currentData()
         if not project_id:
@@ -259,6 +300,7 @@ class DashboardPage(QWidget):
             return
         try:
             d=self.service.financial_dashboard(project_id)
+            self.refresh_workflow(project_id)
             self.refresh_financial(project_id)
             self.planned_cost.setValue(float(d["contract_amount"]))
             self.actual_cost.setValue(float(d["actual_cost"]))
