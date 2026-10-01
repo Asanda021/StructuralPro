@@ -139,11 +139,15 @@ def main()->int:
     graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
-    # Pricing
-    p,v=page("فهرست‌بها","بارگذاری CSV، جستجو و کنترل داده‌های سالانه")
-    pform=QHBoxLayout(); pyear=QLineEdit(); pquery=QLineEdit(); load=QPushButton("بارگذاری CSV"); search=QPushButton("جستجو")
-    pform.addWidget(QLabel("سال:")); pform.addWidget(pyear); pform.addWidget(QLabel("عبارت:")); pform.addWidget(pquery); pform.addWidget(load); pform.addWidget(search); v.addLayout(pform)
-    ptable=QTableWidget(0,6); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable)
+    # Pricing — Canva-aligned operational workspace
+    p,v=page("فهرست‌بها","مدیریت سال، جستجو و کنترل سریع ردیف‌های فهرست‌بها")
+    ptools=QFrame(); ptools.setObjectName("DashboardCard"); pform=QHBoxLayout(ptools); pform.setContentsMargins(12,10,12,10)
+    pyear=QLineEdit(); pyear.setPlaceholderText("مثلاً ۱۴۰۵ یا 2026")
+    pquery=QLineEdit(); pquery.setPlaceholderText("کد، شرح یا فصل را جستجو کنید")
+    load=QPushButton("بارگذاری CSV"); load.setObjectName("SecondaryAction"); search=QPushButton("جستجو"); search.setObjectName("PrimaryAction")
+    pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(QLabel("جستجو")); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(search); v.addWidget(ptools)
+    ptitle=QLabel("ردیف‌های فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
+    ptable=QTableWidget(0,6); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
     def load_prices():
         path=QFileDialog.getOpenFileName(w,"CSV فهرست‌بها","","CSV (*.csv)")[0]
         if not path:return
@@ -161,10 +165,14 @@ def main()->int:
     search.clicked.connect(search_prices)
     pages.addWidget(p); idx_prices=pages.count()-1
 
-    # BOQ
-    p,v=page("برآورد و BOQ","جمع مقادیر و مبالغ پروژه")
-    bpid=QLineEdit(); bgo=QPushButton("نمایش BOQ"); btable=QTableWidget(0,6); btable.setHorizontalHeaderLabels(["ردیف","شرح","مقدار","واحد","کد","مبلغ"]); btable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    v.addWidget(bpid); v.addWidget(bgo); v.addWidget(btable)
+    # BOQ — commercial estimate workspace
+    p,v=page("برآورد و BOQ","نمایش ساختاریافته مقادیر، کد فهرست‌بها و مبلغ هر ردیف")
+    btools=QFrame(); btools.setObjectName("DashboardCard"); bv=QHBoxLayout(btools); bv.setContentsMargins(12,10,12,10)
+    bpid=QLineEdit(); bpid.setPlaceholderText("شناسه پروژه")
+    bgo=QPushButton("نمایش BOQ"); bgo.setObjectName("PrimaryAction")
+    bv.addWidget(QLabel("پروژه")); bv.addWidget(bpid,1); bv.addWidget(bgo); v.addWidget(btools)
+    btitle=QLabel("جدول برآورد پروژه"); btitle.setObjectName("SectionTitle"); v.addWidget(btitle)
+    btable=QTableWidget(0,6); btable.setAlternatingRowColors(True); btable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); btable.setHorizontalHeaderLabels(["ردیف","شرح","مقدار","واحد","کد","مبلغ"]); btable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(btable,1)
     def show_boq():
         project=service.open_project(bpid.text().strip())
         if not project: QMessageBox.warning(w,"پروژه","پروژه پیدا نشد."); return
@@ -176,10 +184,15 @@ def main()->int:
     bgo.clicked.connect(show_boq)
     pages.addWidget(p); idx_boq=pages.count()-1
 
-    # Reports
-    p,v=page("گزارشات","خروجی استاندارد پروژه با ستون‌های پایدار و قابل ارائه")
-    rpid=QLineEdit(); rfmt=QComboBox(); rfmt.addItems(["xlsx","pdf","docx","csv"]); rgo=QPushButton("ساخت گزارش"); rout=QTextEdit(); rout.setReadOnly(True)
-    v.addWidget(rpid); v.addWidget(rfmt); v.addWidget(rgo); v.addWidget(rout)
+    # Reports — export center
+    p,v=page("گزارشات","مرکز خروجی حرفه‌ای برای Excel، PDF، Word و CSV")
+    rtools=QFrame(); rtools.setObjectName("DashboardCard"); rv=QHBoxLayout(rtools); rv.setContentsMargins(12,10,12,10)
+    rpid=QLineEdit(); rpid.setPlaceholderText("شناسه پروژه")
+    rfmt=QComboBox(); rfmt.addItems(["xlsx","pdf","docx","csv"])
+    rgo=QPushButton("ساخت گزارش"); rgo.setObjectName("PrimaryAction")
+    rv.addWidget(QLabel("پروژه")); rv.addWidget(rpid,1); rv.addWidget(QLabel("فرمت")); rv.addWidget(rfmt); rv.addWidget(rgo); v.addWidget(rtools)
+    rtitle=QLabel("وضعیت خروجی"); rtitle.setObjectName("SectionTitle"); v.addWidget(rtitle)
+    rout=QTextEdit(); rout.setReadOnly(True); v.addWidget(rout,1)
     def make_report():
         project=service.open_project(rpid.text().strip())
         if not project: QMessageBox.warning(w,"گزارش","پروژه پیدا نشد."); return
@@ -249,10 +262,14 @@ def main()->int:
     ago.clicked.connect(review)
     pages.addWidget(p); idx_ai=pages.count()-1
 
-    # Commercial statement shortcut
+    # Commercial statement — period/progress workspace
     p,v=page("صورت‌وضعیت","محاسبه پیشرفت، مبلغ دوره، کسورات، مالیات و خالص قابل پرداخت")
-    stid=QLineEdit(); stgo=QPushButton("محاسبه صورت‌وضعیت"); stout=QTextEdit(); stout.setReadOnly(True)
-    v.addWidget(stid); v.addWidget(stgo); v.addWidget(stout)
+    sttools=QFrame(); sttools.setObjectName("DashboardCard"); sv=QHBoxLayout(sttools); sv.setContentsMargins(12,10,12,10)
+    stid=QLineEdit(); stid.setPlaceholderText("شناسه پروژه")
+    stgo=QPushButton("محاسبه صورت‌وضعیت"); stgo.setObjectName("PrimaryAction")
+    sv.addWidget(QLabel("پروژه")); sv.addWidget(stid,1); sv.addWidget(stgo); v.addWidget(sttools)
+    sttitle=QLabel("خلاصه مالی و پیشرفت"); sttitle.setObjectName("SectionTitle"); v.addWidget(sttitle)
+    stout=QTextEdit(); stout.setReadOnly(True); v.addWidget(stout,1)
     def statement_shortcut():
         try:
             project=service.open_project(stid.text().strip())
