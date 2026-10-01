@@ -142,3 +142,22 @@ def test_report_rejects_missing_statement_period(tmp_path):
         assert False, "missing period should fail"
     except KeyError as exc:
         assert "statement period 9" in str(exc)
+
+def test_priority4_progress_rejects_over_contract_and_nonfinite():
+    from core.commercial.progress import build_progress
+    import math, pytest
+    with pytest.raises(ValueError):
+        build_progress([{"code":"A","contract_quantity":10,"previous_quantity":9,"current_quantity":2,"unit_price":100}])
+    with pytest.raises(ValueError):
+        build_progress([{"code":"A","contract_quantity":10,"previous_quantity":0,"current_quantity":math.nan,"unit_price":100}])
+
+def test_priority4_statement_rejects_invalid_rates_and_duplicate_codes():
+    from core.projects.statement_engine import StatementLine, build_statement
+    import pytest
+    with pytest.raises(ValueError):
+        build_statement([StatementLine("A","x","m",10,100,2)], retention_rate=1.1)
+    with pytest.raises(ValueError):
+        build_statement([
+            StatementLine("A","x","m",10,100,2),
+            StatementLine("A","y","m",10,100,1),
+        ])
