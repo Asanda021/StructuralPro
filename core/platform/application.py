@@ -220,6 +220,8 @@ class StructuralProApp:
         amounts = {"unpaid": 0.0, "partial": 0.0, "paid": 0.0}
         for row in audit["rows"]:
             status = row["derived_status"]
+            if row["linkage_state"] == "بدون اتصال":
+                status = row["manual_status"] if row["manual_status"] in counts else "unpaid"
             counts[status] += 1
             amounts[status] += float(row["amount"])
         return {"project_id": project_id, "counts": counts, "amounts": amounts,
@@ -717,7 +719,8 @@ class StructuralProApp:
                 cid=item.get("counterparty_id") or self._counterparty_id_for_name(p,item.get("counterparty",""))
                 if cid not in rows: continue
                 rows[cid][key]+=1
-                rows[cid][amount]+=float(item.get("amount",0) or 0)
+                target_key = amount if amount in rows[cid] else amount.replace("_amount","_amount")
+                rows[cid][target_key]+=float(item.get("amount",0) or 0)
                 if coll=="commitment_entries":
                     rows[cid]["paid_commitments"]+=float(item.get("paid_amount",0) or 0)
         return sorted(rows.values(),key=lambda x:(not bool(x["active"]),str(x["name"]).casefold()))
