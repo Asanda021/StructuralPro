@@ -312,6 +312,7 @@ def main()->int:
     for b,i in zip(buttons,range(pages.count())):
         b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
         b.clicked.connect(lambda checked=False,btn=b: [x.setChecked(x is btn) for x in buttons])
+    buttons[0].setChecked(True)
     nav.addStretch()
     layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
