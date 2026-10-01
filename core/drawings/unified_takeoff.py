@@ -1,6 +1,7 @@
 """Unified offline drawing takeoff boundary with explicit confirmation."""
 from __future__ import annotations
 from pathlib import Path
+import math
 from typing import Any
 from core.drawings.pdf_takeoff import PDFTakeoffAdapter
 from core.drawings.dwg_takeoff import DWGTakeoffEngine
