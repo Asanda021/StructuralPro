@@ -10,7 +10,7 @@ def normalize_ifc_rows(rows:Iterable[dict[str,Any]])->list[dict[str,Any]]:
     for r in rows:
         gid=str(r.get("global_id") or "")
         if gid and gid in seen:
-            raise ValueError(f"شناسه IFC تکراری و مستعد دوباره‌شماری: {gid}")
+            continue
         if gid: seen.add(gid)
         props=dict(r.get("properties") or {})
         quantities={}
