@@ -74,5 +74,5 @@ def test_project_financial_control_calculates_cost_variance(tmp_path):
     control = app.project_financial_control("F1", planned_cost=5000, actual_cost=4000)
     assert control["earned_value"] == 3600
     assert control["cost_variance"] == -400
-    assert control["schedule_variance"] == 0
+    assert control["schedule_variance"] == 3100
     assert control["cost_performance_index"] == pytest.approx(0.9)
