@@ -42,5 +42,5 @@ class UnifiedDrawingTakeoff:
             if float(row.get("quantity",0) or 0)<0: raise ValueError("drawing quantity cannot be negative")
             out.append({"source":row.get("source","drawing"),"description":row.get("description",""),
                         "quantity":float(row.get("quantity",0) or 0),"unit":row.get("unit",""),
-                        "needs_confirmation":False if confirmations else row.get("needs_confirmation",True)})
+                        "needs_confirmation":row.get("needs_confirmation",True)})
         return out
