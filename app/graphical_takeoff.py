@@ -6,7 +6,7 @@ and the UI records every confirmed measurement with its scale and source.
 from __future__ import annotations
 from PySide6.QtCore import Qt, QPointF, QByteArray
 from PySide6.QtGui import QPen, QBrush, QPixmap
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QPushButton,QLineEdit,QComboBox,QLabel,QGraphicsView,QGraphicsScene,QGraphicsLineItem,QGraphicsPolygonItem,QGraphicsEllipseItem,QDialog,QTableWidget,QTableWidgetItem,QSpinBox,QFileDialog,QMessageBox
+from PySide6.QtWidgets import QWidget,QVBoxLayout,QHBoxLayout,QPushButton,QLineEdit,QComboBox,QLabel,QGraphicsView,QGraphicsScene,QGraphicsLineItem,QGraphicsPolygonItem,QGraphicsEllipseItem,QDialog,QTableWidget,QTableWidgetItem,QSpinBox,QFileDialog,QMessageBox,QFrame
 from core.drawings.graphical_takeoff import ScaleCalibration,Point,MeasurementStore
 from core.drawings.pdf_engine import PDFDrawingEngine
 
@@ -58,8 +58,8 @@ class GraphicalTakeoffDialog(QDialog):
         self.apply=QPushButton("اعمال ابزار"); self.finish=QPushButton("ثبت متره"); self.clear=QPushButton("پاک‌کردن")
         self.open_pdf=QPushButton("بازکردن PDF"); self.prev=QPushButton("صفحه قبلی"); self.next=QPushButton("صفحه بعدی"); self.zoom=QPushButton("بازنشانی زوم"); self.page_no=QSpinBox(); self.page_no.setMinimum(1); self.page_no.setMaximum(9999); self.page_no.setPrefix("صفحه ")
         bar.addWidget(self.open_pdf); bar.addWidget(self.prev); bar.addWidget(self.next); bar.addWidget(self.page_no); bar.addWidget(self.zoom); bar.addWidget(self.apply); bar.addWidget(self.finish); bar.addWidget(self.clear); root.addLayout(bar)
-        self.canvas=TakeoffCanvas(self.store,self.refresh); root.addWidget(self.canvas,4)
-        self.table=QTableWidget(0,5); self.table.setHorizontalHeaderLabels(["شناسه","نوع","مقدار","واحد","فرمول"]); root.addWidget(self.table,2)
+        self.canvas=TakeoffCanvas(self.store,self.refresh); self.canvas.setFrameShape(QFrame.Shape.StyledPanel); root.addWidget(self.canvas,4)
+        self.table=QTableWidget(0,5); self.table.setAlternatingRowColors(True); self.table.setHorizontalHeaderLabels(["شناسه","نوع","مقدار","واحد","فرمول"]); root.addWidget(self.table,2)
         self.apply.clicked.connect(self.apply_tool); self.finish.clicked.connect(self.canvas.finish); self.clear.clicked.connect(self.clear_all)
         self.open_pdf.clicked.connect(self.select_pdf); self.prev.clicked.connect(lambda: self.load_page(self.page-1)); self.next.clicked.connect(lambda: self.load_page(self.page+1)); self.zoom.clicked.connect(self.reset_zoom); self.page_no.valueChanged.connect(self.load_page)
         if self.engine: self.load_page(1)
