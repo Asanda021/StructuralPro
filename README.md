@@ -27,3 +27,6 @@ The working StructuralPro source is being moved into this repository incremental
 The repository now includes executable production-gate tests for offline DWG conversion/extraction, graphical PDF geometry, IFC/BIM mapping, price-source provenance, local AI hardware/model validation, shared Windows/mobile/Telegram contracts, offline sync E2E, and report/regression paths.
 
 Core work remains offline-first. External provisioning is intentionally explicit: verified official price-list datasets, redistributable GGUF model weights, native platform packaging, and an installed DWG converter are not fabricated or silently replaced by cloud services.
+
+
+CI production-gate verification checkpoint.
