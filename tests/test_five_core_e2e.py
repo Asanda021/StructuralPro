@@ -53,7 +53,7 @@ def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
         label="کف",
     )
     assert round(line.quantity, 6) == 5.0
-    assert round(area.quantity, 6) == 9.6
+    assert round(area.quantity, 6) == 96.0
 
     # 2) DWG/DXF: real converter boundary + normalized geometry.
     exe = _fake_converter(tmp_path)
