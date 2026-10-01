@@ -20,7 +20,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install pytest pypdf
+          python -m pip install pytest pypdf openpyxl python-docx reportlab
       - name: Compile source
         run: python -m compileall -q core tests
       - name: Run full suite
