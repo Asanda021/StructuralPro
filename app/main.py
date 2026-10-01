@@ -69,7 +69,7 @@ def main()->int:
     buttons=[]
     sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات"]
     for name in sections:
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); b.setCursor(__import__("PySide6").QtGui.QCursor(__import__("PySide6").QtCore.Qt.CursorShape.PointingHandCursor)); buttons.append(b); nav.addWidget(b)
+        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); buttons.append(b); nav.addWidget(b)
 
     # Dashboard — Canva-aligned commercial shell with real project data
     dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
