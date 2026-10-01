@@ -1,7 +1,10 @@
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path.cwd()
+
+if not (ROOT / "app" / "main.py").exists():
+    raise FileNotFoundError(f"Application entrypoint not found under {ROOT}")
 
 hiddenimports = collect_submodules("core")
 a = Analysis(
