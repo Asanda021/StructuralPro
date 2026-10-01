@@ -8,7 +8,7 @@ from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.bim_quantities import read_ifc
 from core.ai.auto_takeoff import LocalAutoTakeoff
 
-_BIM_UNITS={"Length":"m","Area":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
+_BIM_UNITS={"Length":"m","Width":"m","Height":"m","Area":"m2","NetArea":"m2","GrossArea":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
 
 class UnifiedDrawingTakeoff:
     def __init__(self,price_resolver=None):
@@ -55,7 +55,7 @@ class UnifiedDrawingTakeoff:
             for row in rows:
                 for key,value in row.get("quantities",{}).items():
                     candidates.append({
-                        "source":"ifc:"+str(row.get("global_id","")),
+                        "source":f'ifc:{row.get("global_id","") or row.get("name","")}:{key}',
                         "description":f'{row.get("ifc_type","")} {row.get("name","")} {key}',
                         "quantity":value,
                         "unit":_BIM_UNITS.get(key,"unknown"),
