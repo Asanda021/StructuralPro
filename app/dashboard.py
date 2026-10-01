@@ -19,6 +19,7 @@ class DashboardPage(QWidget):
         desc=QLabel("نمای عملیاتی پروژه‌ها، متره، نقشه‌ها و وضعیت داده‌های مالی"); desc.setObjectName("PageDescription")
         root.addWidget(title); root.addWidget(desc)
         self.cards=QGridLayout(); self.cards.setSpacing(12); root.addLayout(self.cards)
+        self.alerts=QLabel("کنترل مالی: برای مشاهده هشدارها، پروژه و تاریخ مبنا را انتخاب کنید."); self.alerts.setObjectName("DashboardCard"); self.alerts.setWordWrap(True); root.addWidget(self.alerts)
         control=QFrame(); control.setObjectName("DashboardCard"); cv=QHBoxLayout(control); cv.setContentsMargins(12,10,12,10)
         cv.addWidget(QLabel("کنترل مالی"))
         self.control_project=QComboBox(); self.control_project.setMinimumWidth(180)
@@ -141,6 +142,8 @@ class DashboardPage(QWidget):
             self._control_signal_connected=True
         if projects:
             self.refresh_financial(projects[-1].get("id",""))
+            try: self.refresh_alerts(projects[-1].get("id",""))
+            except Exception: pass
             try:
                 s=self.service.project_cost_summary(projects[-1].get("id",""))
                 self.cost_summary.setText(f'دفتر هزینه: {s["entry_count"]} مورد | مجموع: {s["actual_cost"]:,.0f}')
@@ -229,6 +232,18 @@ class DashboardPage(QWidget):
         except Exception as exc:
             self.control_result.setText(f"خطای داشبورد مالی: {exc}")
 
+    def refresh_alerts(self, project_id):
+        as_of=self.aging_as_of.text().strip()
+        if not as_of:
+            self.alerts.setText("کنترل مالی: تاریخ مبنا را در بخش کنترل سررسید وارد کنید."); return
+        try:
+            a=self.service.project_financial_alerts(project_id, as_of); parts=[]
+            if a["has_overdue"]: parts.append(f"⚠️ معوق: {a["overdue_count"]} مورد / {a["overdue_amount"]:,.0f}")
+            if a["has_due_today"]: parts.append(f"🔔 سررسید امروز: {a["due_today_count"]} مورد")
+            if a["has_missing_due_date"]: parts.append(f"📝 بدون سررسید: {a["no_due_date_count"]} مورد")
+            self.alerts.setText(" | ".join(parts) if parts else "✅ هشدار مالی فعالی وجود ندارد.")
+        except Exception as exc: self.alerts.setText(f"خطای کنترل هشدار مالی: {exc}")
+
     def refresh_aging(self):
         project_id=self.control_project.currentData()
         as_of=self.aging_as_of.text().strip()
@@ -237,6 +252,7 @@ class DashboardPage(QWidget):
         if not as_of:
             self.aging_summary.setText("تاریخ مبنا را وارد کنید."); return
         try:
+            self.refresh_alerts(project_id)
             aging=self.service.project_financial_aging(project_id, as_of)
             self.aging_table.setRowCount(0)
             for i,row in enumerate(aging["rows"]):
