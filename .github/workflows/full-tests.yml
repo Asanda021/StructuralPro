@@ -23,4 +23,10 @@ jobs:
       - name: Compile source
         run: python -m compileall -q core tests
       - name: Run full suite
-        run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests
+        run: |
+          set +e
+          PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests > pytest.log 2>&1
+          rc=$?
+          echo "### Pytest diagnostics" >> "$GITHUB_STEP_SUMMARY"
+          tail -n 200 pytest.log >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
