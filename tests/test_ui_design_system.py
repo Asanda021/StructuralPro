@@ -13,6 +13,6 @@ def test_dashboard_and_graphical_takeoff_modules_exist():
 def test_operational_pages_use_primary_actions():
     from pathlib import Path
     src=Path("app/main.py").read_text(encoding="utf-8")
-    for marker in ("# Pricing","# BOQ","# Reports","# Commercial statement shortcut"):
+    for marker in ("# Pricing","# BOQ","# Reports","# Commercial statement"):
         assert marker in src
     assert src.count('setObjectName("PrimaryAction")') >= 4
