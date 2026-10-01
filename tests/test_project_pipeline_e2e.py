@@ -1,7 +1,8 @@
-"""End-to-end acceptance for the desktop project's commercial pipeline."""
+""""End-to-end acceptance for the desktop project's commercial pipeline."""
 from core.platform.application import StructuralProApp
 
 
+# CI trigger: keep this acceptance test in the main verification path.
 def test_project_pipeline_persists_estimate_and_snapshot(tmp_path):
     app = StructuralProApp(tmp_path)
     app.create_project("پروژه آزمایشی", "P1")
