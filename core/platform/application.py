@@ -85,8 +85,10 @@ class StructuralProApp:
     def report(self,project_id:str,fmt:str,path):
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
+        estimate=p.get("estimate") or build_estimate(p.get("boq",[]), aggregate=False)
         rows=[]
-        for t in p.get("takeoffs",[]):
-            for q in t.get("quantities",[]): rows.append({"کد":q.get("code",""),"شرح":q.get("title",""),
-                "مقدار":q.get("amount",0),"واحد":q.get("unit",""),"فرمول":q.get("formula","")})
-        return build_report(p.get("name",""),rows,{"grand_total":sum(float(x["مقدار"]) for x in rows)}).export(path,fmt)
+        for row in estimate.get("boq",[]):
+            rows.append({"کد":row.get("price_code",""),"شرح":row.get("description",""),
+                "مقدار":row.get("quantity",0),"واحد":row.get("unit",""),"قیمت واحد":row.get("unit_price",0),
+                "مبلغ":row.get("total",0)})
+        return build_report(p.get("name",""),rows,estimate.get("cost",{})).export(path,fmt)
