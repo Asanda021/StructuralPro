@@ -13,6 +13,7 @@ from core.projects.user_workflow import evaluate_workflow
 from core.validation.real_data import validate_project
 from core.engineering import EngineeringLibrary
 from core.projects.management import ProjectManagement, ScheduleTask, DailyReport, ResourceRecord, MaterialRecord, MeetingRecord
+from core.commercial.finance_depth import FinancePaymentControl, PaymentRecord, PaymentAllocation, BudgetLine
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -771,6 +772,179 @@ class StructuralProApp:
             "cost_by_category": cost_summary["by_category"],
             "warnings": list((estimate.get("warnings") or [])),
         }
+
+    def _finance_depth_control(self, project_id: str) -> FinancePaymentControl:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        payments = [
+            PaymentRecord(
+                id=str(x.get("id")),
+                amount=float(x.get("amount", 0) or 0),
+                date=str(x.get("date", "")),
+                reference=str(x.get("reference", "")),
+                document_id=int(x["document_id"]) if x.get("document_id") is not None else None,
+                commitment_id=int(x["commitment_id"]) if x.get("commitment_id") is not None else None,
+                counterparty_id=x.get("counterparty_id"),
+                notes=str(x.get("notes", "")),
+                status=str(x.get("status", "unallocated")),
+            )
+            for x in p.get("payment_entries", [])
+        ]
+        allocations = [
+            PaymentAllocation(
+                id=str(x.get("id")),
+                payment_id=str(x.get("payment_id")),
+                target_type=str(x.get("target_type")),
+                target_id=x.get("target_id"),
+                amount=float(x.get("amount", 0) or 0),
+            )
+            for x in p.get("payment_allocations", [])
+        ]
+        budget = [
+            BudgetLine(
+                code=str(x.get("code")),
+                category=str(x.get("category", "")),
+                description=str(x.get("description", "")),
+                planned=float(x.get("planned", 0) or 0),
+            )
+            for x in p.get("financial_budget", [])
+        ]
+        return FinancePaymentControl(payments=payments, allocations=allocations, budget=budget)
+
+    def add_project_payment(self, project_id: str, amount: float, *, date: str = "",
+                            reference: str = "", document_id: int | None = None,
+                            commitment_id: int | None = None, counterparty_id: str | None = None,
+                            notes: str = "") -> dict[str, Any]:
+        """Register an actual payment without mutating legacy commitment balances."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        if document_id is not None and not any(int(x.get("id", 0)) == int(document_id) for x in p.get("financial_documents", [])):
+            raise KeyError(f"financial document {document_id}")
+        if commitment_id is not None and not any(int(x.get("id", 0)) == int(commitment_id) for x in p.get("commitment_entries", [])):
+            raise KeyError(f"commitment {commitment_id}")
+        if counterparty_id is not None and self.find_project_counterparty_by_id(project_id, counterparty_id) is None:
+            raise KeyError(counterparty_id)
+        entries = list(p.get("payment_entries", []))
+        payment_id = f"PAY{len(entries) + 1:05d}"
+        entry = {
+            "id": payment_id, "amount": float(amount), "date": str(date).strip(),
+            "reference": str(reference).strip(), "document_id": int(document_id) if document_id is not None else None,
+            "commitment_id": int(commitment_id) if commitment_id is not None else None,
+            "counterparty_id": str(counterparty_id) if counterparty_id is not None else None,
+            "notes": str(notes).strip(), "status": "unallocated",
+        }
+        control = self._finance_depth_control(project_id)
+        control.add_payment(PaymentRecord(**entry))
+        entries.append(entry)
+        p["payment_entries"] = entries
+        self.store.save(project_id, p)
+        return entry
+
+    def allocate_project_payment(self, project_id: str, payment_id: str, target_type: str,
+                                 target_id: int | str, amount: float) -> dict[str, Any]:
+        """Allocate part/all of a payment to a document or commitment, atomically."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        control = self._finance_depth_control(project_id)
+        allocation_id = f"ALC{len(p.get('payment_allocations', [])) + 1:05d}"
+        allocation = PaymentAllocation(
+            id=allocation_id, payment_id=str(payment_id), target_type=str(target_type),
+            target_id=target_id, amount=float(amount),
+        )
+        control.allocate(allocation)
+        records = list(p.get("payment_allocations", []))
+        row = {
+            "id": allocation_id, "payment_id": str(payment_id), "target_type": str(target_type),
+            "target_id": target_id, "amount": float(amount),
+        }
+        records.append(row)
+        p["payment_allocations"] = records
+        self.store.save(project_id, p)
+        return row
+
+    def project_payments(self, project_id: str) -> list[dict[str, Any]]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return list(p.get("payment_entries", []))
+
+    def project_payment_summary(self, project_id: str) -> dict[str, Any]:
+        return self._finance_depth_control(project_id).payment_summary()
+
+    def add_financial_budget_line(self, project_id: str, code: str, category: str,
+                                  planned: float, *, description: str = "") -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        records = list(p.get("financial_budget", []))
+        row = {"code": str(code).strip(), "category": str(category).strip(),
+               "description": str(description).strip(), "planned": float(planned)}
+        candidate = FinancePaymentControl(budget=[
+            BudgetLine(str(x.get("code")), str(x.get("category", "")), str(x.get("description", "")),
+                       float(x.get("planned", 0) or 0)) for x in records + [row]
+        ])
+        _ = candidate
+        if any(str(x.get("code", "")).strip() == row["code"] for x in records):
+            raise ValueError("budget code must be unique")
+        records.append(row)
+        p["financial_budget"] = records
+        self.store.save(project_id, p)
+        return row
+
+    def project_budget_control(self, project_id: str) -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return self._finance_depth_control(project_id).budget_control(
+            actual_costs=p.get("cost_entries", []),
+            commitments=p.get("commitment_entries", []),
+        )
+
+    def project_cash_flow_control(self, project_id: str) -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        return self._finance_depth_control(project_id).cash_flow(
+            receipts=p.get("receipt_entries", []),
+            costs=p.get("cost_entries", []),
+            payments=p.get("payment_entries", []),
+            commitments=p.get("commitment_entries", []),
+        )
+
+    def project_finance_payment_depth_snapshot(self, project_id: str) -> dict[str, Any]:
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        control = self._finance_depth_control(project_id)
+        return control.control_snapshot(
+            actual_costs=p.get("cost_entries", []),
+            commitments=p.get("commitment_entries", []),
+            receipts=p.get("receipt_entries", []),
+            costs=p.get("cost_entries", []),
+        )
+
+    def project_finance_payment_depth_report(self, project_id: str, fmt: str, path):
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        snapshot = self.project_finance_payment_depth_snapshot(project_id)
+        rows = []
+        for row in snapshot["budget"]["rows"]:
+            rows.append({
+                "دسته": row["category"], "بودجه": row["planned"], "تعهد": row["committed"],
+                "هزینه واقعی": row["actual"], "انحراف تعهد": row["committed_variance"],
+                "انحراف هزینه": row["actual_variance"],
+            })
+        for row in snapshot["payments"]["rows"]:
+            rows.append({
+                "دسته": "پرداخت", "بودجه": "", "تعهد": row["amount"],
+                "هزینه واقعی": row["allocated_amount"], "انحراف تعهد": "",
+                "انحراف هزینه": row["unallocated_amount"],
+            })
+        return build_report(f'{p.get("name", "")} — عمق مالی و پرداخت', rows, snapshot).export(path, fmt)
 
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
