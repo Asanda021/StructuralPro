@@ -89,3 +89,16 @@ def test_counterparty_financial_rollup_uses_stable_ids_and_legacy_names(tmp_path
     assert rows[0]["cost_amount"]==200
     assert rows[0]["receipt_amount"]==500
     assert rows[0]["document_amount"]==800
+
+
+def test_project_financial_due_summary_exposes_risk_totals(tmp_path):
+    a=StructuralProApp(tmp_path)
+    a.create_project("خلاصه سررسید","due1")
+    a.add_project_commitment("due1",1000,due_date="1405/06/01")
+    a.add_project_commitment("due1",500,due_date="1405/08/01")
+    result=a.project_financial_due_summary("due1","1405/07/01")
+    assert result["overdue_count"]==1
+    assert result["overdue_amount"]==1000
+    assert result["upcoming_count"]==1
+    assert result["total_open_amount"]==1500
+    assert result["highest_risk"]["status"]=="معوق"
