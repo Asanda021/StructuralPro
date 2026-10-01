@@ -1,0 +1,2 @@
+# CI validation
+Green candidate.
