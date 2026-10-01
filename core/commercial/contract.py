@@ -29,5 +29,5 @@ class Contract:
     def total(self): return sum(x.amount for x in self.items)
     def commercial_total(self,base=None):
         base=self.total() if base is None else float(base)
-        return base*(1+self.overhead_rate+self.regional_rate)
+        return round(base*(1+self.overhead_rate+self.regional_rate),10)
     def to_dict(self): return {**asdict(self),"items":[asdict(x) for x in self.items],"total":self.total(),"commercial_total":self.commercial_total()}
