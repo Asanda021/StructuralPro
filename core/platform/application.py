@@ -200,11 +200,21 @@ class StructuralProApp:
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
-    def report(self,project_id:str,fmt:str,path):
+    def report(self,project_id:str,fmt:str,path,*,period_no:int|None=None):
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
         estimate=p.get("estimate") or build_estimate(p.get("boq",[]), aggregate=False)
-        statement=self.build_statement(project_id)
+        selected=None
+        periods=p.get("statement_periods",[])
+        if period_no is not None:
+            selected=next((x for x in periods if int(x.get("number",0))==int(period_no)),None)
+            if selected is None: raise KeyError(f"statement period {period_no}")
+        if selected is None:
+            statement=self.build_statement(project_id)
+            title=p.get("name","")
+        else:
+            statement=selected
+            title=f'{p.get("name","")} — صورت‌وضعیت دوره {selected.get("number")}'
         rows=[]
         for row in statement.get("lines",[]):
             rows.append({"کد":row.get("code",""),"شرح":row.get("description",""),
@@ -212,7 +222,8 @@ class StructuralProApp:
                 "قبلی":row.get("previous_quantity",0),"این دوره":row.get("current_quantity",0),
                 "تجمعی":row.get("cumulative_quantity",0),"قیمت واحد":row.get("unit_price",0),
                 "مبلغ این دوره":row.get("current_amount",0),"مبلغ تجمعی":row.get("completed_amount",0)})
-        summary={**estimate.get("cost",{}), "statement": {
+        summary={**estimate.get("cost",{}), "period_no": selected.get("number") if selected else None,
+                 "statement": {
             "gross_current":statement.get("gross_current",0),
             "retention":statement.get("retention",0),
             "advance_recovery":statement.get("advance_recovery",0),
@@ -223,4 +234,4 @@ class StructuralProApp:
             "previous_paid":statement.get("previous_paid",0),
             "balance_after_current":statement.get("balance_after_current",0),
         }}
-        return build_report(p.get("name",""),rows,summary).export(path,fmt)
+        return build_report(title,rows,summary).export(path,fmt)
