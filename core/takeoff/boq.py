@@ -61,7 +61,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
         if price == 0:
             warning = "zero_price"
         raw.append({
-            "source": source, "source_id": source_id, "source_type": source_type,
+            "source": source, "source_id": source_id, "source_ids": [source_id] if source_id else [], "source_type": source_type,
             "item_code": item_code, "price_code": code, "chapter": chapter,
             "category": category, "group": group, "description": description,
             "quantity": q, "unit": unit, "unit_price": price, "total": total,
@@ -73,12 +73,15 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             key = (
                 r["item_code"] or r["price_code"] or r["description"], r["unit"],
                 r["unit_price"], r["factor"], r["chapter"], r["category"],
-                r["group"], r["status"], r["source_id"], r["source_type"],
+                r["group"], r["status"],
             )
             if key not in groups:
                 groups[key] = dict(r)
             else:
                 groups[key]["quantity"] += r["quantity"]
+                for source_id in r.get("source_ids", []):
+                    if source_id and source_id not in groups[key]["source_ids"]:
+                        groups[key]["source_ids"].append(source_id)
                 if r["total"] is not None:
                     groups[key]["total"] = round((groups[key]["total"] or 0) + r["total"], 10)
         raw = list(groups.values())
