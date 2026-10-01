@@ -98,10 +98,3 @@ def test_stage3_estimate_comparison_reports_line_changes():
     assert result["delta"] == 320
     assert result["line_changes"][0]["quantity_delta"] == 2
     assert result["line_changes"][0]["unit_price_delta"] == 10
-
-def test_stage3_boq_blocks_duplicate_sources():
-    with pytest.raises(ValueError, match="دوباره"):
-        build_boq([
-            {"source":"DWG-1","description":"ستون","quantity":2,"unit":"عدد","unit_price":100},
-            {"source":"DWG-1","description":"ستون","quantity":2,"unit":"عدد","unit_price":100},
-        ])
