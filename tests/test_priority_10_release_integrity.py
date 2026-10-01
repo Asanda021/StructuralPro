@@ -30,7 +30,7 @@ def test_release_workflow_generates_traceability_manifest():
     text = read(".github/workflows/windows-release.yml")
     assert "generate_release_manifest.ps1" in text
     assert "StructuralPro-ReleaseManifest.json" in text
-    assert "GITHUB_SHA" in text
+    assert "source_commit" in read("packaging/generate_release_manifest.ps1")
 
 def test_release_manifest_script_contains_source_to_artifact_chain():
     text = read("packaging/generate_release_manifest.ps1")
