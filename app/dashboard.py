@@ -51,6 +51,20 @@ class DashboardPage(QWidget):
             for j,val in enumerate([p.get("id",""),p.get("name",""),status]): self.table.setItem(i,j,QTableWidgetItem(str(val)))
         if projects:
             self.refresh_financial(projects[-1].get("id",""))
+    def show_cost_control(self, project_id):
+        try:
+            control=self.service.project_financial_control(project_id)
+        except Exception:
+            return
+        cards=[
+            ("ارزش کارکرد",f'{control["earned_value"]:,.0f}',"کارکرد تجمعی"),
+            ("انحراف هزینه",f'{control["cost_variance"]:,.0f}',"کارکرد منهای هزینه واقعی"),
+            ("انحراف برنامه",f'{control["schedule_variance"]:,.0f}',"مقایسه با برنامه"),
+            ("شاخص هزینه",("—" if control["cost_performance_index"] is None else f'{control["cost_performance_index"]:.2f}'),"CPI"),
+        ]
+        for i,(a,b,h) in enumerate(cards):
+            self.cards.addWidget(_card(a,b,h),1,i)
+
     def refresh_financial(self, project_id):
         try:
             d=self.service.financial_dashboard(project_id)
