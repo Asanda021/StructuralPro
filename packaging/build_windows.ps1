@@ -9,7 +9,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid VERSION format: $Vers
 
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt pyinstaller
-python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpath dist --workpath build
+python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpath dist/StructuralPro --workpath build
 
 $exe="dist/StructuralPro/StructuralPro.exe"
 $embedded="dist/StructuralPro/VERSION"
