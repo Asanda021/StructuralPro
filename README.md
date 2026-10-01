@@ -30,3 +30,6 @@ Core work remains offline-first. External provisioning is intentionally explicit
 
 
 CI production-gate verification checkpoint.
+
+
+CI recheck after gate-test syntax fix.
