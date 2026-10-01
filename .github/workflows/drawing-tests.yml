@@ -28,4 +28,6 @@ jobs:
         run: python -m compileall -q core tests
 
       - name: Run focused production and drawing tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: python -m pytest -q tests/test_drawing_takeoff.py tests/test_production_pipeline.py
