@@ -19,8 +19,10 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install pytest pypdf ezdxf
+          python -m pip install pytest pypdf ezdxf openpyxl python-docx reportlab
       - name: Compile source
-        run: python -m compileall -q core tests
-      - name: Run drawing and production gates
-        run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests/test_drawing_takeoff.py tests/test_production_pipeline.py tests/test_product_gates.py
+        run: |
+          python -m compileall -q core tests
+          python -m py_compile app/main.py
+      - name: Run production gates
+        run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests/test_drawing_takeoff.py tests/test_production_pipeline.py tests/test_product_gates.py tests/test_five_pass.py
