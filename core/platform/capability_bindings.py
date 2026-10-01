@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from core.drawings.advanced_takeoff import (
-    depth_volume, cutout_area, legend, visual_symbol_search, dynamic_fill, ai_count, ai_map,
+    depth_volume, cutout_area, legend, visual_symbol_search, dynamic_fill, ai_count, ai_map, length_takeoff, area_takeoff, count_takeoff, perimeter_takeoff,
 )
 from core.drawings.bim_quantities import classify_objects, extract_quantities, link_2d_3d
 from core.drawings.dwg_takeoff import DWGTakeoffEngine, infer_takeoff_from_layers
@@ -23,6 +23,9 @@ from core.takeoff.modules import (
     calculate_electrical_item, calculate_civil_item,
 )
 from core.ai.takeoff_assistant import LocalTakeoffAssistant
+from core.projects.workflow import project_health, audit_project, save_template, load_template, export_package, import_package, backup_project, copy_project
+from core.takeoff.estimate_history import snapshot as estimate_snapshot, delta as estimate_delta
+from core.reports.custom import build_custom_report
 from core.projects.workflow import project_health, audit_project, save_template, load_template, export_package, import_package, backup_project, copy_project
 from core.takeoff.estimate_history import snapshot as estimate_snapshot, delta as estimate_delta
 from core.reports.custom import build_custom_report
@@ -58,7 +61,12 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "cad-xref": lambda r: r.xrefs,
         "cad-units": lambda r: r.units,
         "cad-scale": lambda drawing_length, real_length: real_length / drawing_length,
-        "takeoff-length": length_takeoff,\n        "takeoff-area": area_takeoff,\n        "takeoff-count": count_takeoff,\n        "takeoff-perimeter": perimeter_takeoff,\n        "takeoff-volume": depth_volume,\n        "takeoff-depth": depth_volume,
+        "takeoff-length": length_takeoff,\n        "takeoff-area": area_takeoff,\n        "takeoff-count": count_takeoff,\n        "takeoff-perimeter": perimeter_takeoff,\n        "takeoff-volume": depth_volume,\n        "takeoff-length": length_takeoff,
+        "takeoff-area": area_takeoff,
+        "takeoff-count": count_takeoff,
+        "takeoff-perimeter": perimeter_takeoff,
+        "takeoff-volume": depth_volume,
+        "takeoff-depth": depth_volume,
         "takeoff-cutout": cutout_area,
         "takeoff-formula": evaluate_formula,
         "takeoff-waste": apply_waste,
@@ -69,6 +77,7 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "takeoff-ai-count": ai_count,
         "takeoff-ai-map": ai_map,
         "revision-drawing": compare_drawings,
+        "revision-quantity-delta": estimate_delta,
         "revision-overlay": compare_drawings,
         "bim-objects": classify_objects,
         "bim-quantities": extract_quantities,
@@ -79,7 +88,16 @@ def build_bindings() -> dict[str, Callable[..., Any]]:
         "integration-cad": infer_takeoff_from_layers,
         "ai-missing": _missing_inputs,
         "ai-next": _suggest_next_actions,
-        "ai-qa": assistant.qa,\n        "project-templates": save_template,\n        "project-library": lambda project: project,\n        "project-package": export_package,\n        "project-backup": backup_project,\n        "project-audit": audit_project,\n        "project-health": project_health,\n        "estimate-history": estimate_snapshot,\n        "estimate-change": estimate_delta,\n        "reports-custom": build_custom_report,
+        "ai-qa": assistant.qa,
+        "project-templates": save_template,
+        "project-library": lambda project: project,
+        "project-package": export_package,
+        "project-backup": backup_project,
+        "project-audit": audit_project,
+        "project-health": project_health,
+        "estimate-history": estimate_snapshot,
+        "estimate-change": estimate_delta,
+        "reports-custom": build_custom_report,\n        "project-templates": save_template,\n        "project-library": lambda project: project,\n        "project-package": export_package,\n        "project-backup": backup_project,\n        "project-audit": audit_project,\n        "project-health": project_health,\n        "estimate-history": estimate_snapshot,\n        "estimate-change": estimate_delta,\n        "reports-custom": build_custom_report,
         "domain-structural": _identity,
         "domain-architectural": calculate_building_item,
         "domain-mechanical": calculate_mechanical_item,
