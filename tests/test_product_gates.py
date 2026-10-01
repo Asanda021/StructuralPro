@@ -10,7 +10,9 @@ from core.platform.application import StructuralProApp
 
 def _fake_converter(tmp_path):
     exe=tmp_path/"fake-dwg2dxf"
-    exe.write_text("#!/bin/sh\\ncp \"$1\" \"$2\"\\n",encoding="utf-8")
+    exe.write_text("#!/bin/sh
+cp \"$1\" \"$2\"
+",encoding="utf-8")
     exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
     return exe
 
