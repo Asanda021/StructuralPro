@@ -9,6 +9,7 @@ from core.takeoff.estimate import build_estimate
 from core.commercial.progress import build_progress
 from core.reports.project_report import build_report
 from core.ai.qa_engine import ProjectQA
+from core.projects.user_workflow import evaluate_workflow
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -47,6 +48,13 @@ class StructuralProApp:
         self.store.save(project_id,project); return self.store.get(project_id)
 
     def open_project(self,project_id:str)->dict[str,Any]|None: return self.store.get(project_id)
+
+    def workflow_summary(self, project_id: str) -> dict[str, Any]:
+        """Return the deterministic next-action workflow for the selected project."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        return evaluate_workflow(project)
 
     def add_takeoff(self,project_id:str,domain:str,item:str,**params)->dict[str,Any]:
         p=self.store.get(project_id)
