@@ -197,6 +197,40 @@ class StructuralProApp:
             raise KeyError(project_id)
         return list(p.get("statement_periods", []))
 
+    def financial_dashboard(self, project_id: str) -> dict[str, Any]:
+        """Return a compact financial/progress snapshot for the project dashboard."""
+        p = self.store.get(project_id)
+        if p is None:
+            raise KeyError(project_id)
+        estimate = p.get("estimate") or self.recalculate_estimate(project_id)
+        cost = estimate.get("cost", {}) or {}
+        boq = p.get("boq", []) or []
+        contract = float(cost.get("grand_total", 0) or 0)
+        base = float(cost.get("base", 0) or 0)
+        snapshot = self.build_commercial_snapshot(project_id)
+        progress = snapshot.get("progress", {}) or {}
+        periods = list(p.get("statement_periods", []))
+        latest = periods[-1] if periods else None
+        cumulative = float(progress.get("completed_total", 0) or 0)
+        remaining = max(contract - cumulative, 0.0)
+        percent = (cumulative / contract * 100.0) if contract else 0.0
+        total_payable = sum(float(x.get("payable_current", 0) or 0) for x in periods)
+        return {
+            "project_id": project_id,
+            "project_name": p.get("name", ""),
+            "line_count": len(boq),
+            "contract_amount": contract,
+            "base_amount": base,
+            "cumulative_work": cumulative,
+            "remaining_contract": remaining,
+            "progress_percent": percent,
+            "statement_count": len(periods),
+            "latest_statement_no": latest.get("number") if latest else None,
+            "latest_payable": float(latest.get("payable_current", 0) or 0) if latest else 0.0,
+            "total_payable": total_payable,
+            "warnings": list((estimate.get("warnings") or [])),
+        }
+
     def validate(self,project_id:str): 
         p=self.store.get(project_id); return self.qa.run(p or {})
 
