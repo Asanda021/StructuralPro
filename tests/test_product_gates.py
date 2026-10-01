@@ -4,7 +4,9 @@ from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.pdf_graphical import GraphicalPDFTakeoff
 from core.ai.hardware_profiles import select_profile, validate_model_manifest
 from core.platform.mobile_runtime import AndroidRuntime, TelegramRuntime
-from core.sync.memory import MemorySyncProvider\nfrom core.sync.manager import SyncManager\nfrom core.sync.offline_queue import OfflineQueue
+from core.sync.memory import MemorySyncProvider
+from core.sync.manager import SyncManager
+from core.sync.offline_queue import OfflineQueue
 from core.pricing.source_registry import PriceSource, PriceSourceRegistry
 from core.platform.application import StructuralProApp
 
