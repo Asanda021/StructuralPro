@@ -174,6 +174,88 @@ class ModelRegistry:
                 })
         return {"rows": rows, "unmapped": unmapped}
 
+    def link_2d_3d(self, two_d_rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Link 2D takeoff rows to BIM objects by stable object/global id."""
+        by_id = {str(o.object_id): o for o in self.objects if _text(o.object_id)}
+        linked = []
+        for row in two_d_rows:
+            oid = str(row.get("object_id") or row.get("global_id") or "")
+            obj = by_id.get(oid)
+            linked.append({"two_d": row, "three_d": asdict(obj) if obj else None,
+                           "linked": obj is not None})
+        return linked
+
+    def cross_source_duplicates(self) -> list[dict[str, str]]:
+        """Find same stable object id/type across different model sources."""
+        seen: dict[tuple[str, str], str] = {}
+        duplicates = []
+        for o in self.objects:
+            key = (_text(o.object_id), _text(o.object_type))
+            if not key[0]:
+                continue
+            previous = seen.get(key)
+            if previous and previous != o.source_id:
+                duplicates.append({"object_id": o.object_id, "object_type": o.object_type,
+                                    "source_id": o.source_id, "duplicate_of_source": previous})
+            else:
+                seen[key] = o.source_id
+        return duplicates
+
+    def provenance(self, object_id: str, source_id: str | None = None) -> dict[str, Any] | None:
+        """Return source/revision/format provenance for a model object."""
+        obj = next((o for o in self.objects if o.object_id == object_id and
+                    (source_id is None or o.source_id == source_id)), None)
+        if obj is None:
+            return None
+        source = next((s for s in self.sources if s.id == obj.source_id), None)
+        if source is None:
+            return None
+        return {"source_id": source.id, "path": source.path, "format": source.format,
+                "revision": source.revision, "discipline": source.discipline,
+                "sha256": source.sha256, "units": source.units,
+                "object_id": obj.object_id, "object_type": obj.object_type,
+                "level": obj.level, "layer": obj.layer}
+
+    def link_2d_3d(self, two_d_rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Link 2D takeoff rows to BIM objects by stable object/global id."""
+        by_id = {str(o.object_id): o for o in self.objects if _text(o.object_id)}
+        linked = []
+        for row in two_d_rows:
+            oid = str(row.get("object_id") or row.get("global_id") or "")
+            obj = by_id.get(oid)
+            linked.append({"two_d": row, "three_d": asdict(obj) if obj else None, "linked": obj is not None})
+        return linked
+
+    def cross_source_duplicates(self) -> list[dict[str, str]]:
+        """Find same stable object id/type across different model sources."""
+        seen: dict[tuple[str, str], str] = {}
+        duplicates = []
+        for o in self.objects:
+            key = (_text(o.object_id), _text(o.object_type))
+            if not key[0]:
+                continue
+            previous = seen.get(key)
+            if previous and previous != o.source_id:
+                duplicates.append({"object_id": o.object_id, "object_type": o.object_type,
+                                   "source_id": o.source_id, "duplicate_of_source": previous})
+            else:
+                seen[key] = o.source_id
+        return duplicates
+
+    def provenance(self, object_id: str, source_id: str | None = None) -> dict[str, Any] | None:
+        """Return source/revision/format provenance for a model object."""
+        obj = next((o for o in self.objects if o.object_id == object_id and (source_id is None or o.source_id == source_id)), None)
+        if obj is None:
+            return None
+        source = next((s for s in self.sources if s.id == obj.source_id), None)
+        if source is None:
+            return None
+        return {"source_id": source.id, "path": source.path, "format": source.format,
+                "revision": source.revision, "discipline": source.discipline,
+                "sha256": source.sha256, "units": source.units,
+                "object_id": obj.object_id, "object_type": obj.object_type,
+                "level": obj.level, "layer": obj.layer}
+
     def duplicate_objects(self) -> list[str]:
         seen = set()
         duplicates = []
