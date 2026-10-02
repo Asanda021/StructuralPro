@@ -199,6 +199,8 @@ def aggregate_geometry_candidates(
                 "needs_confirmation": True,
                 "entity_count": 0,
                 "source_entities": [],
+                "duplicate_geometry_count": 0,
+                "duplicate_sources": [],
             },
         )
         group["quantity"] += row["quantity"]
