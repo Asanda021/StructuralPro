@@ -8,6 +8,7 @@ from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.bim_quantities import read_ifc
 from core.drawings.geometry_takeoff import aggregate_geometry_candidates
 from core.ai.auto_takeoff import LocalAutoTakeoff
+from core.drawings.review import review_candidates
 
 _BIM_UNITS={"Length":"m","Width":"m","Height":"m","Area":"m2","NetArea":"m2","GrossArea":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
 
@@ -56,29 +57,48 @@ class UnifiedDrawingTakeoff:
             return {"kind":"bim","source":str(p),"objects":len(rows),"candidates":candidates}
         raise ValueError("فرمت نقشه پشتیبانی نمی‌شود؛ PDF، DWG، DXF یا IFC انتخاب کنید.")
 
-    def candidates_to_rows(self,inspection,confirmations=None):
-        confirmations=confirmations or {}
-        out=[]; seen_sources=set()
-        for i,row in enumerate(inspection.get("candidates",[]) or [],1):
-            needs_confirmation = bool(row.get("needs_confirmation", False))
-            # Review-required candidates are never accepted implicitly. A
-            # confirmation map may also explicitly reject otherwise-safe rows.
-            if needs_confirmation and confirmations.get(i) is not True:
-                continue
-            if not needs_confirmation and i in confirmations and confirmations[i] is not True:
-                continue
-            source=str(row.get("source") or f"drawing:{i}").strip()
+    def review_candidates(self, inspection, confirmations=None, *, reviewer="local-user", reviewed_at=None):
+        accepted, audit = review_candidates(
+            inspection.get("candidates", []) or [],
+            confirmations,
+            reviewer=reviewer,
+            reviewed_at=reviewed_at,
+        )
+        self.last_review_audit = audit
+        return accepted, audit
+
+    def candidates_to_rows(self, inspection, confirmations=None):
+        accepted, _audit = self.review_candidates(inspection, confirmations)
+        out = []
+        seen_sources = set()
+        for row in accepted:
+            source = str(row.get("source") or "").strip()
+            if not source:
+                raise ValueError("drawing candidate source is required")
             if source in seen_sources:
                 raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source}")
             seen_sources.add(source)
-            quantity=float(row.get("quantity",0) or 0)
+            quantity = float(row.get("quantity", 0) or 0)
             if not math.isfinite(quantity) or quantity < 0:
                 raise ValueError("drawing quantity must be finite and non-negative")
-            out.append({
-                "source":source,
-                "description":row.get("description",""),
-                "quantity":quantity,
-                "unit":row.get("unit",""),
-                "needs_confirmation":needs_confirmation,
-            })
+            result = {
+                "source": source,
+                "description": row.get("description", ""),
+                "quantity": quantity,
+                "unit": row.get("unit", ""),
+                "needs_confirmation": bool(row.get("needs_confirmation", False)),
+                "confirmation_status": row.get("confirmation_status", "approved"),
+                "confirmed_by": row.get("confirmed_by", ""),
+                "confirmed_at": row.get("confirmed_at", ""),
+                "provenance": dict(row.get("provenance") or {}),
+            }
+            for key in (
+                "confidence", "recognition_confidence", "recognition_reason",
+                "element_type", "entity_type", "layer", "handle", "metric",
+                "page", "sheet", "sheet_id", "revision", "duplicate_geometry",
+                "duplicate_of", "partial_overlap", "overlap_sources", "overlap_length",
+            ):
+                if key in row:
+                    result[key] = row[key]
+            out.append(result)
         return out

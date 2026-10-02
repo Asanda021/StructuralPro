@@ -76,5 +76,13 @@ class PDFTakeoffAdapter:
         return out
 
     def text_takeoff_candidates(self,pages:Iterable[PDFPageInfo])->list[dict]:
-        return [{"source":f"pdf:p{m.page}","description":m.label or "dimension","quantity":m.value,
-                 "unit":m.unit,"confidence":m.confidence,"needs_confirmation":True} for m in self.measurements(pages)]
+        return [{
+            "source": f"pdf:p{m.page}",
+            "description": m.label or "dimension",
+            "quantity": m.value,
+            "unit": m.unit,
+            "confidence": m.confidence,
+            "page": m.page,
+            "sheet": f"p{m.page}",
+            "needs_confirmation": True,
+        } for m in self.measurements(pages)]
