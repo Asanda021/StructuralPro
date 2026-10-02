@@ -184,6 +184,24 @@ class ModelRegistry:
             seen.add(key)
         return duplicates
 
+    def source_integrity(self, source_id: str) -> dict[str, Any]:
+        """Verify existence, recorded fingerprint and filename-format consistency."""
+        source = next((s for s in self.sources if s.id == source_id), None)
+        if source is None:
+            raise KeyError(source_id)
+        path = Path(source.path)
+        exists = path.is_file()
+        digest = self.fingerprint(path) if exists else ""
+        recorded = _text(source.sha256).lower()
+        suffix = path.suffix.lower().lstrip(".")
+        fmt = _text(source.format).lower()
+        extension_match = bool(suffix and suffix == fmt)
+        fingerprint_match = bool(recorded) and digest.lower() == recorded
+        ok = exists and extension_match and (fingerprint_match if recorded else True)
+        return {"source_id": source.id, "exists": exists, "sha256": digest,
+                "matches_recorded_sha256": fingerprint_match if recorded else True,
+                "format_matches_extension": extension_match, "ok": ok}
+
     def export_dict(self) -> dict[str, Any]:
         return {"sources": [asdict(s) for s in self.sources],
                 "objects": [asdict(o) for o in self.objects]}
