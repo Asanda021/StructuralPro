@@ -26,7 +26,7 @@ def test_end_to_end_project_takeoff_boq_estimate(tmp_path):
 
     row = app.add_takeoff(
         "P-31", "building", "slab",
-        length=5, width=4, height=0.2, price_code="A-1", source_id="drawing:1"
+        length=5, width=4, thickness=0.2, price_code="A-1", source_id="drawing:1"
     )
     assert row["quantities"][0]["amount"] == pytest.approx(4.0)
 
@@ -54,12 +54,12 @@ def test_duplicate_takeoff_source_is_blocked_without_mutating_project(tmp_path):
 def test_takeoff_batch_and_summary_are_consistent():
     engine = TakeoffEngine()
     rows = engine.batch([
-        {"domain": "building", "item": "slab", "length": 2, "width": 3, "height": 0.2},
-        {"domain": "building", "item": "slab", "length": 1, "width": 4, "height": 0.2},
+        {"domain": "building", "item": "slab_volume", "length": 2, "width": 3, "thickness": 0.2},
+        {"domain": "building", "item": "slab_volume", "length": 1, "width": 4, "thickness": 0.2},
     ])
     summary = engine.summarize(rows)
     assert summary["row_count"] == 2
-    assert summary["quantity_by_unit"]["m3"] == pytest.approx(1.6)
+    assert summary["quantity_by_unit"]["m3"] == pytest.approx(2.0)
 
 
 def test_invalid_estimate_factors_fail_closed(tmp_path):
@@ -194,8 +194,7 @@ def test_project_report_rejects_missing_description():
 
 def test_missing_project_contracts_fail_cleanly(tmp_path):
     app = StructuralProApp(tmp_path / "data")
-    with pytest.raises(KeyError):
-        app.open_project("missing")
+    assert app.open_project("missing") is None
     with pytest.raises(KeyError):
         app.project_performance_snapshot("missing")
     with pytest.raises(KeyError):
