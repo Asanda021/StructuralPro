@@ -23,7 +23,12 @@ def _n(v: Any, name: str, *, minimum: float = 0.0) -> float:
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
     return x
 
-def _positive(v: Any, name: str) -> float:\n    return _n(v, name, minimum=1e-12)\n\ndef _rect_area(length,width): return _positive(length,"length")*_positive(width,"width")
+def _positive(v: Any, name: str) -> float:
+    return _n(v, name, minimum=1e-12)
+
+def _rect_area(length, width):
+    return _positive(length, "length") * _positive(width, "width")
+
 def _wall_area(length,height,openings=0): return max(0.0,_n(length,"length")*_n(height,"height")-_n(openings,"openings"))
 
 def calculate_building_item(item: str, **p: Any) -> QuantityResult:
