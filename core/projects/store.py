@@ -66,4 +66,13 @@ class ProjectStore:
         return [{"version":r["version"],"created_at":r["created_at"],"payload":json.loads(r["payload"])}
                 for r in self.db.execute("SELECT version,created_at,payload FROM revisions WHERE project_id=? ORDER BY version",(str(project_id),))]
 
-    def close(self): self.db.close()
+    def integrity_check(self) -> dict[str, Any]:
+        from core.recovery.recovery import verify_database
+        return verify_database(self.path)
+
+    def backup(self, backup_path: str | Path) -> dict[str, Any]:
+        from core.recovery.recovery import backup_database
+        return backup_database(self.path, backup_path)
+
+    def close(self):
+        self.db.close()
