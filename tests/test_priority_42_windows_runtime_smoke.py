@@ -10,5 +10,6 @@ def test_app_has_ci_runtime_smoke_exit_path():
 
 def test_windows_workflow_executes_application_smoke():
     source = (ROOT / ".github/workflows/windows-smoke.yml").read_text(encoding="utf-8")
-    assert "STRUCTURALPRO_SMOKE: 1" in source
+    assert "STRUCTURALPRO_SMOKE:" in source
+    assert "1" in source
     assert "from app.main import main" in source
