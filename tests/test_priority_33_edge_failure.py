@@ -78,7 +78,7 @@ def test_ai_confirmation_gate_does_not_mutate_state(tmp_path):
                     length=2, width=2, thickness=0.2)
     app.recalculate_estimate("P33")
     before = app.open_project("P33")
-    response = app.ai_assistant_respond("P33", "متره را تغییر بده")
+    response = app.ai_assistant_respond("P33", "متره را اجرا کن و ثبت کن")
     after = app.open_project("P33")
     assert before == after
     assert response["requires_confirmation"] is True
