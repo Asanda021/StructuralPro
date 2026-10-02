@@ -68,7 +68,8 @@ def test_corrupt_recovery_payload_is_rejected(tmp_path):
     app = _app(tmp_path)
     path = tmp_path / "bad.json"
     path.write_text('{"id":"P33","name":"bad","takeoffs":"not-a-list"}', encoding="utf-8")
-    with pytest.raises((ValueError, TypeError)):
+    from core.recovery.recovery import RecoveryError
+    with pytest.raises(RecoveryError):
         app.import_project_backup(path)
 
 
