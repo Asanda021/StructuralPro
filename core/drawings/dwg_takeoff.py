@@ -25,6 +25,12 @@ class DWGDocument:
 
 def _xy(v): return (float(v[0]),float(v[1]))
 
+_UNIT_FACTORS = {"in":0.0254,"ft":0.3048,"mi":1609.344,"mm":0.001,"cm":0.01,"m":1.0,"km":1000.0}
+
+def cad_unit_factor(unit: str) -> float | None:
+    """Return multiplier from a known CAD unit to canonical metres."""
+    return _UNIT_FACTORS.get(str(unit or "unknown").lower())
+
 def _poly_metrics(points, closed=False):
     pts=[_xy(p) for p in points]
     if any(not math.isfinite(v) for p in pts for v in p):
@@ -69,7 +75,7 @@ class DWGTakeoffEngine:
                         try: data[a]=_xy(getattr(e.dxf,a))
                         except Exception: pass
             out.entities.append(DWGEntity(typ,layer,getattr(e.dxf,"handle",None),data))
-        factor={"in":0.0254,"ft":0.3048,"mi":1609.344,"mm":0.001,"cm":0.01,"m":1.0,"km":1000.0}.get(out.units)
+        factor=cad_unit_factor(out.units)
         if factor is not None and factor != 1.0:
             normalized=[]
             for entity in out.entities:
