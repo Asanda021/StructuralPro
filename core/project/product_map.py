@@ -285,7 +285,7 @@ MASTER_PRODUCT_MAP: Final[ProductNode] = _n(
        _n("iran", "استانداردها و مقررات ایران"),
        _n("international", "استانداردهای بین‌المللی"),
        _n("codes", "Code / Edition"),
-       _n("sources", "کتابخانه منابع"),
+       _n("source_library", "کتابخانه منابع"),
        _n("rules", "Rule Engine"),
        _n("clause_mapping", "بند، جدول و ارجاع"),
        _n("domain_binding", "اتصال ضابطه به حوزه"),
