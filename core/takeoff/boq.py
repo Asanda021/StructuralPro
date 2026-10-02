@@ -56,7 +56,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             raise ValueError("factor must be finite and non-negative")
         status = _text(_read(r, "status", BOQ_DEFAULT_STATUS)) or BOQ_DEFAULT_STATUS
         notes = _text(_read(r, "notes", ""))
-        total = None if price is None else _number(q * price * f, "total", allow_none=False)
+        total = None if price is None else _number(round(q * price * f, 10), "total", allow_none=False)
         warning = ""
         if price == 0:
             warning = "zero_price"
