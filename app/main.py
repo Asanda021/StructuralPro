@@ -1,6 +1,7 @@
 """StructuralPro Windows desktop UI: offline-first project, takeoff, drawing, pricing, reports and local AI."""
 from __future__ import annotations
 import sys
+import os
 from pathlib import Path
 import json
 
@@ -16,7 +17,7 @@ def main()->int:
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
             QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QFrame
         )
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import Qt, QTimer
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
@@ -481,6 +482,8 @@ def main()->int:
     refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash); refresh_ux_status()
     w.show()
     logger.info("StructuralPro UI initialized")
+    if os.getenv("STRUCTURALPRO_SMOKE") == "1":
+        QTimer.singleShot(1000, app.quit)
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
     return result
