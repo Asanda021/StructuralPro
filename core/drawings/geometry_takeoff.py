@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
+from core.drawings.element_recognition import enrich_candidate
+
 
 _LENGTH_TYPES = {"LINE", "LWPOLYLINE", "POLYLINE", "ARC"}
 _AREA_TYPES = {"LWPOLYLINE", "POLYLINE", "CIRCLE"}
