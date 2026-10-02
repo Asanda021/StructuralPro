@@ -125,7 +125,7 @@ class TraceGraph:
                 continue
             seen.add(current)
             stack.extend(parents.get(current, set()))
-        return sorted(seen)
+        return sorted(seen, key=lambda node: (STAGES.index(self.nodes[node].stage), node))
 
     def validate(self) -> dict[str, Any]:
         errors = []
