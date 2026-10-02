@@ -142,7 +142,7 @@ class ConstructionQuantityCore:
                             line.source_id,line.waste_rate,gross,dict(line.metadata))
 
 def validate_quantity_lines(lines:Iterable[QuantityLine]):
-    rows=list(lines); errors=[]; ids=set()
+    rows=list(lines); errors=[]; ids=set(); sources=set()
     for line in rows:
         if line.element_id in ids: errors.append(f"duplicate element_id: {line.element_id}")
         ids.add(line.element_id)
