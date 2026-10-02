@@ -25,7 +25,7 @@ def test_end_to_end_project_takeoff_boq_estimate(tmp_path):
     assert created["id"] == "P-31"
 
     row = app.add_takeoff(
-        "P-31", "building", "slab",
+        "P-31", "building", "slab_volume",
         length=5, width=4, thickness=0.2, price_code="A-1", source_id="drawing:1"
     )
     assert row["quantities"][0]["amount"] == pytest.approx(4.0)
