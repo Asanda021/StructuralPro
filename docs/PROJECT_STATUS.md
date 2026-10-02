@@ -1,6 +1,13 @@
 # StructuralPro implementation status
 
-## Verified in the local development source
+## Current verified state
+
+StructuralPro is a Windows-first offline construction quantity, estimation and project platform with executable CI coverage across core application, drawing, persistence, calculation/quantity, UI, reporting/export and release surfaces.
+
+The current Main branch has completed Priority 49, including real Windows installer acceptance testing.
+
+## Verified release surfaces
+
 - Desktop PySide6 application structure
 - Project/takeoff/estimate/report modules
 - Pricing and commercial modules
@@ -8,13 +15,19 @@
 - IFC/BIM adapter architecture
 - Offline mode and synchronization queue architecture
 - Local AI facade and deterministic fallback
-- 67 existing automated tests passing in the local development tree
+- Reproducible Windows packaging
+- Installer install/run/uninstall smoke acceptance
+- Regression, QA, drawing and Windows smoke workflows
 
-## Important production gaps
-- The official Iranian annual price-list datasets must be licensed/validated and imported.
-- A redistributable GGUF model must be selected and license-checked.
-- Windows installer packaging and hardware-based model selection must be completed and tested.
-- Android client and Telegram client are separate deliverables sharing the same contracts.
-- Native DWG support may require an approved converter/SDK; DXF is the safer direct parsing path.
+## Remaining release dependencies
 
-These are tracked explicitly so the product is not represented as finished when a production dependency is still pending.
+The following require external provisioning or evidence rather than speculative repository implementation:
+
+- Licensed/verified official Iranian annual price-list datasets.
+- A redistributable GGUF model and license/checksum evidence if a model is bundled.
+- An approved DWG converter/SDK and redistribution/runtime terms if DWG conversion is shipped.
+- Windows code-signing certificate and secure signing procedure where required.
+- Final third-party dependency/license evidence for the exact release environment.
+- Android and Telegram native distribution deliverables, if those clients are included in the release scope.
+
+These dependencies are intentionally explicit so repository tests do not create a false claim of commercial readiness.
