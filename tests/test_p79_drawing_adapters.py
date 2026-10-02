@@ -46,7 +46,7 @@ def test_pipeline_connects_adapter_intelligence_standards_takeoff_and_boq(tmp_pa
 
     result = DrawingIntelligencePipeline(
         adapters=DrawingAdapterRegistry(adapters=(FakeAdapter(),))
-    ).process(str(source))
+    ).process(str(source), unit="m")
 
     assert [e.kind for e in result.elements] == ["beam", "column"]
     assert result.boq[0]["source"] == "fake:beam:1"
@@ -54,6 +54,8 @@ def test_pipeline_connects_adapter_intelligence_standards_takeoff_and_boq(tmp_pa
     assert result.boq[0]["unit"] == "m"
     assert result.standards["fake:beam:1"]
     assert result.adapter_warnings == ()
+    assert result.measurement_warnings == ()
+    assert result.scale.unit == "m"
 
 
 def test_pdf_adapter_keeps_page_and_source_traceability(tmp_path):
@@ -69,3 +71,25 @@ def test_pdf_adapter_keeps_page_and_source_traceability(tmp_path):
     assert result.source.metadata["page_count"] == 1
     assert result.primitives == ()
     assert result.warnings
+
+
+def test_operational_pipeline_fails_closed_without_drawing_unit(tmp_path):
+    source = tmp_path / "plan.fake"
+    source.write_text("placeholder", encoding="utf-8")
+    result = DrawingIntelligencePipeline(
+        adapters=DrawingAdapterRegistry(adapters=(FakeAdapter(),))
+    ).process(str(source))
+    assert result.scale is None
+    assert result.quantity_candidates == ()
+    assert result.boq == ()
+    assert result.measurement_warnings
+
+def test_operational_pipeline_converts_explicit_drawing_unit_to_si(tmp_path):
+    source = tmp_path / "plan.fake"
+    source.write_text("placeholder", encoding="utf-8")
+    result = DrawingIntelligencePipeline(
+        adapters=DrawingAdapterRegistry(adapters=(FakeAdapter(),))
+    ).process(str(source), unit="cm")
+    assert result.scale.coordinate_to_m == pytest.approx(0.01)
+    assert result.boq[0]["quantity"] == pytest.approx(0.06)
+    assert result.elements[0].properties["measurement_formula"]
