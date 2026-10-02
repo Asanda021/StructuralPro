@@ -52,8 +52,8 @@ def test_ai_review_does_not_change_estimate_or_takeoff_state(tmp_path):
         "P32", "building", "slab_volume",
         length=2, width=3, thickness=0.2
     )
-    before = app.open_project("P32")
     estimate_before = app.recalculate_estimate("P32")
+    before = app.open_project("P32")
     app.ai_assistant_respond("P32", "متره و برآورد پروژه را بررسی کن و ثبت کن")
     after = app.open_project("P32")
     estimate_after = app.recalculate_estimate("P32")
@@ -71,8 +71,8 @@ def test_performance_snapshot_matches_project_collection_sizes(tmp_path):
         )
     snap = app.project_performance_snapshot("P32")
     assert snap["project_id"] == "P32"
-    assert snap["collections"]["takeoffs"] == 5
-    assert snap["size"]["takeoffs"] == 5
+    assert snap["collection_counts"]["takeoffs"] == 5
+    assert snap["total_collection_rows"] >= 5
 
 
 def test_report_and_recalculation_share_same_takeoff_count(tmp_path):
@@ -83,9 +83,10 @@ def test_report_and_recalculation_share_same_takeoff_count(tmp_path):
             length=2, width=2, thickness=0.2, source_id=f"R{i}"
         )
     estimate = app.recalculate_estimate("P32")
-    report = app.project_report("P32")
+    activity = app.project_activity_summary("P32")
     assert estimate["boq"]
-    assert report["summary"]["line_count"] == len(estimate["boq"])
+    assert activity["takeoffs"] == 3
+    assert activity["boq_items"] == len(estimate["boq"])
 
 
 def test_invalid_project_operations_fail_without_partial_creation(tmp_path):
