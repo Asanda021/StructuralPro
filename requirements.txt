@@ -9,4 +9,5 @@ python-docx>=1.1
 # ezdxf is required by the canonical DXF/DWG extraction path and its tests.
 ezdxf>=1.3
 # Optional BIM integration:
+# IFC/BIM integration (install for production IFC ingestion)
 # ifcopenshell>=0.8
