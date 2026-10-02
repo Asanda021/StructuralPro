@@ -52,7 +52,7 @@ class DrawingIntelligencePipeline:
             graph.add_node(TraceNode(node_id=node_id, stage="drawing", source=str(adapted.source.path), external_id=source))
         element_nodes = {}
         for element in elements:
-            node_id = stable_id("model", adapted.source.path, element.element_id)
+            node_id = stable_id("model", str(adapted.source.path), element.element_id)
             element_nodes[element.element_id] = node_id
             graph.add_node(TraceNode(
                 node_id=node_id, stage="model", source=adapted.source.path,
@@ -66,7 +66,7 @@ class DrawingIntelligencePipeline:
         takeoff_by_source = {}
         for candidate in candidates:
             element_id = candidate["element_id"]
-            node_id = stable_id("takeoff", adapted.source.path, element_id)
+            node_id = stable_id("takeoff", str(adapted.source.path), element_id)
             takeoff_nodes[element_id] = node_id
             takeoff_by_source[self._source_for(next(e for e in elements if e.element_id == element_id))] = node_id
             graph.add_node(TraceNode(
@@ -80,7 +80,7 @@ class DrawingIntelligencePipeline:
         for row in boq_rows:
             source = str(row["source"])
             element_id = source
-            node_id = stable_id("boq", adapted.source.path, source)
+            node_id = stable_id("boq", str(adapted.source.path), source)
             graph.add_node(TraceNode(
                 node_id=node_id, stage="boq", source=adapted.source.path,
                 external_id=source, quantity=row["quantity"], unit=row["unit"],
