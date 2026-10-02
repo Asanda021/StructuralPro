@@ -56,7 +56,12 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             raise ValueError("factor must be finite and non-negative")
         status = _text(_read(r, "status", BOQ_DEFAULT_STATUS)) or BOQ_DEFAULT_STATUS
         notes = _text(_read(r, "notes", ""))
-        total = None if price is None else _number(round(q * price * f, 10), "total", allow_none=False)
+        waste_percent = _number(_read(r, "waste_percent", 0), "waste_percent", allow_none=False)
+        allowance_quantity = _number(_read(r, "allowance_quantity", 0), "allowance_quantity", allow_none=False)
+        if waste_percent < 0 or allowance_quantity < 0:
+            raise ValueError("waste/allowance must be finite and non-negative")
+        effective_quantity = _number(q * (1.0 + waste_percent / 100.0) + allowance_quantity, "effective_quantity", allow_none=False)
+        total = None if price is None else _number(round(effective_quantity * price * f, 10), "total", allow_none=False)
         warning = ""
         if price == 0:
             warning = "zero_price"
@@ -64,7 +69,8 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             "source": source, "source_id": source_id, "source_ids": [source_id] if source_id else [], "source_type": source_type,
             "item_code": item_code, "price_code": code, "chapter": chapter,
             "category": category, "group": group, "description": description,
-            "quantity": q, "unit": unit, "unit_price": price, "total": total,
+            "quantity": q, "effective_quantity": effective_quantity, "waste_percent": waste_percent, "allowance_quantity": allowance_quantity,
+            "unit": unit, "unit_price": price, "total": total,
             "factor": f, "status": status, "notes": notes, "warning": warning,
         })
     if aggregate:
@@ -80,6 +86,9 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             else:
                 groups[key]["quantity"] += r["quantity"]
                 groups[key]["quantity"] = _number(groups[key]["quantity"], "quantity", allow_none=False)
+                groups[key]["effective_quantity"] += r["effective_quantity"]
+                groups[key]["effective_quantity"] = _number(groups[key]["effective_quantity"], "effective_quantity", allow_none=False)
+                groups[key]["allowance_quantity"] += r["allowance_quantity"]
                 for source_id in r.get("source_ids", []):
                     if source_id and source_id not in groups[key]["source_ids"]:
                         groups[key]["source_ids"].append(source_id)
@@ -106,6 +115,9 @@ def validate_boq_structure(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
             warnings.append({"item_no": index, "code": "unknown_status", "value": row.get("status")})
         try:
             q = float(row.get("quantity", 0))
+            eq = float(row.get("effective_quantity", q))
+            if not math.isfinite(eq) or eq < 0:
+                errors.append({"item_no": index, "code": "invalid_effective_quantity"})
             if not math.isfinite(q) or q < 0:
                 errors.append({"item_no": index, "code": "invalid_quantity"})
             total = row.get("total")
