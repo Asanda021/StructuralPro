@@ -54,6 +54,38 @@ def _finite_nonnegative(value: Any, *, field: str) -> float:
     return number
 
 
+def _geometry_fingerprint(entity: Any) -> tuple[Any, ...] | None:
+    """Return a deterministic identity for exact duplicate CAD geometry.
+
+    Handles identify the source entity; this fingerprint catches copied/duplicated
+    geometry that has different handles but identical measurable geometry.
+    """
+    data = getattr(entity, "data", {}) or {}
+    entity_type = str(getattr(entity, "entity_type", "") or "").upper()
+    layer = str(getattr(entity, "layer", "") or "0")
+    def norm_point(p):
+        try:
+            return (round(float(p[0]), 9), round(float(p[1]), 9))
+        except (TypeError, ValueError, IndexError):
+            return None
+    points = data.get("points")
+    if points:
+        pts = tuple(x for x in (norm_point(p) for p in points) if x is not None)
+        if pts:
+            return (entity_type, layer, "points", pts)
+    for key in ("start", "end", "insert", "center"):
+        if key in data and norm_point(data[key]) is not None:
+            pair = norm_point(data[key])
+            return (entity_type, layer, key, pair, round(float(data.get("length", 0) or 0), 9))
+    if "radius" in data:
+        try:
+            return (entity_type, layer, "radius", round(float(data["radius"]), 9),
+                    round(float(data.get("length", 0) or 0), 9))
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def _source(entity: Any, index: int) -> str:
     layer = str(getattr(entity, "layer", "") or "0")
     handle = getattr(entity, "handle", None)
@@ -83,6 +115,7 @@ def extract_geometry_candidates(
 
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
+    seen_geometry: dict[tuple[Any, ...], str] = {}
 
     for index, entity in enumerate(entities, 1):
         entity_type = str(getattr(entity, "entity_type", "") or "").upper()
@@ -110,6 +143,13 @@ def extract_geometry_candidates(
         if quantity is None:
             continue
 
+        duplicate_of = None
+        fingerprint = _geometry_fingerprint(entity)
+        if fingerprint is not None and fingerprint in seen_geometry:
+            duplicate_of = seen_geometry[fingerprint]
+        elif fingerprint is not None:
+            seen_geometry[fingerprint] = source
+
         candidate = GeometryTakeoffCandidate(
             source=source,
             entity_type=entity_type,
@@ -121,7 +161,12 @@ def extract_geometry_candidates(
             confidence=confidence if source_unit == "m" else min(confidence, 0.5),
             description=layer or entity_type,
         )
-        out.append(enrich_candidate(entity, candidate.as_dict()))
+        enriched = enrich_candidate(entity, candidate.as_dict())
+        enriched["duplicate_geometry"] = duplicate_of is not None
+        enriched["duplicate_of"] = duplicate_of
+        if duplicate_of is not None:
+            enriched["needs_confirmation"] = True
+        out.append(enriched)
 
     return out
 
@@ -154,10 +199,18 @@ def aggregate_geometry_candidates(
                 "needs_confirmation": True,
                 "entity_count": 0,
                 "source_entities": [],
+                "duplicate_geometry_count": 0,
+                "duplicate_sources": [],
             },
         )
         group["quantity"] += row["quantity"]
         group["entity_count"] += 1
         group["source_entities"].append(row["source"])
+        if row.get("duplicate_geometry"):
+            group["duplicate_geometry_count"] += 1
+            group["duplicate_sources"].append({
+                "source": row["source"], "duplicate_of": row.get("duplicate_of")
+            })
+            group["needs_confirmation"] = True
 
     return list(groups.values())
