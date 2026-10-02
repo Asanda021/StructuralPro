@@ -8,5 +8,6 @@ def test_windows_packaging_surface_exists():
 
 def test_android_client_surface_exists():
     assert (ROOT/"android/app/src/main/java/com/asanda/structuralpro/MainActivity.kt").exists()
-    assert "androidx.compose" in (ROOT/"android/app/build.gradle.kts").read_text()
-    assert "minSdk=29" in (ROOT/"android/app/build.gradle.kts").read_text()
+    gradle=(ROOT/"android/app/build.gradle.kts").read_text()
+    assert "androidx.compose" in gradle
+    assert "minSdk = 29" in gradle
