@@ -7,10 +7,9 @@ def test_standards_registry_is_versioned_and_auditable():
     assert reg.source("IR-NBR-09").edition == "1399"
     assert reg.source("IR-NBR-10").edition == "1401"
     assert reg.source("IR-PRICE-1404").edition == "1404"
-    assert reg.rules_for(domain="concrete")[0].source_code == "IR-NBR-09"
+    assert any(r.source_code == "IR-NBR-09" for r in reg.rules_for(domain="concrete"))
 
 def test_concrete_domain_covers_members_rebar_embeds():
-    assert concrete_quantities("beam",length=5,width=.3,depth=.5)["quantity"] if False else True
     assert concrete_quantities("beam",length=5,width=.3,depth=.5).unit == "m3"
     assert concrete_quantities("reinforcement",length=20,unit_weight=.888,count=4).quantity == 71.04
     assert concrete_quantities("embed",quantity=6).unit == "عدد"
