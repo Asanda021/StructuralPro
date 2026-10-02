@@ -23,12 +23,7 @@ def _n(v: Any, name: str, *, minimum: float = 0.0) -> float:
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
     return x
 
-def _positive(v: Any, name: str) -> float:
-    return _n(v, name, minimum=1e-12)
-
-def _rect_area(length, width):
-    return _positive(length, "length") * _positive(width, "width")
-
+def _rect_area(length,width): return _n(length,"length")*_n(width,"width")
 def _wall_area(length,height,openings=0): return max(0.0,_n(length,"length")*_n(height,"height")-_n(openings,"openings"))
 
 def calculate_building_item(item: str, **p: Any) -> QuantityResult:
@@ -38,7 +33,7 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
     if k in {"slab","slab_area","floor","کف"}:
         q=_rect_area(p["length"],p["width"]); return QuantityResult("ابنیه","سطح سقف/کف",q,"m2","L×W")
     if k in {"slab_volume","concrete_slab","بتن_سقف"}:
-        q=_rect_area(p["length"],p["width"])*_positive(p["thickness"],"thickness"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t")
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t")
     if k in {"column","column_concrete","بتن_ستون"}:
         q=_rect_area(p["width"],p["depth"])*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","بتن ستون",q,"m3","b×h×H×تعداد")
     if k in {"beam","beam_concrete","بتن_تیر"}:
