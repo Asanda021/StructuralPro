@@ -19,13 +19,42 @@ def detect_scale(text: str) -> dict[str, Any]:
     if not unique:
         return {"status": "unknown", "scale": None, "candidates": [], "needs_confirmation": True}
     if len(unique) > 1:
-        return {
-            "status": "ambiguous",
-            "scale": None,
-            "candidates": unique,
-            "needs_confirmation": True,
-        }
+        return {"status": "ambiguous", "scale": None, "candidates": unique, "needs_confirmation": True}
     return {"status": "detected", "scale": unique[0], "candidates": unique, "needs_confirmation": False}
+
+
+def _apply_explicit_openings(rows: list[dict[str, Any]], openings: Iterable[Mapping[str, Any]] | None) -> None:
+    """Attach explicit opening/cutout information without changing gross quantity."""
+    by_source: dict[str, float] = defaultdict(float)
+    for opening in openings or ():
+        parent = str(opening.get("parent_source") or "").strip()
+        if not parent:
+            continue
+        try:
+            value = float(opening.get("quantity", 0) or 0)
+        except (TypeError, ValueError):
+            value = -1.0
+        for row in rows:
+            if row.get("source") != parent:
+                continue
+            if value < 0:
+                row["opening_error"] = True
+                row["needs_confirmation"] = True
+            else:
+                by_source[parent] += value
+
+    for row in rows:
+        source = str(row.get("source") or "")
+        if source not in by_source:
+            continue
+        opening = by_source[source]
+        gross = float(row.get("quantity", 0) or 0)
+        row["opening_quantity"] = opening
+        row["net_quantity"] = max(0.0, gross - opening)
+        row["opening_exceeds_gross"] = opening > gross
+        row["needs_confirmation"] = True
+        if opening > gross:
+            row["opening_error"] = True
 
 
 def generate_auto_takeoff(
@@ -35,16 +64,11 @@ def generate_auto_takeoff(
     source_unit: str = "m",
     sheet: str = "",
     page: int | None = None,
+    openings: Iterable[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Generate review-first candidates and a deterministic scale decision.
-
-    CAD quantities are only generated in a known source unit. Scale metadata is
-    reported separately; an unknown/ambiguous scale never causes a guessed
-    quantity conversion.
-    """
     scale = detect_scale(scale_text)
     rows = extract_geometry_candidates(list(entities), source_unit=source_unit)
-
+    _apply_explicit_openings(rows, openings)
     for row in rows:
         row["sheet"] = sheet
         row["page"] = page
@@ -56,7 +80,6 @@ def generate_auto_takeoff(
             row["recognition_reason"] = (
                 f"{row.get('recognition_reason', '')}; scale={scale['status']}"
             ).strip("; ")
-
     return {
         "kind": "cad_auto_takeoff",
         "scale": scale,
@@ -66,16 +89,12 @@ def generate_auto_takeoff(
             "review_required": sum(bool(x.get("needs_confirmation")) for x in rows),
             "by_metric": _metric_summary(rows),
             "by_element": _element_summary(rows),
+            "opening_review_required": sum(bool(x.get("opening_quantity")) for x in rows),
         },
     }
 
 
-def generate_multi_sheet_takeoff(
-    sheets: Mapping[str, Mapping[str, Any]],
-    *,
-    source_unit: str = "m",
-) -> dict[str, Any]:
-    """Run independent takeoff per sheet; never shares scale between sheets."""
+def generate_multi_sheet_takeoff(sheets: Mapping[str, Mapping[str, Any]], *, source_unit: str = "m") -> dict[str, Any]:
     results: dict[str, Any] = {}
     for sheet_id in sorted(sheets):
         payload = sheets[sheet_id] or {}
@@ -85,18 +104,15 @@ def generate_multi_sheet_takeoff(
             source_unit=source_unit,
             sheet=str(sheet_id),
             page=payload.get("page"),
+            openings=payload.get("openings"),
         )
     return {
         "kind": "multi_sheet_auto_takeoff",
         "sheets": results,
         "summary": {
             "sheet_count": len(results),
-            "candidate_count": sum(
-                x["summary"]["candidate_count"] for x in results.values()
-            ),
-            "review_required": sum(
-                x["summary"]["review_required"] for x in results.values()
-            ),
+            "candidate_count": sum(x["summary"]["candidate_count"] for x in results.values()),
+            "review_required": sum(x["summary"]["review_required"] for x in results.values()),
         },
     }
 
