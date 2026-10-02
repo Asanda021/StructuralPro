@@ -55,7 +55,7 @@ class DrawingIntelligencePipeline:
             node_id = stable_id("model", str(adapted.source.path), element.element_id)
             element_nodes[element.element_id] = node_id
             graph.add_node(TraceNode(
-                node_id=node_id, stage="model", source=adapted.source.path,
+                node_id=node_id, stage="model", source=str(adapted.source.path),
                 external_id=element.element_id, discipline=element.domain,
             ))
             for source in element.source_ids:
