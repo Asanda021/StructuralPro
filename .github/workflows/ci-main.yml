@@ -1,4 +1,5 @@
 name: StructuralPro CI
+# Main-push CI is intentionally enabled so every direct main update gets a visible Actions check.
 
 on:
   push:
