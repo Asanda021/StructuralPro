@@ -9,6 +9,8 @@ from dataclasses import dataclass
 import math
 from typing import Any
 
+from core.drawings.element_recognition import enrich_candidate
+
 
 _LENGTH_TYPES = {"LINE", "LWPOLYLINE", "POLYLINE", "ARC"}
 _AREA_TYPES = {"LWPOLYLINE", "POLYLINE", "CIRCLE"}
@@ -119,7 +121,7 @@ def extract_geometry_candidates(
             confidence=confidence if source_unit == "m" else min(confidence, 0.5),
             description=layer or entity_type,
         )
-        out.append(candidate.as_dict())
+        out.append(enrich_candidate(entity, candidate.as_dict()))
 
     return out
 
