@@ -27,3 +27,15 @@ def test_review_does_not_turn_unknown_geometry_into_engineering_element():
     e=EngineeringElement("E","concrete","beam",("KNOWN",),{"length":1},0.9)
     q=review_queue((p,),(e,))
     assert q and q[0].source_id=="UNKNOWN"
+
+
+def test_graphical_pdf_extracts_vector_lines_and_text(tmp_path):
+    fitz=pytest.importorskip("fitz")
+    doc=fitz.open(); page=doc.new_page(width=200,height=200)
+    page.draw_line((10,10),(110,10)); page.insert_text((20,40),"BEAM-1")
+    path=tmp_path/"vector.pdf"; doc.save(str(path)); doc.close()
+    from core.drawing.pdf_graphics import GraphicalPDFAdapter
+    result=GraphicalPDFAdapter().read(path)
+    kinds={p.normalized_kind() for p in result.primitives}
+    assert "line" in kinds and "text" in kinds
+    assert all(p.properties.get("page")==1 for p in result.primitives)
