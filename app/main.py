@@ -17,6 +17,7 @@ def main()->int:
             QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QFrame
         )
         from PySide6.QtCore import Qt
+        from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
         from core.pricing.catalog import PriceCatalog
@@ -43,6 +44,7 @@ def main()->int:
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
         from app.theme import APP_STYLESHEET
+        from core.ui.ux import DEFAULT_ACTIONS, navigation_groups, quick_status
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
     except ImportError as exc:
@@ -73,9 +75,14 @@ def main()->int:
         v.addWidget(h); v.addWidget(d); return p,v
 
     buttons=[]
-    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات"]
+    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات","راهنما"]
+    group_by_item={item: group for group, items in navigation_groups() for item in items}
+    current_group=None
     for name in sections:
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); buttons.append(b); nav.addWidget(b)
+        group=group_by_item.get(name)
+        if group and group != current_group:
+            group_label=QLabel(group); group_label.setObjectName("NavGroupLabel"); nav.addWidget(group_label); current_group=group
+        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); b.setAccessibleName(name); buttons.append(b); nav.addWidget(b)
 
     # Dashboard — Canva-aligned commercial shell with real project data
     dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
@@ -379,6 +386,21 @@ def main()->int:
     v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
     pages.addWidget(p); idx_settings=pages.count()-1
 
+    # Help — concise keyboard and navigation reference for the polished desktop shell.
+    p,v=page("راهنما","راهنمای سریع کار با StructuralPro بدون نیاز به اینترنت")
+    help_box=QTextEdit(); help_box.setReadOnly(True); help_box.setObjectName("HelpPanel")
+    help_box.setPlainText("\n".join([
+        "شروع سریع",
+        "۱) پروژه بسازید یا باز کنید.\n۲) متره را از ورود سریع یا نقشه انجام دهید.\n۳) BOQ و گزارش را بررسی و خروجی بگیرید.",
+        "",
+        "میانبرها",
+        *[f"{a.shortcut}  —  {a.label}: {a.tooltip}" for a in DEFAULT_ACTIONS],
+        "",
+        "نکته: همه داده‌ها به‌صورت محلی ذخیره می‌شوند و کنترل‌های مهندسی/مالی قبل از خروجی قابل بازبینی هستند."
+    ]))
+    v.addWidget(help_box,1)
+    pages.addWidget(p); idx_help=pages.count()-1
+
     # Project management: floors/drawings/takeoff/BOQ/report workflow
     pm=QWidget(); pmv=QVBoxLayout(pm)
     pmv.addWidget(QLabel("مدیریت حرفه‌ای پروژه | پروژه → طبقات → نقشه‌ها → متره → BOQ → گزارش"))
@@ -430,7 +452,7 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # navigation
+    # navigation — single active item, keyboard-friendly focus and deterministic status text.
     for b,i in zip(buttons,range(pages.count())):
         b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
         b.clicked.connect(lambda checked=False,btn=b: [x.setChecked(x is btn) for x in buttons])
@@ -438,7 +460,25 @@ def main()->int:
     nav.addStretch()
     layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
-    refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash)
+
+    QShortcut(QKeySequence("Ctrl+N"), w).activated.connect(lambda: (pages.setCurrentIndex(idx_projects), pname.setFocus()))
+    QShortcut(QKeySequence("Ctrl+O"), w).activated.connect(lambda: (pages.setCurrentIndex(idx_projects), plist.setFocus()))
+    QShortcut(QKeySequence("F1"), w).activated.connect(lambda: pages.setCurrentIndex(idx_help))
+    QShortcut(QKeySequence("Ctrl+K"), w).activated.connect(lambda: (pages.setCurrentIndex(idx_prices), pquery.setFocus()))
+
+    def refresh_ux_status():
+        project_name=""
+        try:
+            project_id=pid.text().strip()
+            project=service.open_project(project_id) if project_id else None
+            project_name=project.get("name","") if project else ""
+        except Exception:
+            project_name=""
+        status.setText("🟢 "+quick_status(project_name=project_name,offline=True))
+        w.statusBar().showMessage("StructuralPro | "+quick_status(project_name=project_name,offline=True))
+
+    pages.currentChanged.connect(lambda _i: refresh_ux_status())
+    refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash); refresh_ux_status()
     w.show()
     logger.info("StructuralPro UI initialized")
     result = app.exec()
