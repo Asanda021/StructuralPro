@@ -127,29 +127,83 @@ def main()->int:
     calc.clicked.connect(do_calc)
     pages.addWidget(p); idx_quick=pages.count()-1
 
-    # Drawing takeoff
-    p,v=page("متره از نقشه","ورود PDF/DWG/DXF/IFC و تولید کاندیدهای متره برای تأیید")
-    file_edit=QLineEdit(); browse=QPushButton("انتخاب فایل"); inspect=QPushButton("🔎 بررسی نقشه"); graphical=QPushButton("📐 متره گرافیکی"); dtable=QTableWidget(0,5)
-    dtable.setHorizontalHeaderLabels(["تأیید","شرح","مقدار","واحد","منبع"]); dtable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    v.addWidget(file_edit); v.addWidget(browse); v.addWidget(inspect); v.addWidget(graphical); v.addWidget(dtable)
-    drawing_state={}
+    # Drawing takeoff — phase 1 human confirmation + provenance/audit gate
+    p,v=page("متره از نقشه","ورود PDF/DWG/DXF/IFC و تولید کاندیدهای متره؛ موارد نیازمند بررسی تا تأیید صریح وارد BOQ نمی‌شوند.")
+    file_edit=QLineEdit(); browse=QPushButton("انتخاب فایل"); inspect=QPushButton("🔎 بررسی نقشه")
+    graphical=QPushButton("📐 متره گرافیکی"); confirm=QPushButton("✅ ثبت تأیید نهایی")
+    audit_label=QLabel("وضعیت: هنوز نقشه‌ای بررسی نشده است."); audit_label.setWordWrap(True)
+    dtable=QTableWidget(0,8)
+    dtable.setHorizontalHeaderLabels(["تصمیم","شرح","مقدار","واحد","اعتماد","صفحه/شیت","منبع","وضعیت"])
+    dtable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    v.addWidget(file_edit); v.addWidget(browse); v.addWidget(inspect); v.addWidget(graphical); v.addWidget(confirm)
+    v.addWidget(audit_label); v.addWidget(dtable)
+    drawing_state={}; drawing_service=UnifiedDrawingTakeoff()
     browse.clicked.connect(lambda: file_edit.setText(QFileDialog.getOpenFileName(w,"انتخاب نقشه","","Plans (*.pdf *.dwg *.dxf *.ifc *.ifczip);;All files (*)")[0]))
+
     def inspect_drawing():
         try:
-            drawing_state.clear(); drawing_state.update(UnifiedDrawingTakeoff().inspect(file_edit.text().strip()))
+            path=file_edit.text().strip()
+            drawing_state.clear(); drawing_state.update(drawing_service.inspect(path))
             dtable.setRowCount(0)
-            for i,r in enumerate(drawing_state.get("candidates",[]) or [],1):
-                dtable.insertRow(i-1); cb=QComboBox(); cb.addItems(["تأیید","رد"]); cb.setCurrentIndex(0 if r.get("needs_confirmation") else 0)
+            candidates=drawing_state.get("candidates",[]) or []
+            for i,r in enumerate(candidates,1):
+                dtable.insertRow(i-1)
+                cb=QComboBox()
+                cb.addItems(["بررسی","تأیید","رد"])
+                cb.setCurrentIndex(0 if r.get("needs_confirmation") else 1)
                 dtable.setCellWidget(i-1,0,cb)
-                vals=[r.get("description",""),r.get("quantity",""),r.get("unit",""),r.get("source",r.get("global_id",""))]
+                confidence=r.get("confidence",r.get("recognition_confidence",""))
+                provenance=r.get("provenance") or {}
+                page_ref=provenance.get("page",r.get("page",""))
+                sheet_ref=provenance.get("sheet",r.get("sheet",r.get("sheet_id","")))
+                page_sheet=f"{page_ref or '—'} / {sheet_ref or '—'}"
+                vals=[
+                    r.get("description",""), r.get("quantity",""), r.get("unit",""),
+                    confidence, page_sheet, r.get("source",r.get("global_id","")),
+                    "نیازمند تأیید" if r.get("needs_confirmation") else "قابل قبول اولیه"
+                ]
                 for j,val in enumerate(vals,1): dtable.setItem(i-1,j,QTableWidgetItem(str(val)))
             if drawing_state.get("kind")=="cad":
                 caps=detect_dwg_capabilities()
                 outmsg=f'نقشه CAD: {drawing_state["summary"]["entities"]} المان | {caps.message}'
-            else: outmsg=f'تعداد کاندیدها: {len(drawing_state.get("candidates",[]))}'
-            status.setText("🟢 "+outmsg+" | قبل از ورود به BOQ تأیید کنید")
-        except Exception as e: QMessageBox.critical(w,"خطای نقشه",str(e))
+            else:
+                outmsg=f'تعداد کاندیدها: {len(candidates)}'
+            audit_label.setText("🟠 "+outmsg+" | موارد «بررسی» تا تصمیم صریح وارد متره نهایی نمی‌شوند.")
+            status.setText("🟢 "+outmsg+" | مرحله تأیید انسانی فعال است")
+        except Exception as e:
+            QMessageBox.critical(w,"خطای نقشه",str(e))
+
+    def confirm_drawing():
+        if not drawing_state.get("candidates"):
+            QMessageBox.warning(w,"تأیید متره","ابتدا نقشه را بررسی کنید.")
+            return
+        decisions={}
+        for row in range(dtable.rowCount()):
+            cb=dtable.cellWidget(row,0)
+            if not cb: continue
+            choice=cb.currentIndex()
+            if choice==1: decisions[row+1]=True
+            elif choice==2: decisions[row+1]=False
+        try:
+            rows,audit=drawing_service.review_candidates(
+                drawing_state, decisions, reviewer="local-user"
+            )
+            final_rows=drawing_service.candidates_to_rows(drawing_state, decisions)
+            approved=len(final_rows)
+            pending=sum(1 for event in audit if event["decision"]=="rejected_pending_confirmation")
+            rejected=sum(1 for event in audit if event["decision"]=="rejected")
+            audit_label.setText(
+                f"🟢 تأیید ثبت شد | نهایی: {approved} | در انتظار بررسی: {pending} | ردشده: {rejected} | "
+                f"رویدادهای Audit: {len(audit)}"
+            )
+            drawing_state["approved_rows"]=rows
+            drawing_state["audit_trail"]=audit
+            status.setText("🟢 تأیید انسانی ثبت شد | فقط ردیف‌های تأییدشده مجاز به ورود به BOQ هستند")
+        except Exception as e:
+            QMessageBox.critical(w,"خطای تأیید متره",str(e))
+
     inspect.clicked.connect(inspect_drawing)
+    confirm.clicked.connect(confirm_drawing)
     graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
