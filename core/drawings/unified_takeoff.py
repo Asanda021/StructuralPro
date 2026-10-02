@@ -6,6 +6,7 @@ from typing import Any
 from core.drawings.pdf_takeoff import PDFTakeoffAdapter
 from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.bim_quantities import read_ifc
+from core.drawings.geometry_takeoff import aggregate_geometry_candidates
 from core.ai.auto_takeoff import LocalAutoTakeoff
 
 _BIM_UNITS={"Length":"m","Width":"m","Height":"m","Area":"m2","NetArea":"m2","GrossArea":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
@@ -32,19 +33,10 @@ class UnifiedDrawingTakeoff:
         if ext in {".dwg",".dxf"}:
             engine=DWGTakeoffEngine()
             doc=engine.import_file(p)
-            candidates=[]
-            for layer in doc.layers:
-                ents=[x for x in doc.entities if x.layer==layer]
-                length=sum(float(x.data.get("length",0) or 0) for x in ents)
-                area=sum(float(x.data.get("area",0) or 0) for x in ents)
-                qty,unit=(length,"m") if length>0 else (
-                    (area,"m2") if area>0 else (float(len(ents)),"عدد")
-                )
-                candidates.append({
-                    "source":f"cad:{layer}","description":layer,"quantity":qty,
-                    "unit":unit,"count":len(ents),"needs_confirmation":True
-                })
-            candidates.extend(self.auto.auto_takeoff(doc.entities))
+            # P56: measured geometry is the authoritative CAD candidate stream.
+            # This replaces the old layer aggregate + semantic auto stream that
+            # could represent the same entity twice.
+            candidates=aggregate_geometry_candidates(doc.entities)
             return {
                 "kind":"cad","source":str(p),"summary":engine.summarize(doc),
                 "candidates":candidates,"document":doc
