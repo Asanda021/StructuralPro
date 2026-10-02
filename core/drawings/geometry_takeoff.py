@@ -137,15 +137,18 @@ def aggregate_geometry_candidates(
     groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     for row in candidates:
-        key = (row["layer"], row["metric"], row["unit"])
+        key = (row["layer"], row["metric"], row["unit"], row.get("element_type", "unknown"))
         group = groups.setdefault(
             key,
             {
-                "source": f"cad-geometry:{row['layer']}:{row['metric']}",
+                "source": f"cad-geometry:{row['layer']}:{row['metric']}:{row.get('element_type', 'unknown')}",
                 "description": row["layer"] or row["entity_type"],
                 "quantity": 0.0,
                 "unit": row["unit"],
                 "metric": row["metric"],
+                "element_type": row.get("element_type", "unknown"),
+                "recognition_confidence": row.get("recognition_confidence", 0.0),
+                "recognition_reason": row.get("recognition_reason", ""),
                 "layer": row["layer"],
                 "confidence": min(float(row["confidence"]), 1.0),
                 "needs_confirmation": True,
