@@ -16,7 +16,7 @@ class GraphicalPDFAdapter:
             import fitz
         except ImportError as exc:
             raise RuntimeError("Install PyMuPDF to read graphical PDF drawings") from exc
-        doc=fitz.open(str(p)); out=[]
+        doc=fitz.open(str(p)); page_count=len(doc); out=[]
         for page_no,page in enumerate(doc,1):
             for idx,d in enumerate(page.get_drawings(),1):
                 rect=d.get("rect")
@@ -50,5 +50,5 @@ class GraphicalPDFAdapter:
                     source_id=f"pdf:{p.name}:p{page_no}:w{idx}",
                     properties={"page":page_no}))
         doc.close()
-        return AdapterResult(DrawingSource(p,"pdf",{"page_count":len(doc) if False else len(fitz.open(str(p)))}),
+        return AdapterResult(DrawingSource(p,"pdf",{"page_count":page_count}),
                              tuple(out),())
