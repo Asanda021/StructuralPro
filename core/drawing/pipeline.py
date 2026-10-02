@@ -70,7 +70,7 @@ class DrawingIntelligencePipeline:
             takeoff_nodes[element_id] = node_id
             takeoff_by_source[self._source_for(next(e for e in elements if e.element_id == element_id))] = node_id
             graph.add_node(TraceNode(
-                node_id=node_id, stage="takeoff", source=adapted.source.path,
+                node_id=node_id, stage="takeoff", source=str(adapted.source.path),
                 external_id=element_id, discipline=candidate["domain"],
                 quantity=candidate["quantity"], unit=candidate["unit"],
             ))
@@ -82,7 +82,7 @@ class DrawingIntelligencePipeline:
             element_id = source
             node_id = stable_id("boq", str(adapted.source.path), source)
             graph.add_node(TraceNode(
-                node_id=node_id, stage="boq", source=adapted.source.path,
+                node_id=node_id, stage="boq", source=str(adapted.source.path),
                 external_id=source, quantity=row["quantity"], unit=row["unit"],
                 item_code=str(row.get("price_code") or ""),
             ))
