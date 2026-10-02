@@ -36,7 +36,7 @@ class UnifiedDrawingTakeoff:
             # P56: measured geometry is the authoritative CAD candidate stream.
             # This replaces the old layer aggregate + semantic auto stream that
             # could represent the same entity twice.
-            candidates=aggregate_geometry_candidates(doc.entities)
+            candidates=aggregate_geometry_candidates(doc.entities, source_unit=doc.units)
             return {
                 "kind":"cad","source":str(p),"summary":engine.summarize(doc),
                 "candidates":candidates,"document":doc
