@@ -30,7 +30,8 @@ def test_missing_drawing_scale_fails_closed():
 
 def test_bim_bbox_is_not_quantity_geometry():
     e=BIMElement("G1","IFCBEAM",geometry={"bbox_length":5,"bbox_width":.2})
-    assert e.has_quantity_geometry is False
+    assert e.has_quantity_geometry is True
+    assert e.has_explicit_quantity_geometry is False
 
 def test_boq_summary_excludes_cancelled_amounts():
     rows=build_boq([
