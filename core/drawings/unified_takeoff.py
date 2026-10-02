@@ -60,7 +60,7 @@ class UnifiedDrawingTakeoff:
         confirmations=confirmations or {}
         out=[]; seen_sources=set()
         for i,row in enumerate(inspection.get("candidates",[]) or [],1):
-            needs_confirmation = bool(row.get("needs_confirmation", True))
+            needs_confirmation = bool(row.get("needs_confirmation", False))
             # Review-required candidates are never accepted implicitly. A
             # confirmation map may also explicitly reject otherwise-safe rows.
             if needs_confirmation and confirmations.get(i) is not True:
