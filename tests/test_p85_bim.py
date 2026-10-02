@@ -18,3 +18,8 @@ def test_bim_does_not_guess_missing_geometry():
 def test_bim_area_quantity():
  e=BIMElement("G1","IFCSLAB",geometry={"area":100},source_id="ifc:x:G1")
  assert quantities((e,))[0].unit=="m2"
+
+
+def test_bim_model_can_hold_geometric_dimensions_without_inference():
+ e=BIMElement("G3","IFCWALL",geometry={"bbox_length":5.0,"bbox_width":0.2,"bbox_height":3.0})
+ assert e.geometry["bbox_length"]==5.0 and e.has_quantity_geometry
