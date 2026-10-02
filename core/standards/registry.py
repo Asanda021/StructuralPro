@@ -61,4 +61,7 @@ def default_iran_registry() -> StandardsRegistry:
         RegulationRule("IR2800-SEISMIC-SOURCE", "IR-2800", "seismic", "مرجع پروژه", "مرجع لرزه‌ای", "هر داده لرزه‌ای مورد استفاده باید منبع و ویرایش مشخص داشته باشد.", ("concrete", "steel", "masonry", "foundations")),
         RegulationRule("PRICE-1404-SOURCE", "IR-PRICE-1404", "pricing", "کلیات", "مرجع فهرست بها", "اقلام برآورد باید منبع، سال و کد فهرست بها داشته باشند.", ("takeoff", "boq", "estimating")),
     ]
+    from .catalog import IRAN_CORE_SOURCES
+    known={s.code for s in sources}
+    sources.extend(s for s in IRAN_CORE_SOURCES if s.code not in known)
     return StandardsRegistry(sources, rules)
