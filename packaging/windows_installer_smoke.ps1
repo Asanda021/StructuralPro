@@ -31,8 +31,8 @@ if ($installedVersion -ne $ExpectedVersion) {
 
 $env:STRUCTURALPRO_SMOKE = "1"
 $env:QT_QPA_PLATFORM = "offscreen"
-& $exe
-$exitCode = $LASTEXITCODE
+$appProcess = Start-Process -FilePath $exe -Wait -PassThru
+$exitCode = $appProcess.ExitCode
 Remove-Item Env:STRUCTURALPRO_SMOKE -ErrorAction SilentlyContinue
 Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
 
