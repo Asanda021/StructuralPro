@@ -1,60 +1,80 @@
 """Unified offline drawing takeoff boundary with explicit confirmation."""
 from __future__ import annotations
+
 from pathlib import Path
 import math
 from typing import Any
+
 from core.drawings.pdf_takeoff import PDFTakeoffAdapter
 from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.bim_quantities import read_ifc
-from core.drawings.geometry_takeoff import aggregate_geometry_candidates
+from core.drawings.auto_takeoff import generate_auto_takeoff
 from core.ai.auto_takeoff import LocalAutoTakeoff
 from core.drawings.review import review_candidates
 
-_BIM_UNITS={"Length":"m","Width":"m","Height":"m","Area":"m2","NetArea":"m2","GrossArea":"m2","Volume":"m3","NetVolume":"m3","GrossVolume":"m3","Count":"عدد"}
+_BIM_UNITS = {
+    "Length": "m", "Width": "m", "Height": "m", "Area": "m2",
+    "NetArea": "m2", "GrossArea": "m2", "Volume": "m3",
+    "NetVolume": "m3", "GrossVolume": "m3", "Count": "عدد",
+}
+
 
 class UnifiedDrawingTakeoff:
-    def __init__(self,price_resolver=None):
-        self.price_resolver=price_resolver
-        self.auto=LocalAutoTakeoff()
+    def __init__(self, price_resolver=None):
+        self.price_resolver = price_resolver
+        self.auto = LocalAutoTakeoff()
+        self.last_review_audit = None
 
-    def inspect(self,path:str|Path)->dict[str,Any]:
-        p=Path(path)
+    def inspect(self, path: str | Path) -> dict[str, Any]:
+        p = Path(path)
         if not p.exists():
             raise FileNotFoundError(p)
-        ext=p.suffix.lower()
-        if ext==".pdf":
-            adapter=PDFTakeoffAdapter()
-            pages=adapter.inspect(p)
-            candidates=adapter.text_takeoff_candidates(pages)
-            scales=self.auto.auto_scale("\n".join(x.text for x in pages))
+        ext = p.suffix.lower()
+
+        if ext == ".pdf":
+            adapter = PDFTakeoffAdapter()
+            pages = adapter.inspect(p)
+            candidates = adapter.text_takeoff_candidates(pages)
+            scales = self.auto.auto_scale("\n".join(x.text for x in pages))
             return {
-                "kind":"pdf","source":str(p),"pages":len(pages),
-                "scale_candidate":scales,"candidates":candidates,
+                "kind": "pdf", "source": str(p), "pages": len(pages),
+                "scale_candidate": scales, "candidates": candidates,
             }
-        if ext in {".dwg",".dxf"}:
-            engine=DWGTakeoffEngine()
-            doc=engine.import_file(p)
-            # P56: measured geometry is the authoritative CAD candidate stream.
-            # This replaces the old layer aggregate + semantic auto stream that
-            # could represent the same entity twice.
-            candidates=aggregate_geometry_candidates(doc.entities, source_unit=doc.units)
+
+        if ext in {".dwg", ".dxf"}:
+            engine = DWGTakeoffEngine()
+            doc = engine.import_file(p)
+            scale_text = "\n".join(doc.text_labels)
+            auto = generate_auto_takeoff(
+                doc.entities,
+                scale_text=scale_text,
+                source_unit=doc.units,
+                sheet=p.stem,
+            )
             return {
-                "kind":"cad","source":str(p),"summary":engine.summarize(doc),
-                "candidates":candidates,"document":doc
+                "kind": "cad",
+                "source": str(p),
+                "summary": engine.summarize(doc),
+                "scale": auto["scale"],
+                "candidates": auto["candidates"],
+                "auto_takeoff_summary": auto["summary"],
+                "document": doc,
             }
-        if ext in {".ifc",".ifczip"}:
-            rows=read_ifc(p)
-            candidates=[]
+
+        if ext in {".ifc", ".ifczip"}:
+            rows = read_ifc(p)
+            candidates = []
             for row in rows:
-                for key,value in row.get("quantities",{}).items():
+                for key, value in row.get("quantities", {}).items():
                     candidates.append({
-                        "source":f'ifc:{row.get("global_id","") or row.get("name","")}:{key}',
-                        "description":f'{row.get("ifc_type","")} {row.get("name","")} {key}',
-                        "quantity":value,
-                        "unit":_BIM_UNITS.get(key,"unknown"),
-                        "needs_confirmation":True
+                        "source": f'ifc:{row.get("global_id", "") or row.get("name", "")}:{key}',
+                        "description": f'{row.get("ifc_type", "")} {row.get("name", "")} {key}',
+                        "quantity": value,
+                        "unit": _BIM_UNITS.get(key, "unknown"),
+                        "needs_confirmation": True,
                     })
-            return {"kind":"bim","source":str(p),"objects":len(rows),"candidates":candidates}
+            return {"kind": "bim", "source": str(p), "objects": len(rows), "candidates": candidates}
+
         raise ValueError("فرمت نقشه پشتیبانی نمی‌شود؛ PDF، DWG، DXF یا IFC انتخاب کنید.")
 
     def review_candidates(self, inspection, confirmations=None, *, reviewer="local-user", reviewed_at=None):
@@ -97,6 +117,8 @@ class UnifiedDrawingTakeoff:
                 "element_type", "entity_type", "layer", "handle", "metric",
                 "page", "sheet", "sheet_id", "revision", "duplicate_geometry",
                 "duplicate_of", "partial_overlap", "overlap_sources", "overlap_length",
+                "scale_status", "scale", "scale_candidates",
+                "opening_quantity", "net_quantity", "opening_exceeds_gross", "opening_error",
             ):
                 if key in row:
                     result[key] = row[key]
