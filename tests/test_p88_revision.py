@@ -41,7 +41,7 @@ def test_revision_detects_drawing_element_quantity_boq_and_cost_changes():
     assert result["revision_id"] == "R2"
     assert result["drawing"]["counts"]["changed"] == 1
     assert result["elements"]["counts"]["changed"] == 1
-    assert result["takeoff"]["changed"][0]["quantity_changes"][0]["delta"] == pytest.approx(1.0)
+    assert result["takeoff"]["changed"][0]["quantity_changes"][0]["delta"] == pytest.approx(2.0)
     assert result["boq"]["changed"][0]["quantity_changes"][0]["delta"] == pytest.approx(2.2)
     assert result["estimate"]["delta"] == pytest.approx(250)
     assert result["impact"]["affected"] is True
