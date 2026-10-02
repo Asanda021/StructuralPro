@@ -15,7 +15,7 @@ def test_rectangular_concrete_rejects_missing_dimension():
 
 def test_rebar_weight_uses_explicit_diameter_formula():
     row=ConstructionQuantityCore.rebar_weight("R1",12,16,10,source_id="D3")
-    assert row.quantity == pytest.approx(18.96296296)
+    assert row.quantity == pytest.approx(189.62962963)
     assert row.metadata["unit_weight_kg_m"] == pytest.approx(16**2/162)
 
 def test_steel_weight_is_input_driven_not_hidden_coefficient():
