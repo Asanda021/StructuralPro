@@ -30,12 +30,15 @@ class RebarLine:
     waste_percent: float = 0.0
     splice_length_m: float = 0.0
     coupler_count: int = 0
+    role: str = "main"
 
     def __post_init__(self):
         if self.diameter_mm <= 0 or self.length_m < 0 or self.quantity < 0:
             raise ValueError("مشخصات میلگرد نامعتبر است.")
         if self.stock_length_m <= 0 or self.waste_percent < 0 or self.splice_length_m < 0:
             raise ValueError("پارامترهای برش/پرت نامعتبر است.")
+        if not self.role.strip():
+            raise ValueError("نقش میلگرد الزامی است.")
         if self.coupler_count < 0:
             raise ValueError("تعداد کوپلر نامعتبر است.")
 
