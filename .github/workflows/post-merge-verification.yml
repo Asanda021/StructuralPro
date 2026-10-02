@@ -3,12 +3,16 @@ name: StructuralPro post-merge verification
 on:
   push:
     branches: [main]
+  pull_request_target:
+    types: [closed]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   post-merge:
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
