@@ -28,20 +28,20 @@ def test_priority_51_golden_project_end_to_end(tmp_path: Path) -> None:
         unit_price=1500000,
         source_id="drawing-A101-slab-01",
     )
-    footing = app.add_takeoff(
+    beam = app.add_takeoff(
         project_id,
         "building",
-        "footing_concrete",
-        length=2,
-        width=2,
-        height=0.50,
-        member_code="footing_concrete",
-        price_code="FND-001",
-        unit_price=2000000,
-        source_id="drawing-S101-footing-01",
+        "beam_concrete",
+        length=6,
+        width=0.30,
+        depth=0.50,
+        member_code="beam_concrete",
+        price_code="BEAM-001",
+        unit_price=2500000,
+        source_id="drawing-S201-beam-01",
     )
     assert slab["quantities"][0]["amount"] > 0
-    assert footing["quantities"][0]["amount"] > 0
+    assert beam["quantities"][0]["amount"] > 0
 
     estimate = app.recalculate_estimate(project_id, factors={"waste": 0.05})
     assert estimate["validation"]["valid"]
