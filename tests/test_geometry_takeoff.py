@@ -67,3 +67,12 @@ def test_geometry_takeoff_never_silently_uses_unknown_measurement():
     entity = DWGEntity("3DSOLID", "MODEL", "S1", {"volume": 8})
     rows = extract_geometry_candidates([entity], include_count=False)
     assert rows == []
+
+
+def test_geometry_takeoff_marks_unknown_source_units_for_review():
+    entity = DWGEntity("LINE", "WALL", "U1", {"length": 10})
+    rows = extract_geometry_candidates([entity], source_unit="unknown")
+    assert rows[0]["quantity"] == 10
+    assert rows[0]["unit"] == "unknown"
+    assert rows[0]["confidence"] == 0.5
+    assert rows[0]["needs_confirmation"] is True
