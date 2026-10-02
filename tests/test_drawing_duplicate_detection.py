@@ -34,3 +34,16 @@ def test_different_lines_are_not_marked_as_duplicates():
     ]
     rows = extract_geometry_candidates(entities)
     assert all(not row["duplicate_geometry"] for row in rows)
+
+
+def test_reverse_direction_of_same_line_is_flagged_as_duplicate():
+    entities = [
+        DWGEntity("LINE", "WALL", "A1", {"start": (0, 0), "end": (5, 0), "length": 5}),
+        DWGEntity("LINE", "WALL", "B9", {"start": (5, 0), "end": (0, 0), "length": 5}),
+    ]
+    rows = extract_geometry_candidates(entities)
+
+    assert rows[0]["duplicate_geometry"] is False
+    assert rows[1]["duplicate_geometry"] is True
+    assert rows[1]["duplicate_of"] == rows[0]["source"]
+    assert rows[1]["needs_confirmation"] is True

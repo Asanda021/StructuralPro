@@ -83,7 +83,21 @@ def _geometry_fingerprint(entity: Any) -> tuple[Any, ...] | None:
         pts = tuple(x for x in (norm_point(p) for p in points) if x is not None)
         if pts:
             return (entity_type, layer, "points", pts)
-    for key in ("start", "end", "insert", "center"):
+    # LINE geometry is direction-independent: A→B and B→A are the same segment.
+    if entity_type == "LINE" and "start" in data and "end" in data:
+        start = norm_point(data.get("start"))
+        end = norm_point(data.get("end"))
+        if start is not None and end is not None:
+            endpoints = tuple(sorted((start, end)))
+            return (
+                entity_type,
+                layer,
+                "segment",
+                endpoints,
+                round(float(data.get("length", 0) or 0), 9),
+            )
+
+    for key in ("insert", "center"):
         if key in data and norm_point(data[key]) is not None:
             pair = norm_point(data[key])
             return (entity_type, layer, key, pair, round(float(data.get("length", 0) or 0), 9))
