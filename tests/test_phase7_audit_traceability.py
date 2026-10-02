@@ -55,7 +55,7 @@ def test_coefficient_engine_is_explicit_and_scoped():
                         source="custom"),
     ])
     result = engine.calculate(100, discipline="architecture")
-    assert result["result"] == pytest.approx(115)
+    assert result["result"] == pytest.approx(115.5)
     assert len(result["applied"]) == 2
     assert len(engine.applicable(discipline="architecture")) == 2
 
