@@ -1,11 +1,17 @@
-"""Drawing intelligence primitives for extracting auditable engineering elements.
-
-The layer is source-agnostic: CAD/PDF/BIM adapters can feed normalized primitives,
-while downstream quantity/BOQ modules consume classified engineering elements.
-"""
+"""Drawing intelligence, source adapters and auditable takeoff integration."""
 from .models import DrawingPrimitive, EngineeringElement
 from .intelligence import DrawingIntelligence, classify_primitives
 from .takeoff import drawing_takeoff
+from .adapters import (
+    AdapterResult,
+    DXFAdapter,
+    DWGAdapter,
+    IFCAdapter,
+    PDFAdapter,
+    DrawingAdapterRegistry,
+    DrawingSource,
+)
+from .pipeline import DrawingIntelligencePipeline, DrawingPipelineResult
 
 __all__ = [
     "DrawingPrimitive",
@@ -13,4 +19,13 @@ __all__ = [
     "DrawingIntelligence",
     "classify_primitives",
     "drawing_takeoff",
+    "AdapterResult",
+    "DrawingSource",
+    "DrawingAdapterRegistry",
+    "DXFAdapter",
+    "DWGAdapter",
+    "PDFAdapter",
+    "IFCAdapter",
+    "DrawingIntelligencePipeline",
+    "DrawingPipelineResult",
 ]
