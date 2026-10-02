@@ -63,10 +63,12 @@ class DrawingIntelligencePipeline:
                 if parent:
                     graph.link(parent, node_id)
         takeoff_nodes = {}
+        takeoff_by_source = {}
         for candidate in candidates:
             element_id = candidate["element_id"]
             node_id = stable_id("takeoff", adapted.source.path, element_id)
             takeoff_nodes[element_id] = node_id
+            takeoff_by_source[self._source_for(next(e for e in elements if e.element_id == element_id))] = node_id
             graph.add_node(TraceNode(
                 node_id=node_id, stage="takeoff", source=adapted.source.path,
                 external_id=element_id, discipline=candidate["domain"],
@@ -84,7 +86,7 @@ class DrawingIntelligencePipeline:
                 external_id=source, quantity=row["quantity"], unit=row["unit"],
                 item_code=str(row.get("price_code") or ""),
             ))
-            parent = takeoff_nodes.get(element_id)
+            parent = takeoff_nodes.get(element_id) or takeoff_by_source.get(source)
             if parent:
                 graph.link(parent, node_id)
         return graph, trail
