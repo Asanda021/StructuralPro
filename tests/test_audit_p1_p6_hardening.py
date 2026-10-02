@@ -13,11 +13,13 @@ def test_finish_waste_is_applied_once():
     assert line.quantity==pytest.approx(28)
     assert line.gross_quantity==pytest.approx(30.8)
 
-def test_same_source_can_have_multiple_quantity_lines():
-    e=ConstructionElement("E1","wall",length_m=2)
-    a=ConstructionQuantityCore.linear_material(e,"civil","A","a")
-    b=ConstructionQuantityCore.linear_material(e,"civil","B","b")
+def test_duplicate_source_is_rejected_but_distinct_sources_are_valid():
+    e1=ConstructionElement("E1","wall",length_m=2,source_id="S1")
+    e2=ConstructionElement("E2","wall",length_m=2,source_id="S2")
+    a=ConstructionQuantityCore.linear_material(e1,"civil","A","a")
+    b=ConstructionQuantityCore.linear_material(e2,"civil","B","b")
     assert validate_quantity_lines([a,b])["ok"]
+    assert not validate_quantity_lines([a, b.__class__(b.element_id,b.domain,b.item_code,b.description,b.quantity,b.unit,b.formula,"S1",b.waste_rate,b.gross_quantity,b.metadata)])["ok"]
 
 def test_missing_drawing_scale_fails_closed():
     src=DrawingSource(__file__,"pdf",{})
