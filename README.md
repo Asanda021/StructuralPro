@@ -48,3 +48,7 @@ The commercial license lifecycle boundary also validates expiration, revocation,
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Release Checklist](docs/RELEASE_CHECKLIST.md)
 - [Versioning and Release Process](docs/RELEASE_PROCESS.md)
+
+
+## In-app help
+The offline help contract is available in `core/help/content.py` and covers startup, takeoff, reports, backup/recovery, and AI usage. It is intentionally deterministic and does not depend on network access.
