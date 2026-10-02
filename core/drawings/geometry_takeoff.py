@@ -203,6 +203,12 @@ def aggregate_geometry_candidates(
         )
         group["quantity"] += row["quantity"]
         group["entity_count"] += 1
-        group["source_entities"].append(row["source"])\n        if row.get("duplicate_geometry"):\n            group["duplicate_geometry_count"] += 1\n            group["duplicate_sources"].append({\n                "source": row["source"], "duplicate_of": row.get("duplicate_of")\n            })\n            group["needs_confirmation"] = True
+        group["source_entities"].append(row["source"])
+        if row.get("duplicate_geometry"):
+            group["duplicate_geometry_count"] += 1
+            group["duplicate_sources"].append({
+                "source": row["source"], "duplicate_of": row.get("duplicate_of")
+            })
+            group["needs_confirmation"] = True
 
     return list(groups.values())
