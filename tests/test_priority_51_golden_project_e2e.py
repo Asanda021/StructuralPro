@@ -90,4 +90,5 @@ def test_priority_51_golden_project_end_to_end(tmp_path: Path) -> None:
     exported = reopened.export_project_backup(project_id, export_path)
     assert export_path.exists()
     assert exported["bytes"] > 0
-    assert json.loads(export_path.read_text(encoding="utf-8"))["id"] == project_id
+    envelope = json.loads(export_path.read_text(encoding="utf-8"))
+    assert envelope["project"]["id"] == project_id
