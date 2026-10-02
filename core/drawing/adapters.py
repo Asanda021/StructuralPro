@@ -214,7 +214,8 @@ class IFCAdapter:
 
 class DrawingAdapterRegistry:
     def __init__(self, adapters: tuple[DrawingAdapter, ...] | None = None):
-        self.adapters = adapters or (DXFAdapter(), DWGAdapter(), PDFAdapter(), IFCAdapter())
+        from .pdf_graphics import GraphicalPDFAdapter
+        self.adapters = adapters or (DXFAdapter(), DWGAdapter(), GraphicalPDFAdapter(), PDFAdapter(), IFCAdapter())
 
     def for_path(self, path: str | Path) -> DrawingAdapter:
         suffix = Path(path).suffix.casefold()
