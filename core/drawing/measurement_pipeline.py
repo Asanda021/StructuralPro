@@ -10,9 +10,9 @@ class DrawingMeasurementGate:
         self.adapters=adapters or DrawingAdapterRegistry(); self.intelligence=DrawingIntelligence()
     def resolve_scale(self,metadata:Mapping[str,object],*,unit:str|None=None,scale_denominator:float|None=None):
         if unit:
-            if scale_denominator is None: raise ValueError("scale_denominator is required when unit is supplied")
             from .measurement import scale_from_unit
-            return scale_from_unit(unit,scale_denominator)
+            denominator = 1.0 if scale_denominator is None else scale_denominator
+            return scale_from_unit(unit,denominator)
         return scale_from_metadata(metadata)
     def apply(self,adapted:AdapterResult,*,unit:str|None=None,scale_denominator:float|None=None):
         try:
