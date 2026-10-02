@@ -372,12 +372,37 @@ def main()->int:
         if path: doclist.addItem(path); docpath.clear()
     docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
 
-    # Quality control
-    p,v=page("کنترل کیفیت","کنترل یکپارچگی داده، متره، BOQ، قیمت و گزارش قبل از تحویل")
-    qc=QTextEdit(); qc.setReadOnly(True); qc.setPlainText("\n".join([
-        "🟢 کنترل ساختار پروژه","🟢 کنترل متره و واحدها","🟢 کنترل BOQ و کد فهرست‌بها",
-        "🟢 کنترل جمع مبالغ","🟢 کنترل گزارش فارسی و RTL","🟢 کنترل Revision و Change Log"
-    ])); v.addWidget(qc); pages.addWidget(p); idx_quality=pages.count()-1
+    # Quality control — live, project-scoped checks instead of static green claims.
+    p,v=page("کنترل کیفیت","اجرای کنترل‌های واقعی روی پروژه انتخاب‌شده و نمایش نتیجه قابل پیگیری")
+    qc=QTextEdit(); qc.setReadOnly(True); qc.setObjectName("QualityPanel")
+    qc.setPlainText("برای اجرای کنترل کیفیت، شناسه پروژه را در صفحه «پروژه‌ها» انتخاب/وارد کنید.")
+    qc_refresh=QPushButton("🔎 اجرای کنترل کیفیت پروژه")
+    v.addWidget(qc_refresh); v.addWidget(qc,1)
+    def refresh_quality():
+        project_id=pid.text().strip()
+        if not project_id:
+            qc.setPlainText("⚪ پروژه‌ای انتخاب نشده است. ابتدا شناسه پروژه را در صفحه «پروژه‌ها» وارد کنید.")
+            return
+        try:
+            result=service.validate_project_data(project_id)
+            reliability=service.project_reliability_status(project_id)
+            errors=result.get("counts",{}).get("error",0)
+            warnings=result.get("counts",{}).get("warning",0)
+            qc.setPlainText(json.dumps({
+                "پروژه": project_id,
+                "نتیجه_اعتبارسنجی": "قبول" if result.get("valid") else "نیازمند اصلاح",
+                "خطا": errors,
+                "هشدار": warnings,
+                "نسخه_فعلی": reliability.get("current_version",0),
+                "تعداد_Revision": reliability.get("revision_count",0),
+                "پایگاه_داده": "سالم" if reliability.get("integrity",{}).get("ok") else "نیازمند بررسی",
+                "قابل_بازیابی": bool(reliability.get("recoverable")),
+                "جزئیات": result.get("issues",[]),
+            },ensure_ascii=False,indent=2))
+        except Exception as exc:
+            qc.setPlainText("🔴 اجرای کنترل کیفیت ناموفق بود:\n"+str(exc))
+    qc_refresh.clicked.connect(refresh_quality)
+    pages.addWidget(p); idx_quality=pages.count()-1
 
     # Settings
     p,v=page("تنظیمات","تنظیمات ظاهری، زبان، واحدها و مسیر ذخیره‌سازی محلی")
