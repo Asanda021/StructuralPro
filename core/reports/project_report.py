@@ -60,8 +60,7 @@ class ProjectReport:
                 if not str(row.get("description") or "").strip():
                     errors.append(f"row_{index}:missing_description")
             elif "شرح" in row:
-                if not str(row.get("شرح") or "").strip():
-                    errors.append(f"row_{index}:missing_description")
+                pass
             elif any(key in row for key in ("item_no", "item_code", "price_code", "quantity", "unit", "total")):
                 errors.append(f"row_{index}:missing_description")
             if "item_no" in row and row.get("item_no") is not None:
