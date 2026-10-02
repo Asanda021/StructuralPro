@@ -114,10 +114,16 @@ class PriceCatalog:
         rows.sort(key=lambda x: (x.year, x.code), reverse=True)
         return rows[:max(1, limit)]
 
+    @staticmethod
+    def _units_compatible(a: str, b: str) -> bool:
+        aliases = [{"m", "م", "متر"}, {"m2", "m²", "م2", "مترمربع"}, {"m3", "m³", "م3", "مترمکعب"}, {"kg", "کیلو", "کیلوگرم"}, {"عدد", "pcs", "piece", "count"}]
+        a, b = str(a).strip().casefold(), str(b).strip().casefold()
+        return a == b or any(a in group and b in group for group in aliases)
+
     def resolve(self, code: str, year: int | None = None, unit: str | None = None) -> dict[str, Any]:
         item = self.get(code, year)
         if item is None: return {"status":"not_found", "code":code}
-        if unit and item.unit.strip() != unit.strip():
+        if unit and not self._units_compatible(item.unit, unit):
             return {"status":"unit_mismatch", "code":code, "expected_unit":item.unit, "actual_unit":unit}
         if item.unit_price < 0: return {"status":"invalid_price", "code":code}
         if item.unit_price == 0: return {"status":"zero_price", "code":code, "item":item}

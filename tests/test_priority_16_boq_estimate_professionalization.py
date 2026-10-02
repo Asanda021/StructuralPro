@@ -50,3 +50,9 @@ def test_estimate_rejects_invalid_factor_and_exposes_validation():
     estimate = build_estimate([{"item_code": "A", "description": "A", "quantity": 1, "unit": "m3"}])
     assert estimate["validation"]["valid"] is True
     assert estimate["factors"] == {}
+
+
+def test_price_catalog_accepts_common_unit_aliases():
+    from core.pricing.catalog import PriceCatalog, PriceItem
+    c=PriceCatalog([PriceItem(1405,"g","c","A","Concrete","m3",100)])
+    assert c.resolve("A",1405,"مترمکعب")["status"]=="ok"
