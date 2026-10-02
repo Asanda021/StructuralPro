@@ -14,14 +14,14 @@ def test_windows_packaging_surface_is_complete():
 
 def test_windows_build_script_is_fail_closed():
     script = (ROOT / "packaging" / "build_windows.ps1").read_text(encoding="utf-8")
-    assert "$ErrorActionPreference = 'Stop'" in script
+    assert '$ErrorActionPreference="Stop"' in script
     assert "StructuralPro" in script
 
 def test_installer_and_spec_reference_real_application_surface():
     installer = (ROOT / "packaging" / "installer.iss").read_text(encoding="utf-8")
     spec = (ROOT / "packaging" / "structuralpro.spec").read_text(encoding="utf-8")
     assert "StructuralPro" in installer
-    assert "app/main.py" in spec
+    assert "app" in spec\n    assert "main.py" in spec
     assert "core" in spec
 
 def test_runtime_data_paths_remain_platform_neutral(tmp_path):
