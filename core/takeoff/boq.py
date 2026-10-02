@@ -56,7 +56,7 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
             raise ValueError("factor must be finite and non-negative")
         status = _text(_read(r, "status", BOQ_DEFAULT_STATUS)) or BOQ_DEFAULT_STATUS
         notes = _text(_read(r, "notes", ""))
-        total = None if price is None else round(q * price * f, 10)
+        total = None if price is None else _number(round(q * price * f, 10), "total", allow_none=False)
         warning = ""
         if price == 0:
             warning = "zero_price"
@@ -79,11 +79,12 @@ def build_boq(rows: Iterable[Any], aggregate: bool = True, factor: float = 1.0) 
                 groups[key] = dict(r)
             else:
                 groups[key]["quantity"] += r["quantity"]
+                groups[key]["quantity"] = _number(groups[key]["quantity"], "quantity", allow_none=False)
                 for source_id in r.get("source_ids", []):
                     if source_id and source_id not in groups[key]["source_ids"]:
                         groups[key]["source_ids"].append(source_id)
                 if r["total"] is not None:
-                    groups[key]["total"] = round((groups[key]["total"] or 0) + r["total"], 10)
+                    groups[key]["total"] = _number((groups[key]["total"] or 0) + r["total"], "total", allow_none=False)
         raw = list(groups.values())
     return [dict(item_no=i, **r) for i, r in enumerate(raw, 1)]
 
@@ -107,6 +108,9 @@ def validate_boq_structure(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
             q = float(row.get("quantity", 0))
             if not math.isfinite(q) or q < 0:
                 errors.append({"item_no": index, "code": "invalid_quantity"})
+            total = row.get("total")
+            if total is not None and (not math.isfinite(float(total)) or float(total) < 0):
+                errors.append({"item_no": index, "code": "invalid_total"})
         except (TypeError, ValueError):
             errors.append({"item_no": index, "code": "invalid_quantity"})
     return {"valid": not errors, "errors": errors, "warnings": warnings, "line_count": len(rows)}
