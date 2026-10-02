@@ -132,3 +132,21 @@ def test_unified_ifc_multi_quantity_candidates_do_not_trigger_duplicate_source_g
         {"source":"ifc:G1:Area","description":"wall Area","quantity":12,"unit":"m2"},
     ]}
     assert len(u.candidates_to_rows(inspection)) == 2
+
+
+def test_unified_requires_explicit_confirmation_for_review_required_candidates():
+    u = UnifiedDrawingTakeoff()
+    inspection = {"candidates":[
+        {"source":"pdf:1:wall","description":"wall","quantity":10,"unit":"m","needs_confirmation":True},
+        {"source":"dwg:1","description":"beam","quantity":5,"unit":"m","needs_confirmation":False},
+    ]}
+    assert [r["source"] for r in u.candidates_to_rows(inspection)] == ["dwg:1"]
+    assert [r["source"] for r in u.candidates_to_rows(inspection, {1: True})] == ["pdf:1:wall", "dwg:1"]
+
+
+def test_unified_confirmation_can_explicitly_reject_safe_candidate():
+    u = UnifiedDrawingTakeoff()
+    inspection = {"candidates":[
+        {"source":"dwg:1","description":"beam","quantity":5,"unit":"m","needs_confirmation":False},
+    ]}
+    assert u.candidates_to_rows(inspection, {1: False}) == []
