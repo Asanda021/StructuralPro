@@ -91,7 +91,7 @@ class DrawingIntelligencePipeline:
                 graph.link(parent, node_id)
         return graph, trail
 
-    def process(self, path: str, *, unit=None, scale_denominator=1.0) -> DrawingPipelineResult:
+    def process(self, path: str, *, unit=None, scale_denominator=None) -> DrawingPipelineResult:
         adapted: AdapterResult = self.adapters.read(path)
         scale, elements, measurement_warnings = self.measurement_gate.apply(
             adapted, unit=unit, scale_denominator=scale_denominator
