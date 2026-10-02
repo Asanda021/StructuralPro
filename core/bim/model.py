@@ -10,6 +10,9 @@ class BIMElement:
     source_id:str=""
     @property
     def has_quantity_geometry(self):
-        # Bounding-box dimensions are geometry, not an explicit quantity.
+        return bool(self.geometry) and any(v is not None for v in self.geometry.values())
+
+    @property
+    def has_explicit_quantity_geometry(self):
         return any(str(k).casefold() in {"volume","netvolume","grossvolume","area"} and v is not None
                    for k,v in self.geometry.items())
