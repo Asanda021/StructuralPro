@@ -98,3 +98,5 @@ def test_invalid_project_operations_fail_without_partial_creation(tmp_path):
     project = app.open_project("P32")
     assert project is not None
     assert project["takeoffs"] == []
+
+# Regression suite intentionally remains offline and deterministic.
