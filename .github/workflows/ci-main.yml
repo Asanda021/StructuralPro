@@ -1,5 +1,5 @@
 name: StructuralPro CI
-# Main-push CI is intentionally enabled so every direct main update gets a visible Actions check.
+# Main and PR CI: PR checks are the authoritative merge gate; push is retained for direct updates.
 
 on:
   push:
