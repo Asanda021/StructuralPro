@@ -65,6 +65,7 @@ def extract_geometry_candidates(
     *,
     include_count: bool = True,
     confidence: float = 0.98,
+    source_unit: str = "m",
 ) -> list[dict[str, Any]]:
     """Extract one candidate per source entity, with deterministic de-duplication.
 
@@ -74,6 +75,9 @@ def extract_geometry_candidates(
     """
     if not math.isfinite(confidence) or not 0 <= confidence <= 1:
         raise ValueError("confidence must be between 0 and 1")
+    source_unit = str(source_unit or "unknown").lower()
+    if source_unit not in {"m", "unknown", "unitless"}:
+        raise ValueError(f"unsupported CAD source unit: {source_unit}")
 
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -124,9 +128,10 @@ def aggregate_geometry_candidates(
     entities: list[Any],
     *,
     confidence: float = 0.98,
+    source_unit: str = "m",
 ) -> list[dict[str, Any]]:
     """Aggregate measured geometry by layer + metric without losing provenance."""
-    candidates = extract_geometry_candidates(entities, confidence=confidence)
+    candidates = extract_geometry_candidates(entities, confidence=confidence, source_unit=source_unit)
     groups: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     for row in candidates:

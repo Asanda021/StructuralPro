@@ -1,4 +1,4 @@
-from core.drawings.dwg_takeoff import DWGDocument, DWGEntity
+from core.drawings.dwg_takeoff import DWGDocument, DWGEntity, cad_unit_factor
 from core.drawings.geometry_takeoff import (
     aggregate_geometry_candidates,
     extract_geometry_candidates,
@@ -67,3 +67,20 @@ def test_geometry_takeoff_never_silently_uses_unknown_measurement():
     entity = DWGEntity("3DSOLID", "MODEL", "S1", {"volume": 8})
     rows = extract_geometry_candidates([entity], include_count=False)
     assert rows == []
+
+
+def test_geometry_takeoff_marks_unknown_source_units_for_review():
+    entity = DWGEntity("LINE", "WALL", "U1", {"length": 10})
+    rows = extract_geometry_candidates([entity], source_unit="unknown")
+    assert rows[0]["quantity"] == 10
+    assert rows[0]["unit"] == "unknown"
+    assert rows[0]["confidence"] == 0.5
+    assert rows[0]["needs_confirmation"] is True
+
+
+def test_cad_unit_factors_are_explicit_and_canonical():
+    assert cad_unit_factor("mm") == 0.001
+    assert cad_unit_factor("cm") == 0.01
+    assert cad_unit_factor("m") == 1.0
+    assert cad_unit_factor("ft") == 0.3048
+    assert cad_unit_factor("unknown") is None
