@@ -17,6 +17,7 @@ from core.projects.management import ProjectManagement, ScheduleTask, DailyRepor
 from core.commercial.finance_depth import FinancePaymentControl, PaymentRecord, PaymentAllocation, BudgetLine
 from core.drawings.model_registry import ModelRegistry, ModelSource, ModelObject
 from core.performance.project_performance import paginate, project_performance_snapshot
+from core.recovery.recovery import export_project, import_project
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -85,6 +86,35 @@ class StructuralProApp:
             "deterministic": response.deterministic,
             "offline": True,
         }
+
+    def project_reliability_status(self, project_id: str) -> dict[str, Any]:
+        """Return persistence integrity and project revision health."""
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        revisions = self.store.revisions(project_id)
+        integrity = self.store.integrity_check()
+        return {
+            "project_id": project_id,
+            "integrity": integrity,
+            "revision_count": len(revisions),
+            "current_version": revisions[-1]["version"] if revisions else 0,
+            "recoverable": bool(integrity.get("ok")) and bool(revisions),
+        }
+
+    def backup_project_database(self, backup_path: str | Path) -> dict[str, Any]:
+        """Create a consistent SQLite backup of all projects."""
+        return self.store.backup(backup_path)
+
+    def export_project_backup(self, project_id: str, path: str | Path) -> dict[str, Any]:
+        project = self.store.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        return export_project(project, path)
+
+    def import_project_backup(self, path: str | Path) -> dict[str, Any]:
+        """Read and validate a project backup; does not persist it."""
+        return import_project(path)
 
     def project_performance_snapshot(self, project_id: str) -> dict[str, Any]:
         """Return deterministic size/collection metrics without mutating project data."""
