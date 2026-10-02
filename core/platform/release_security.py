@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 SCAN_DIRS = ("core", "app", "packaging", ".github")
 SECRET_PATTERNS = (
     re.compile(r"(?i)(private[_-]?key|secret[_-]?key)\s*[:=]\s*[A-Za-z0-9+/=_-]{16,}"),
