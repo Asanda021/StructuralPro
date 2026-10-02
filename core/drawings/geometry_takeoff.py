@@ -115,8 +115,8 @@ def extract_geometry_candidates(
             handle=str(handle) if handle is not None else None,
             metric=metric,
             quantity=quantity,
-            unit=unit,
-            confidence=confidence,
+            unit=unit if source_unit == "m" else "unknown",
+            confidence=confidence if source_unit == "m" else min(confidence, 0.5),
             description=layer or entity_type,
         )
         out.append(candidate.as_dict())
