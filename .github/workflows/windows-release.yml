@@ -78,6 +78,21 @@ jobs:
           if ($manifest.version -ne $expected) { throw "Manifest VERSION mismatch" }
           if ($manifest.packaged_version -ne $expected) { throw "Manifest packaged VERSION mismatch" }
           if (-not $manifest.source_commit) { throw "Manifest source commit missing" }
+      - name: Validate release artifact hashes
+        shell: pwsh
+        run: |
+          $manifest=Get-Content "dist/StructuralPro-ReleaseManifest.json" -Raw | ConvertFrom-Json
+          foreach ($property in $manifest.artifacts.PSObject.Properties) {
+            $path=$property.Name
+            $expectedHash=$property.Value.sha256.ToLowerInvariant()
+            $expectedSize=[int64]$property.Value.size_bytes
+            if (-not (Test-Path $path)) { throw "Manifest artifact missing: $path" }
+            $actualHash=(Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+            $actualSize=[int64](Get-Item $path).Length
+            if ($actualHash -ne $expectedHash) { throw "SHA256 mismatch: $path" }
+            if ($actualSize -ne $expectedSize) { throw "Size mismatch: $path" }
+          }
+          Write-Host "All release manifest artifact hashes and sizes verified."
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
