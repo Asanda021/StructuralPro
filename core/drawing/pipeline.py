@@ -101,3 +101,7 @@ class DrawingIntelligencePipeline:
             standards=standard_map,
             boq=tuple(boq_rows),
         )
+
+
+# Backward-compatible P80 entry point: the measurement gate lives in its own module.
+from .measurement_pipeline import DrawingMeasurementGate
