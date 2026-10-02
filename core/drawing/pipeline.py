@@ -49,7 +49,7 @@ class DrawingIntelligencePipeline:
             source = primitive.source_id.strip() or f"{adapted.source.path}:{primitive.kind}"
             node_id = stable_id("drawing", str(adapted.source.path), source)
             source_nodes[source] = node_id
-            graph.add_node(TraceNode(node_id=node_id, stage="drawing", source=adapted.source.path, external_id=source))
+            graph.add_node(TraceNode(node_id=node_id, stage="drawing", source=str(adapted.source.path), external_id=source))
         element_nodes = {}
         for element in elements:
             node_id = stable_id("model", adapted.source.path, element.element_id)
