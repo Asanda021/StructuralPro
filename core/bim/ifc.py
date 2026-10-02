@@ -49,6 +49,14 @@ class DeepIFCAdapter:
         try: import ifcopenshell
         except ImportError as exc: raise RuntimeError("Install ifcopenshell for deep BIM/IFC support") from exc
         model=ifcopenshell.open(str(p)); rows=[]
+        shape_engine=None
+        try:
+            import ifcopenshell.geom
+            settings=ifcopenshell.geom.settings()
+            settings.set("use-world-coords", True)
+            shape_engine=(ifcopenshell.geom.create_shape, settings)
+        except Exception:
+            shape_engine=None
         for obj in model.by_type("IfcProduct"):
             typ=str(obj.is_a()).upper()
             mapped=_TYPE_MAP.get(typ)
@@ -59,6 +67,15 @@ class DeepIFCAdapter:
                 if key in props:
                     try: geometry[key.lower()]=float(props[key])
                     except (TypeError,ValueError): pass
+            if shape_engine:
+                try:
+                    shape=shape_engine[0](shape_engine[1], obj)
+                    verts=list(shape.geometry.verts)
+                    if verts:
+                        xs=verts[0::3]; ys=verts[1::3]; zs=verts[2::3]
+                        geometry.update({"bbox_length":max(xs)-min(xs),"bbox_width":max(ys)-min(ys),"bbox_height":max(zs)-min(zs)})
+                except Exception:
+                    pass
             type_name=None
             for rel in getattr(obj,"IsTypedBy",()) or ():
                 type_obj=getattr(rel,"RelatingType",None)
