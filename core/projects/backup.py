@@ -1,4 +1,4 @@
-"""Atomic, versioned project backup and recovery helpers."""
+"""Atomic, collision-safe project backup helpers."""
 from __future__ import annotations
 import hashlib, json, time, zipfile
 from pathlib import Path
@@ -11,12 +11,14 @@ class BackupManager:
     def __init__(self, root: str|Path):
         self.root=Path(root); self.root.mkdir(parents=True,exist_ok=True)
     def create(self, project: dict, project_id: str):
-        # Keep the legacy JSON API backwards-compatible; packaged backups use the
-        # strict project integrity gate below.
         if not isinstance(project,dict): raise TypeError("project must be a dict")
         stamp=time.strftime("%Y%m%d_%H%M%S")
         path=self.root/f"{project_id}_{stamp}.json"
-        tmp=path.with_suffix(".tmp")
+        suffix=1
+        while path.exists():
+            path=self.root/f"{project_id}_{stamp}_{suffix}.json"
+            suffix += 1
+        tmp=path.with_name(path.name+".tmp")
         tmp.write_text(json.dumps(project,ensure_ascii=False,indent=2,sort_keys=True),encoding="utf-8")
         tmp.replace(path)
         return path
@@ -31,10 +33,14 @@ class BackupManager:
         if not validation["valid"]: raise ValueError("cannot backup invalid project")
         stamp=time.strftime("%Y%m%d_%H%M%S")
         path=self.root/f"{project_id}_{stamp}.spbackup"
+        suffix=1
+        while path.exists():
+            path=self.root/f"{project_id}_{stamp}_{suffix}.spbackup"
+            suffix += 1
         payload=json.dumps(project,ensure_ascii=False,sort_keys=True,separators=(",",":")).encode()
         manifest={"format":BACKUP_FORMAT,"version":BACKUP_VERSION,"project_id":project_id,
                   "sha256":hashlib.sha256(payload).hexdigest()}
-        tmp=path.with_suffix(".tmp")
+        tmp=path.with_name(path.name+".tmp")
         with zipfile.ZipFile(tmp,"w",zipfile.ZIP_DEFLATED) as z:
             z.writestr("project.json",payload)
             z.writestr("manifest.json",json.dumps(manifest,ensure_ascii=False,sort_keys=True))
@@ -53,6 +59,8 @@ class BackupManager:
             raise ValueError("backup checksum mismatch")
         project=json.loads(payload.decode())
         if not validate_project(project)["valid"]: raise ValueError("backup integrity validation failed")
+        if str(project.get("id","")) != str(manifest.get("project_id","")):
+            raise ValueError("backup project identifier mismatch")
         return project
     def prune(self, project_id: str, keep=10):
         keep=max(1,int(keep)); files=self.list(project_id)
