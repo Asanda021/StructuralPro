@@ -23,5 +23,5 @@ class BIMTakeoffPipeline:
         rows=[{"source":q.source_id,"description":q.description,"quantity":q.quantity,
                "unit":q.unit,"price_code":q.item_code} for q in qs]
         boq=tuple(self.boq_engine.to_boq(self.boq_engine.normalize(rows)))
-        unresolved=tuple(f"IFC element has no explicit quantity geometry: {e.global_id}" for e in elements if not e.has_quantity_geometry)
+        unresolved=tuple(f"IFC element has no explicit quantity geometry: {e.global_id}" for e in elements if not e.has_explicit_quantity_geometry)
         return BIMPipelineResult(tuple(elements),tuple(qs),boq,unresolved)
