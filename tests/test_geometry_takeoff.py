@@ -30,7 +30,7 @@ def test_geometry_takeoff_deduplicates_same_handle_and_aggregates_with_provenanc
     assert len(rows) == 1
     assert rows[0]["quantity"] == 10
     assert rows[0]["entity_count"] == 2
-    assert rows[0]["source"] == "cad-geometry:WALL:length:unknown"
+    assert rows[0]["source"] == "cad-geometry:WALL:length:wall"
     assert rows[0]["source_entities"] == ["cad:WALL:A1", "cad:WALL:A2"]
 
 
