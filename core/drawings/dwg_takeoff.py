@@ -43,8 +43,8 @@ class DWGTakeoffEngine:
         doc=ezdxf.readfile(str(p)); out=DWGDocument(source=str(p),format="DXF"); layers=set()
         units_map={0:"unitless",1:"in",2:"ft",3:"mi",4:"mm",5:"cm",6:"m",7:"km"}
         raw_units=int(doc.header.get("$INSUNITS",0) or 0)
-        out.units="unitless" if raw_units==6 else units_map.get(raw_units,str(raw_units))
-        out.__dict__["unit_name"]=units_map.get(raw_units,"unknown")
+        out.units=units_map.get(raw_units,"unknown")
+        out.__dict__["unit_name"]=out.units
         try: out.xrefs=[str(x) for x in doc.xrefdocpaths]
         except Exception: pass
         for e in doc.modelspace():
@@ -69,6 +69,21 @@ class DWGTakeoffEngine:
                         try: data[a]=_xy(getattr(e.dxf,a))
                         except Exception: pass
             out.entities.append(DWGEntity(typ,layer,getattr(e.dxf,"handle",None),data))
+        factor={"in":0.0254,"ft":0.3048,"mi":1609.344,"mm":0.001,"cm":0.01,"m":1.0,"km":1000.0}.get(out.units)
+        if factor is not None and factor != 1.0:
+            normalized=[]
+            for entity in out.entities:
+                data=dict(entity.data)
+                for key in ("length","radius"):
+                    if key in data: data[key]=float(data[key])*factor
+                if "area" in data: data["area"]=float(data["area"])*(factor**2)
+                for key in ("start","end","insert","center"):
+                    if key in data and data[key] is not None:
+                        data[key]=(float(data[key][0])*factor,float(data[key][1])*factor)
+                if "points" in data:
+                    data["points"]=[(float(p[0])*factor,float(p[1])*factor) for p in data["points"]]
+                normalized.append(DWGEntity(entity.entity_type,entity.layer,entity.handle,data))
+            out.entities=normalized
         out.layers=sorted(layers); return out
 
     def import_file(self,path:str|Path)->DWGDocument:
