@@ -40,8 +40,8 @@ if ($exitCode -ne 0) { throw "Installed application smoke exited with code $exit
 
 $uninstaller = Join-Path $installDir "unins000.exe"
 if (Test-Path $uninstaller) {
-    & $uninstaller /VERYSILENT /NORESTART
-    if ($LASTEXITCODE -ne 0) { throw "Uninstaller exited with code $LASTEXITCODE" }
+    $uninstallProcess = Start-Process -FilePath $uninstaller -ArgumentList @("/VERYSILENT", "/NORESTART") -Wait -PassThru
+    if ($uninstallProcess.ExitCode -ne 0) { throw "Uninstaller exited with code $($uninstallProcess.ExitCode)" }
 }
 
 Write-Host "Windows installer E2E smoke passed: $ExpectedVersion"
