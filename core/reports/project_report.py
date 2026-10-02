@@ -56,7 +56,7 @@ class ProjectReport:
             errors.append("missing_project_name")
         seen_item_numbers = set()
         for index, row in enumerate(self.rows, 1):
-            if not str(row.get("description") or "").strip():
+            if "description" in row and not str(row.get("description") or "").strip():
                 errors.append(f"row_{index}:missing_description")
             if "item_no" in row and row.get("item_no") is not None:
                 item_no = str(row.get("item_no")).strip()
