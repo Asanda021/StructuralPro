@@ -10,8 +10,14 @@ if ($ExpectedVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid expected vers
 $installDir = Join-Path $env:RUNNER_TEMP "StructuralPro-Installer-Smoke"
 if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
 
-& $Installer /VERYSILENT /NORESTART /SUPPRESSMSGBOXES "/DIR=$installDir"
-if ($LASTEXITCODE -ne 0) { throw "Installer exited with code $LASTEXITCODE" }
+$installerPath = (Resolve-Path $Installer).Path
+$installerProcess = Start-Process -FilePath $installerPath -ArgumentList @(
+    "/VERYSILENT",
+    "/NORESTART",
+    "/SUPPRESSMSGBOXES",
+    "/DIR=$installDir"
+) -Wait -PassThru
+if ($installerProcess.ExitCode -ne 0) { throw "Installer exited with code $($installerProcess.ExitCode)" }
 
 $exe = Join-Path $installDir "StructuralPro.exe"
 $versionFile = Join-Path $installDir "VERSION"
