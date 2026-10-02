@@ -146,6 +146,8 @@ def validate_quantity_lines(lines:Iterable[QuantityLine]):
     for line in rows:
         if line.element_id in ids: errors.append(f"duplicate element_id: {line.element_id}")
         ids.add(line.element_id)
+        if line.source_id and line.source_id in sources: errors.append(f"duplicate source_id: {line.source_id}")
+        if line.source_id: sources.add(line.source_id)
         if line.gross_quantity < line.quantity: errors.append(f"gross below net: {line.element_id}")
         if not str(line.source_id).strip(): errors.append(f"missing source_id: {line.element_id}")
     return {"ok":not errors,"errors":errors,"count":len(rows)}
