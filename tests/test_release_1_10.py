@@ -10,7 +10,7 @@ def test_dwg_dxf_extraction_and_layer_mapping(tmp_path):
     doc.saveas(p)
     d=DWGTakeoffEngine().import_file(p)
     s=DWGTakeoffEngine().summarize(d)
-    assert s["entities"]==2 and "WALL" in s["layers"] and s["units"] in {"unitless","0"}
+    assert s["entities"]==2 and "WALL" in s["layers"] and s["units"] == "m"
     rows=DWGTakeoffEngine().layer_takeoff(d,{"WALL":{"metric":"length","unit":"m","description":"دیوار"}})
     assert rows[0]["quantity"]==pytest.approx(3)
 
