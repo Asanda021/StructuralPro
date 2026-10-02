@@ -10,3 +10,6 @@ The repository uses VERSION as the canonical application version.
 
 ## Scope
 This is an internal quality/stability improvement. It does not publish a release, add cloud dependencies, or change engineering calculation authority.
+
+
+Verification note: regression contract corrected to the current Kotlin DSL spacing (`minSdk = 29`).
