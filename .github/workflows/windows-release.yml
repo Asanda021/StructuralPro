@@ -59,6 +59,12 @@ jobs:
           $installer="dist/StructuralPro-$v-Setup.exe"
           if (-not (Test-Path $installer)) { throw "Installer missing: $installer" }
           if ((Get-Item $installer).Length -le 0) { throw "Installer is empty" }
+      - name: Run installed application acceptance smoke
+        shell: pwsh
+        run: |
+          $v=(Get-Content VERSION -Raw).Trim()
+          $installer="dist/StructuralPro-$v-Setup.exe"
+          ./packaging/windows_installer_smoke.ps1 -Installer $installer -ExpectedVersion $v
       - name: Generate dependency inventory
         shell: pwsh
         run: |
