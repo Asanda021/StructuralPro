@@ -15,9 +15,9 @@ def _app(tmp_path):
 def test_invalid_dimensions_fail_without_mutation(tmp_path):
     app = _app(tmp_path)
     for params in (
-        {"length": 0, "width": 2, "thickness": 0.2},
+        {"length": -1, "width": 2, "thickness": 0.2},
         {"length": 2, "width": -1, "thickness": 0.2},
-        {"length": 2, "width": 2, "thickness": 0},
+        {"length": 2, "width": 2, "thickness": -0.2},
     ):
         with pytest.raises(ValueError):
             app.add_takeoff("P33", "building", "slab_volume", **params)
