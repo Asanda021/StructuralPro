@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from pathlib import Path
 from typing import Any
@@ -60,7 +61,7 @@ class JsonSyncStore:
 
         records = [SyncRecord.from_dict(row) for row in rows]
         actual = _digest(records)
-        if not hashlib.compare_digest(actual, expected):
+        if not hmac.compare_digest(actual, expected):
             raise ValueError("sync store integrity check failed")
         return records
 
