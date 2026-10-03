@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from core.sync_engine import SyncEngine,ConflictResolution,SyncRecord
 from core.sync_store import JsonSyncStore
-from core.platform.clients import ClientRequest,ClientResponse,capability_manifest
+from core.platform.clients import ProductClient,ClientRequest,ClientResponse,capability_manifest
 from core.platform.telegram import TelegramAdapter
 def test_offline_outbox_persists_and_acknowledges():
     e=SyncEngine("android-1"); r=e.apply_local("project","P1",{"name":"Demo"},timestamp="2026-01-01T00:00:00+00:00")
@@ -33,3 +33,9 @@ def test_telegram_normalization():
     assert (c.command,c.text)==("/takeoff","slab"); assert a.send_text(c,"done")["ok"]; assert sent==[("123","done")]
 def test_sync_record_validation():
     with pytest.raises(ValueError): SyncRecord("r","project","P","upsert",{},2,2,"d","2026-01-01T00:00:00+00:00")
+
+
+def test_legacy_product_client_api_remains_available():
+    client=ProductClient("windows")
+    assert client.open_project("P1")["id"]=="P1"
+    assert client.state()["project_id"]=="P1"
