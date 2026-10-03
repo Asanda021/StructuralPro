@@ -67,6 +67,7 @@ class DrawingIntelligenceV2:
             if p.text.strip(): c=max(c,.70); r.append("text evidence")
             if p.text.strip() and _MEMBER.match(p.text.strip()): c=max(c,.90); r.append("member tag")
             if p.normalized_kind() in {"line","polyline","circle","rectangle"}: c=max(c,.60); r.append("geometry evidence")
+            elif p.normalized_kind(): c=max(c,.50); r.append("unclassified geometry; review required")
             a="accept" if c>=.85 else "review" if c>=.50 else "reject"
             out.append(RecognitionDecision(p.source_id,a,c,tuple(r)).validate())
         return tuple(out)
