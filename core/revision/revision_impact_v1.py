@@ -160,7 +160,7 @@ def compare_revisions(
             new.estimate_amount - old.estimate_amount,
             new.actual_cost - old.actual_cost,
         )
-        if any(value != 0 for value in delta) or old.record_id != new.record_id:
+        if any(value != 0 for value in delta):
             changes.append(RevisionChange(
                 element_id=element_id,
                 change_type="modified",
