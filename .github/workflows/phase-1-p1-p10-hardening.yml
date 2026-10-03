@@ -15,7 +15,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -U pip pytest
+      - run: python -m pip install -U pip
+      - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q tests/test_phase1_p1_p10_hardening.py
       - run: python -m compileall -q core
 
@@ -27,7 +28,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -U pip pytest
+      - run: python -m pip install -U pip
+      - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q tests/test_audit_p1_p6_hardening.py tests/test_p87_technical_office.py tests/test_p88_reporting.py tests/test_p89_collaboration.py tests/test_p90_ai.py
 
   full-regression:
@@ -38,5 +40,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -U pip pytest
+      - run: python -m pip install -U pip
+      - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q
