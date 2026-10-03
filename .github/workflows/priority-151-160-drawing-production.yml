@@ -12,5 +12,6 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.11"}
       - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest>=8.0
       - run: python -m pytest -q tests/test_p151_p160_drawing_production.py
       - run: python -m pytest -q
