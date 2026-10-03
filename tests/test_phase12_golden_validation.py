@@ -77,7 +77,7 @@ def test_golden_contract_matches_authoritative_quantity_core_and_boq():
     result=validate_case(
         GoldenCase(
             "GOLDEN-CORE-001","2026.10",{"source":"authoritative-core"},
-            tuple(expected), tuple(estimate["boq"])
+            tuple(expected), tuple(estimate["boq"]), {"quantity": 1e-12}
         ),
         actual,
         estimate["boq"],
