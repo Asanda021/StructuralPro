@@ -60,7 +60,7 @@ class BOQPropagationWorkflow:
             confidence=float(row.get("confidence",getattr(q,"confidence",0)))
             if quantity is None or not unit or not source_ids: status="rejected"
             elif confidence < self.accept_confidence: status="review"
-            line=BOQLineage(self._id(q.quantity_id,row.get("description",""),quantity,unit),
+            line=BOQLineage(self._id(q.quantity_id,row.get("description",""),unit),
                 q.quantity_id,q.element_id,source_ids,str(row.get("description","")).strip(),
                 float(quantity or 0),unit,status)
             out.append(line.validate())
