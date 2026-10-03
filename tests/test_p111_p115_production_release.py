@@ -8,7 +8,7 @@ def test_p111_p115_acceptance_all():
     assert all(result["P112"]["files"].values())
     assert "شرح" in result["P112"]["rtl_columns"]
     assert result["P113"]["cost_delta"]==20
-    assert result["P113"]["finalizable"] is True
+    assert result["P113"]["finalizable"] is False\n    assert any(x["review_required"] for x in result["P113"]["changes"])
     assert result["P114"]["snapshot"]["large_project"] is True
     assert result["P114"]["page"]["total"]==10000
     assert result["P115"]["hardening"]["ok"] is True
