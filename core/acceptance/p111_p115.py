@@ -27,8 +27,8 @@ def run_report_exports(root:Path):
     return {"files":{k:p.exists() and p.stat().st_size>0 for k,p in out.items()},"rtl_columns":list(prepared[0].keys()),"totals":totals(prepared)}
 
 def run_revision():
-    before={"objects":[{"object_id":"C1","quantity":10,"review_status":"approved"}]}
-    after={"objects":[{"object_id":"C1","quantity":12,"review_status":"approved"}]}
+    before=[{"object_id":"C1","quantity":10,"review_status":"approved"}]
+    after=[{"object_id":"C1","quantity":12,"review_status":"approved"}]
     return build_impact_report(before,after,[{"id":"B1","quantity":10}],[{"id":"B1","quantity":12}],{"total":100},{"total":120})
 
 def run_scale():
