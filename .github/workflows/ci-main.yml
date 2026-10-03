@@ -41,6 +41,9 @@ jobs:
       - name: Dedicated phase tests
         run: python -m pytest -q tests/test_p211_p220_bim_quantity_integrity.py
 
+      - name: Dedicated phase tests
+        run: python -m pytest -q tests/test_p241_p250_sync_conflict_integrity.py
+
       - name: Run full test suite
         run: python -m pytest -q
 
