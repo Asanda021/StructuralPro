@@ -46,3 +46,40 @@ def test_duplicate_identity_is_rejected():
 def test_invalid_tolerance_is_rejected():
     with pytest.raises(ValueError,match="invalid tolerance"):
         GoldenCase("X","1",{},tolerances={"quantity":-0.1})
+
+
+def test_golden_contract_matches_authoritative_quantity_core_and_boq():
+    from core.takeoff.construction_core import ConstructionQuantityCore
+    from core.takeoff.element_model import ConstructionElement
+    from core.takeoff.estimate import build_estimate
+
+    element=ConstructionElement(
+        id="C1", kind="column", length_m=2.0, width_m=0.3,
+        height_m=0.3, quantity_count=10, source_id="golden:C1"
+    )
+    line=ConstructionQuantityCore.rectangular_volume(element)
+    assert line.quantity == 1.8
+    estimate=build_estimate([line], aggregate=True)
+    actual=[{
+        "object_id":line.element_id,
+        "item_code":line.item_code,
+        "quantity":line.quantity,
+        "unit":line.unit,
+        "description":line.description,
+    }]
+    expected=[{
+        "object_id":"C1",
+        "item_code":"CONCRETE",
+        "quantity":1.8,
+        "unit":"m3",
+        "description":"Concrete volume",
+    }]
+    result=validate_case(
+        GoldenCase(
+            "GOLDEN-CORE-001","2026.10",{"source":"authoritative-core"},
+            tuple(expected), tuple(estimate["boq"])
+        ),
+        actual,
+        estimate["boq"],
+    )
+    assert result.passed
