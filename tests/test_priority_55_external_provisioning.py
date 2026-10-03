@@ -44,5 +44,4 @@ def test_non_required_pending_component_can_be_recorded():
 
 def test_invalid_status_is_rejected():
     item=ProvisioningEvidence("price-list", status="unknown")
-    with pytest.raises(AssertionError):
-        assert item.validate() == []
+    assert "invalid status" in item.validate()
