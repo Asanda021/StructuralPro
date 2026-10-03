@@ -6,6 +6,19 @@ import urllib.parse
 import urllib.request
 
 
+class _HTTPSRedirectGuard(urllib.request.HTTPRedirectHandler):
+    """Reject redirects that leave the original HTTPS authority."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        source = urllib.parse.urlparse(req.full_url)
+        target = urllib.parse.urlparse(newurl)
+        if source.scheme != "https" or target.scheme != "https":
+            raise ValueError("secure sync transport rejects insecure redirects")
+        if (source.hostname or "").lower() != (target.hostname or "").lower():
+            raise ValueError("secure sync transport rejects cross-host redirects")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class HTTPJSONSyncProvider:
     def __init__(self, base_url, token=None, timeout=15, allow_insecure_local=False):
         parsed = urllib.parse.urlparse(str(base_url).strip())
@@ -20,6 +33,7 @@ class HTTPJSONSyncProvider:
         self.base_url = str(base_url).rstrip("/")
         self.token = token
         self.timeout = timeout
+        self._opener = urllib.request.build_opener(_HTTPSRedirectGuard())
 
     def _request(self, method, path, payload=None):
         if not path.startswith("/") or "://" in path:
@@ -36,7 +50,7 @@ class HTTPJSONSyncProvider:
             method=method,
             headers=headers,
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as response:
+        with self._opener.open(req, timeout=self.timeout) as response:
             try:
                 value = json.loads(response.read().decode("utf-8"))
             except (UnicodeDecodeError, json.JSONDecodeError) as exc:
