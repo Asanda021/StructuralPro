@@ -17,7 +17,7 @@ REQUIRED = (
     "P341-P360",
     "P361-P380",
     "source → recognized element → quantity → BOQ → price → estimate → report",
-    "licensed official Iranian annual price-list datasets",
+    "official Iranian annual price-list datasets",
 )
 
 def test_deep_product_gap_audit_is_complete():
