@@ -24,8 +24,9 @@ def test_history_is_copy_safe_and_bounded():
     source["items"].append(9)
     assert h.current()["items"]==[2]
     h.apply({"items":[3]})
+    assert h.can_undo
+    assert h.undo()["items"]==[2]
     assert not h.can_undo
-    assert h.current()["items"]==[3]
 
 def test_empty_operations_fail_closed():
     h=History({})
