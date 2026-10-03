@@ -79,9 +79,12 @@ def validate_catalog(records: tuple[PriceRecord, ...]) -> None:
     seen: set[str] = set()
     for record in records:
         validate_price(record)
-        if record.item_code in seen:
-            raise ValueError(f"Duplicate item code: {record.item_code}")
-        seen.add(record.item_code)
+        key = (record.item_code, record.effective_date)
+        if key in seen:
+            raise ValueError(
+                f"Duplicate item code/effective date: {record.item_code}/{record.effective_date}"
+            )
+        seen.add(key)
 
 
 def select_effective_price(
