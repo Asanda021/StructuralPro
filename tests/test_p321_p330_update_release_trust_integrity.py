@@ -20,9 +20,10 @@ def test_tampered_manifest_fails_closed():
 
 def test_downgrade_and_channel_mismatch_fail():
     m=build_release_manifest("1.0.0","beta",b"x")
-    errors=validate_release_manifest("1.0.0",m,channel="stable",artifact=b"x")
-    assert "channel mismatch" in errors
-    assert "downgrade or same-version update rejected" in errors
+    channel_errors=validate_release_manifest("0.9.0",m,channel="stable",artifact=b"x")
+    assert "channel mismatch" in channel_errors
+    version_errors=validate_release_manifest("1.0.0",m,channel="beta",artifact=b"x")
+    assert "downgrade or same-version update rejected" in version_errors
 
 def test_missing_required_manifest_fields_fail():
     assert validate_release_manifest("1.0.0",{}) 
