@@ -38,10 +38,10 @@ class ProjectStore:
         return {"id":pid,"version":version,"updated_at":now}
 
     def begin_write(self, project_id: str) -> str:
-        project = self.get(project_id)
-        if project is None:
+        row = self.db.execute("SELECT payload FROM projects WHERE id=?", (str(project_id),)).fetchone()
+        if row is None:
             raise KeyError(project_id)
-        return begin_write(project)
+        return begin_write(json.loads(row["payload"]))
 
     def current_digest(self, project_id: str) -> str:
         return self.begin_write(project_id)
