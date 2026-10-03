@@ -9,5 +9,5 @@ jobs:
      with: {python-version: '3.12'}
    - run: python -m pip install --upgrade pip 'pytest>=8.0' && python -m pip install -r requirements.txt
    - run: python -m compileall -q core tests
-   - run: python -m pytest -q tests/test_p221_230_drawing_measurement_integrity.py
+   - run: python -m pytest -q tests/test_p221_p230_drawing_measurement_integrity.py
    - run: python -m pytest -q
