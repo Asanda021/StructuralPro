@@ -5,8 +5,8 @@ def plugin(pid="boq.export"):
                           publisher="publisher", license="MIT")
 
 def test_valid_registry_is_deterministic():
-    a=build_plugin_registry([plugin("z"),plugin("a")])
-    b=build_plugin_registry([plugin("a"),plugin("z")])
+    a=build_plugin_registry([plugin("zz"),plugin("aa")])
+    b=build_plugin_registry([plugin("aa"),plugin("zz")])
     assert a["valid"] is True
     assert a["plugins"][0]["plugin_id"]=="a"
     assert a["sha256"]==b["sha256"]
@@ -22,5 +22,5 @@ def test_duplicate_plugin_ids_rejected():
     assert any("duplicate plugin_id" in e for e in r["errors"])
 
 def test_capability_discovery_is_metadata_only():
-    r=discover_plugins([plugin("x"),plugin("y")], "export")
-    assert [x["plugin_id"] for x in r]==["x","y"]
+    r=discover_plugins([plugin("xx"),plugin("yy")], "export")
+    assert [x["plugin_id"] for x in r]==["xx","yy"]
