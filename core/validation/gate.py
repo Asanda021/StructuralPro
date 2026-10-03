@@ -67,7 +67,7 @@ def security_path_gate(root:Path,requested:Path)->ValidationResult:
 
 def security_payload_gate(payload:dict[str,Any])->ValidationResult:
     text=json.dumps(payload,ensure_ascii=False,sort_keys=True)
-    patterns=[r"-----BEGIN [A-Z ]+PRIVATE KEY-----",r"(?i)bot[_-]?token\s*[:=]",r"(?i)api[_-]?key\s*[:=]"]
+    patterns=[r"-----BEGIN [A-Z ]+PRIVATE KEY-----",r"(?i)bot[_-]?token",r"(?i)api[_-]?key",r"(?i)private[_-]?key"]
     found=next((p for p in patterns if re.search(p,text)),"")
     return ValidationResult("security-payload",not bool(found),"","secret-like material rejected" if found else "no embedded secret pattern")
 
