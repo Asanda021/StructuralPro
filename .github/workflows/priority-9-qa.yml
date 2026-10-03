@@ -19,7 +19,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install pytest pypdf ezdxf openpyxl python-docx reportlab
+          python -m pip install pytest pypdf PyMuPDF ezdxf openpyxl python-docx reportlab
       - name: Compile all Python
         run: python -m compileall -q core tests app
       - name: Full regression suite
