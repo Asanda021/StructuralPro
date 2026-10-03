@@ -5,7 +5,7 @@ def boq(qty=10.0, bid="b1"):
     return BOQLineage(bid, "q1", "B1", ("s1",), "Beam concrete", qty, "m")
 
 def price(amount=5.0, status="accepted", src=("price-sheet-1",)):
-    return PriceEvidence("p1", "b1", amount, "IRR", src, .95, status).validate()
+    return PriceEvidence("p1", "b1", amount, "IRR", src, .95, ("rejected" if not src else status)).validate()
 
 def test_builds_traceable_estimate():
     out = CostEstimateTraceabilityWorkflow().build([boq()], [price()], [{"boq_id":"b1"}])
