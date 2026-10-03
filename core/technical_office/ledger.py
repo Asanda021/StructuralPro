@@ -62,7 +62,11 @@ class AdvancePayment:
 @dataclass(frozen=True)
 class SiteMaterial:
     id:str; item_code:str; description:str; received_quantity:float; consumed_quantity:float=0.0; unit:str=""
-    def __post_init__(self):\n        _text(self.id,"id"); _text(self.item_code,"item_code"); _text(self.description,"description")\n        _num(self.received_quantity,"received_quantity"); _num(self.consumed_quantity,"consumed_quantity")\n        if self.consumed_quantity > self.received_quantity:\n            raise ValueError("consumed_quantity cannot exceed received_quantity")
+    def __post_init__(self):
+        _text(self.id,"id"); _text(self.item_code,"item_code"); _text(self.description,"description")
+        _num(self.received_quantity,"received_quantity"); _num(self.consumed_quantity,"consumed_quantity")
+        if self.consumed_quantity > self.received_quantity:
+            raise ValueError("consumed_quantity cannot exceed received_quantity")
     @property
     def balance(self): return self.received_quantity-self.consumed_quantity
     def __post_init_post_parse(self): pass
