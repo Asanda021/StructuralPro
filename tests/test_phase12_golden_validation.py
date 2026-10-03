@@ -58,7 +58,7 @@ def test_golden_contract_matches_authoritative_quantity_core_and_boq():
         height_m=0.3, quantity_count=10, source_id="golden:C1"
     )
     line=ConstructionQuantityCore.rectangular_volume(element)
-    assert line.quantity == 1.8
+    assert line.quantity == pytest.approx(1.8, abs=1e-12)
     estimate=build_estimate([line], aggregate=True)
     actual=[{
         "object_id":line.element_id,
