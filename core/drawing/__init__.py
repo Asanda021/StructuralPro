@@ -1,6 +1,7 @@
 """Drawing intelligence, source adapters, measurement and auditable takeoff integration."""
 from .models import DrawingPrimitive, EngineeringElement
 from .intelligence import DrawingIntelligence, classify_primitives
+from .intelligence_v2 import DrawingIntelligenceV2, SheetIdentity, ScaleEvidence, SemanticLink, RecognitionDecision
 from .takeoff import drawing_takeoff
 from .adapters import AdapterResult, DXFAdapter, DWGAdapter, IFCAdapter, PDFAdapter, DrawingAdapterRegistry, DrawingSource
 from .pipeline import DrawingIntelligencePipeline, DrawingPipelineResult
