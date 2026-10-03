@@ -4,6 +4,7 @@ import json, sqlite3, time
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
+from core.platform.concurrency import assert_unchanged, begin_write
 
 class ProjectStore:
     def __init__(self, path: str | Path):
@@ -18,9 +19,14 @@ class ProjectStore:
             payload TEXT NOT NULL, PRIMARY KEY(project_id,version))""")
         self.db.commit()
 
-    def save(self, project_id: str, project: dict[str,Any]) -> dict[str,Any]:
+    def save(self, project_id: str, project: dict[str,Any], *, expected_digest: str | None = None) -> dict[str,Any]:
         pid=str(project_id); now=time.time()
-        row=self.db.execute("SELECT version FROM projects WHERE id=?",(pid,)).fetchone()
+        row=self.db.execute("SELECT version,payload FROM projects WHERE id=?",(pid,)).fetchone()
+        if expected_digest is not None:
+            if row is None:
+                raise RuntimeError("project changed since write began")
+            current=json.loads(row["payload"])
+            assert_unchanged(current, expected_digest)
         version=int(row["version"])+1 if row else 1
         payload=json.dumps(project,ensure_ascii=False,sort_keys=True)
         self.db.execute("INSERT OR REPLACE INTO projects(id,name,version,updated_at,payload) VALUES(?,?,?,?,?)",
@@ -30,6 +36,15 @@ class ProjectStore:
         self.db.commit()
         self._cache[pid] = (version, deepcopy(project))
         return {"id":pid,"version":version,"updated_at":now}
+
+    def begin_write(self, project_id: str) -> str:
+        project = self.get(project_id)
+        if project is None:
+            raise KeyError(project_id)
+        return begin_write(project)
+
+    def current_digest(self, project_id: str) -> str:
+        return self.begin_write(project_id)
 
     def get(self, project_id: str) -> dict[str,Any] | None:
         pid=str(project_id)
