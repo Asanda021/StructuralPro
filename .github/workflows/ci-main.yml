@@ -38,6 +38,9 @@ jobs:
       - name: Compile check
         run: python -m compileall -q core
 
+      - name: Dedicated phase tests
+        run: python -m pytest -q tests/test_p231_p240_report_export_integrity.py
+
       - name: Run full test suite
         run: python -m pytest -q
 
