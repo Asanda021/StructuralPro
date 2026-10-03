@@ -21,7 +21,7 @@ def test_golden_quantities_and_boq_are_deterministic():
     from core.takeoff.estimate import build_estimate
     element=ConstructionElement(id="G1",kind="column",length_m=2,width_m=0.3,height_m=0.3,quantity_count=10,source_id="golden:G1")
     line=ConstructionQuantityCore.rectangular_volume(element)
-    assert line.quantity==1.8 and line.unit=="m3"
+    assert abs(line.quantity-1.8)<1e-12 and line.unit=="m3"
     estimate=build_estimate([line],aggregate=True)
     assert estimate["finalizable"] and estimate["boq"]
 
@@ -29,7 +29,7 @@ def test_security_and_path_traversal_fail_closed():
     with tempfile.TemporaryDirectory() as d:
         root=Path(d); assert security_path_gate(root,root/"safe.json").passed
         assert not security_path_gate(root,root/".." / "escape.json").passed
-    assert not security_payload_gate({"token":"abc","nested":{"api_key":"x"}}).passed
+    assert not security_payload_gate({"bot_token":"abc","nested":{"api_key":"x"}}).passed
     assert security_payload_gate({"project":"safe","quantity":10}).passed
 
 def test_recovery_round_trip_and_fingerprint():
