@@ -23,3 +23,6 @@ This phase establishes a deterministic evidence-first commercial chain:
 4. Deterministic estimate fingerprint.
 5. Explicit cost-control arithmetic.
 6. Dedicated tests and CI.
+
+## Verification
+The phase is validated against the current `main` baseline before merge.
