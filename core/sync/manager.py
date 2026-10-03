@@ -35,15 +35,13 @@ class SyncManager:
                 else:
                     # Legacy providers may not return record IDs; remove only the
                     # leading records explicitly counted as pushed.
-                    pending_ids={id(r) for r in pending}
                     pending_count=min(max(pushed,0),len(pending))
-                    consumed=[]
-                    remaining=[]
-                    for row in all_rows:
-                        if id(row) in pending_ids and len(consumed) < pending_count:
-                            consumed.append(row)
-                        else:
-                            remaining.append(row)
+                    remaining=list(all_rows)
+                    for target in pending[:pending_count]:
+                        for index,row in enumerate(remaining):
+                            if row == target:
+                                remaining.pop(index)
+                                break
                 if self.queue:
                     self.queue.path.write_text(json.dumps(remaining,ensure_ascii=False,sort_keys=True),encoding="utf-8")
             except Exception as exc:
