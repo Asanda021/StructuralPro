@@ -42,7 +42,7 @@ jobs:
         run: python -m pytest -q tests/test_p211_p220_bim_quantity_integrity.py
 
       - name: Dedicated phase tests
-        run: python -m pytest -q tests/test_p231_p240_report_export_integrity.py
+        run: python -m pytest -q tests/test_p221_p230_drawing_measurement_integrity.py
 
       - name: Run full test suite
         run: python -m pytest -q
