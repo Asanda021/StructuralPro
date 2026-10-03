@@ -1,5 +1,5 @@
 name: P261-P270 Collaboration Cloud Integrity
-on: [pull_request, workflow_dispatch]
+on: [pull_request, push, workflow_dispatch]
 jobs:
   verify:
     runs-on: ubuntu-latest
