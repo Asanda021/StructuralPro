@@ -1,0 +1,26 @@
+name: P161-P170 Takeoff Traceability
+on:
+  push:
+    paths:
+      - core/drawing/**
+      - tests/test_p161_p170_takeoff_traceability.py
+      - docs/P161_P170_TAKEOFF_TRACEABILITY.md
+      - .github/workflows/priority-161-170-takeoff-traceability.yml
+  pull_request:
+    paths:
+      - core/drawing/**
+      - tests/test_p161_p170_takeoff_traceability.py
+      - docs/P161_P170_TAKEOFF_TRACEABILITY.md
+      - .github/workflows/priority-161-170-takeoff-traceability.yml
+jobs:
+  p161-p170:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip install pytest>=8.0
+      - run: python -m pytest -q tests/test_p161_p170_takeoff_traceability.py
+      - run: python -m pytest -q
