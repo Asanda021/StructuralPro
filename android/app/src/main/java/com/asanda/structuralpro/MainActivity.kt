@@ -14,6 +14,7 @@ class MainActivity: ComponentActivity() {
   setContent { StructuralProHome() }
  }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StructuralProHome() {
  var screen by remember { mutableStateOf("داشبورد") }
