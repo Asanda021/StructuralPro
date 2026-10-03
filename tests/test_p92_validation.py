@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 import json
-from core.validation import *
+from core.validation.gate import *
 
 def test_pdf_dxf_ifc_reference_formats():
     with tempfile.TemporaryDirectory() as d:
@@ -19,7 +19,7 @@ def test_golden_quantities_and_boq_are_deterministic():
     from core.takeoff.construction_core import ConstructionQuantityCore
     from core.takeoff.element_model import ConstructionElement
     from core.takeoff.estimate import build_estimate
-    element=ConstructionElement(id="G1",kind="column",domain="concrete",length_m=2,width_m=0.3,height_m=0.3,quantity_count=10,source_id="golden:G1")
+    element=ConstructionElement(id="G1",kind="column",length_m=2,width_m=0.3,height_m=0.3,quantity_count=10,source_id="golden:G1")
     line=ConstructionQuantityCore.rectangular_volume(element)
     assert line.quantity==1.8 and line.unit=="m3"
     estimate=build_estimate([line],aggregate=True)
