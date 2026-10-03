@@ -77,14 +77,25 @@ def test_request_does_not_place_token_in_url(monkeypatch):
         def read(self):
             return b'{"pushed":0}'
 
-    def fake_urlopen(request, timeout):
+    def fake_open(request, timeout):
         captured["url"] = request.full_url
         captured["authorization"] = request.get_header("Authorization")
         captured["timeout"] = timeout
         return Response()
 
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr(provider._opener, "open", fake_open)
     assert provider._request("POST", "/sync/push", []) == {"pushed": 0}
     assert "secret" not in captured["url"]
     assert captured["authorization"] == "Bearer secret"
     assert captured["timeout"] == 15
+
+
+def test_redirect_guard_rejects_insecure_and_cross_host_redirects():
+    from core.sync.cloud import _HTTPSRedirectGuard
+
+    guard = _HTTPSRedirectGuard()
+    request = SimpleNamespace(full_url="https://sync.example.com/sync/push")
+    with pytest.raises(ValueError, match="insecure redirects"):
+        guard.redirect_request(request, None, 302, "Found", {}, "http://sync.example.com/login")
+    with pytest.raises(ValueError, match="cross-host"):
+        guard.redirect_request(request, None, 302, "Found", {}, "https://evil.example.com/login")
