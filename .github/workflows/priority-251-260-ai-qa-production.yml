@@ -1,0 +1,13 @@
+name: phase/p251-260-ai-qa-production
+on: [pull_request, workflow_dispatch]
+jobs:
+ verify:
+  runs-on: ubuntu-latest
+  steps:
+   - uses: actions/checkout@v4
+   - uses: actions/setup-python@v5
+     with: {python-version: '3.12'}
+   - run: python -m pip install --upgrade pip 'pytest>=8.0' && python -m pip install -r requirements.txt
+   - run: python -m compileall -q core tests
+   - run: python -m pytest -q tests/test_p251_260_ai_qa_production.py
+   - run: python -m pytest -q
