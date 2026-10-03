@@ -26,7 +26,16 @@ class AIOrchestrator:
     def query(self,question,context):
         q=str(question or "").strip()
         if not q: raise ValueError("question is required")
+        if not isinstance(context,dict): raise ValueError("context must be a mapping")
         ql=q.casefold(); rows=list(context.get("rows",[]))
-        if any(k in ql for k in ("جمع","total","مبلغ")): return {"answer":sum(float(r.get("total",0) or 0) for r in rows),"unit":context.get("currency","IRR"),"source":"context.rows"}
+        if any(k in ql for k in ("جمع","total","مبلغ")):
+            import math
+            total=0.0
+            for row in rows:
+                try: value=float(row.get("total",0) or 0)
+                except (TypeError,ValueError) as exc: raise ValueError("row total must be numeric") from exc
+                if not math.isfinite(value): raise ValueError("row total must be finite")
+                total += value
+            return {"answer":total,"unit":context.get("currency","IRR"),"source":"context.rows"}
         if any(k in ql for k in ("تعداد","count")): return {"answer":len(rows),"unit":"rows","source":"context.rows"}
         return {"answer":None,"supported":False,"reason":"unsupported_query","requires_source_data":True}
