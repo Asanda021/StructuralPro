@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+SUPPORTED_PLATFORMS=("windows","android","telegram")
+
 @dataclass
 class ClientSession:
     platform: str
@@ -10,19 +12,18 @@ class ClientSession:
     offline: bool = True
 
 class ProductClient:
-    SUPPORTED={"windows","android","telegram"}
+    SUPPORTED=set(SUPPORTED_PLATFORMS)
     def __init__(self, platform: str, project_service: Callable[...,Any] | None=None):
         platform=str(platform).lower()
         if platform not in self.SUPPORTED: raise ValueError("unsupported platform")
-        self.session=ClientSession(platform); self.project_service=project_service
+        self.session=ClientSession(platform, offline=(platform != "telegram"))
+        self.project_service=project_service
     def open_project(self, project_id: str):
         self.session.project_id=str(project_id)
         if self.project_service: return self.project_service(project_id)
         return {"id":str(project_id),"platform":self.session.platform}
     def state(self)->dict[str,Any]:
         return {"platform":self.session.platform,"project_id":self.session.project_id,"offline":self.session.offline}
-
-SUPPORTED_PLATFORMS=("windows","android","telegram")
 
 @dataclass(frozen=True)
 class ClientRequest:
