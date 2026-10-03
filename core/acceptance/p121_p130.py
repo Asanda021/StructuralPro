@@ -49,7 +49,7 @@ def validate_config(cfg):
 def security_check(request):
     errors=[]
     if request.get("scheme")!="https" and not request.get("local",False): errors.append("insecure transport")
-    if ".." in str(request.get("path","")).replace("\","/").split("/"): errors.append("path traversal")
+    if ".." in str(request.get("path","")).replace(chr(92), "/").split("/"): errors.append("path traversal")
     if len(str(request.get("project_id","")))>128: errors.append("project id too long")
     return {"safe":not errors,"errors":errors}
 # P129: archive/recovery manifest
