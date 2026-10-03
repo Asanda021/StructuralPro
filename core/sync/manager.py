@@ -2,6 +2,7 @@
 from __future__ import annotations
 from core.sync.conflicts import merge_dict
 from core.sync.contracts import SyncResult
+import json
 
 class SyncManager:
     def __init__(self,provider=None,queue=None):
@@ -19,13 +20,27 @@ class SyncManager:
         if project_id is not None:
             pending=[r for r in pending if str(r.get("project_id"))==str(project_id)]
         pushed=0
+        errors=[]
         if pending:
-            result=self.provider.push(pending); pushed=int(result.get("pushed",len(pending)))
-        pulled=len(self.provider.pull(project_id)) if project_id is not None else 0
-        if self.queue and pending:
-            remaining=[r for r in self.queue.peek() if r not in pending]
-            if remaining: self.queue.path.write_text(__import__("json").dumps(remaining,ensure_ascii=False),encoding="utf-8")
-            else: self.queue.clear()
-        return SyncResult(pushed,pulled,0,[])
+            try:
+                result=self.provider.push(pending)
+                pushed=int(result.get("pushed",len(pending)))
+                acknowledged=result.get("acknowledged_ids")
+                if acknowledged is None:
+                    acknowledged=[r.get("record_id") for r in pending][:pushed]
+                acknowledged={str(x) for x in acknowledged if x is not None}
+                all_rows=self.queue.peek() if self.queue else []
+                remaining=[r for r in all_rows if str(r.get("record_id")) not in acknowledged]
+                if self.queue:
+                    self.queue.path.write_text(json.dumps(remaining,ensure_ascii=False,sort_keys=True),encoding="utf-8")
+            except Exception as exc:
+                errors.append("push_failed:"+type(exc).__name__)
+                pushed=0
+        try:
+            pulled=len(self.provider.pull(project_id)) if project_id is not None else 0
+        except Exception as exc:
+            errors.append("pull_failed:"+type(exc).__name__)
+            pulled=0
+        return SyncResult(pushed,pulled,0,errors)
     @staticmethod
     def merge(base,local,remote): return merge_dict(base,local,remote)
