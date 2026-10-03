@@ -6,12 +6,12 @@ def test_p97_deep_quantity_rules():
     assert round(rebar_unit_weight(16),3)==round(256/162,3)
     plan=bar_cut_plan([5,4,3,2,1],12)
     assert plan["stock_bar_count"]==2
-    assert roof_concrete_volume(100,0.2,"joist_single")==3.6
+    assert abs(roof_concrete_volume(100,0.2,"joist_single")-3.6)<1e-9
 
 def test_p98_edit_review_freeze():
     from core.drawings.production_workflow import ProductionDrawing
     d=ProductionDrawing([{"object_id":"B1","length":5}],"S1")
-    d.classify(lambda x:"beam").copy()
+    d.classify(lambda x:"beam")
     d.enable_editing(); d.edit("B1",{"length":6},"user")
     d.review({"B1":True}); d.freeze()
     assert d.state=="frozen" and d.digest()
@@ -47,7 +47,7 @@ def test_p102_report_bundle_hashes_files(tmp_path):
 
 def test_p103_revision_impact_requires_review():
     from core.revisions.impact import build_impact_report
-    r=build_impact_report([{"id":"B1","quantity":1}],[{"id":"B1","quantity":2}])
+    r=build_impact_report([{"object_id":"B1","quantity":1}],[{"object_id":"B1","quantity":2}])
     assert r["summary"]["changed"]==1 and not r["finalizable"]
 
 def test_p104_expanded_golden_dataset_exists():
