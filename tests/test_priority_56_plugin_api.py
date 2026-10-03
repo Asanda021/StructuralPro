@@ -8,7 +8,7 @@ def test_valid_registry_is_deterministic():
     a=build_plugin_registry([plugin("zz"),plugin("aa")])
     b=build_plugin_registry([plugin("aa"),plugin("zz")])
     assert a["valid"] is True
-    assert a["plugins"][0]["plugin_id"]=="a"
+    assert a["plugins"][0]["plugin_id"]=="aa"
     assert a["sha256"]==b["sha256"]
 
 def test_invalid_manifest_fails_closed():
