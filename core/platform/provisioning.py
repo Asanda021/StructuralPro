@@ -43,6 +43,7 @@ class ProvisioningEvidence:
         return errors
 
 def build_provisioning_manifest(items: Iterable[ProvisioningEvidence]) -> dict:
+    items = list(items)
     entries = [asdict(x) for x in items]
     errors = []
     seen = set()
