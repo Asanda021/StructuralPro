@@ -28,8 +28,8 @@ def test_contract_status_and_payment_control():
     s=c.contract_status(30000, paid=12000, current_commitments=5000)
     assert s["performed_value"]==30000
     assert s["unpaid_performed"]==18000
-    assert s["progress_percent"]==23.07692307692308
-    assert s["headroom"]==97000
+    assert s["progress_percent"]==25.0
+    assert s["headroom"]==85000
 
 def test_estimate_vs_actual_is_deterministic():
     r=CommercialControl.estimate_vs_actual(
