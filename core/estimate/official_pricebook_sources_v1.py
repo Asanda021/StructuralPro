@@ -64,3 +64,10 @@ def coverage():
     validate_sources()
     years=sorted(s.year for s in SOURCES)
     return {"discipline":"ابنیه","years":years,"min_year":years[0],"max_year":years[-1],"count":len(years)}
+
+BUILDING_1404_DISCIPLINES = ("ابنیه","تاسیسات مکانیکی","تاسیسات برقی","مرمت بناهای تاریخی")
+
+def building_1404_coverage():
+    present={s.discipline for s in SOURCES if s.year==1404}
+    missing=[d for d in BUILDING_1404_DISCIPLINES if d not in present]
+    return {"year":1404,"required":list(BUILDING_1404_DISCIPLINES),"present":sorted(present),"missing":missing,"complete":not missing}
