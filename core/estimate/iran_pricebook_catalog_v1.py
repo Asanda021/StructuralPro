@@ -10,6 +10,8 @@ class PricebookSource:
     format: str
     verified_at: str
 
+RECENT_ABNIEH_YEARS=(1399,1400,1401,1402,1403,1404)
+
 def validate(sources):
     if not sources: raise ValueError("pricebook sources required")
     seen=set()
@@ -20,6 +22,12 @@ def validate(sources):
         k=(s.discipline,s.year,s.format)
         if k in seen: raise ValueError("duplicate pricebook source")
         seen.add(k)
+
+def coverage(sources):
+    validate(sources)
+    years=sorted({s.year for s in sources})
+    return {"discipline":"ابنیه","years":years,"count":len(years),
+            "recent_catalog_complete": all(y in years for y in RECENT_ABNIEH_YEARS)}
 
 def fingerprint(sources):
     validate(sources)
