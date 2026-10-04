@@ -38,14 +38,15 @@ def test_dxf_extracts_geometry_layers_blocks_units_and_count():
 
 
 def test_layer_index_and_export_are_deterministic():
-    result = extract_dxf(_sample_dxf())
+    raw = _sample_dxf()
+    result = extract_dxf(raw)
     validate_extraction(result)
     index = layer_index(result)
     assert len(index["STRUCT"]) == 4
     payload = result.export_payload()
     assert payload["schema"] == "structuralpro.cad.dwg_dxf.v1"
     assert payload["object_count"] == 4
-    assert payload["source_fingerprint"] == artifact_fingerprint(_sample_dxf())
+    assert payload["source_fingerprint"] == artifact_fingerprint(raw)
 
 
 def test_invalid_or_unitless_dxf_fails_closed():
