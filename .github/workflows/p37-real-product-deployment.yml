@@ -103,7 +103,7 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/StructuralPro-*-${{ github.ref_name }}-Setup.exe
+            dist/StructuralPro-*-Setup.exe
             dist/StructuralPro/StructuralPro.exe
             dist/StructuralPro-SHA256SUMS.txt
             dist/StructuralPro-ReleaseManifest.json
