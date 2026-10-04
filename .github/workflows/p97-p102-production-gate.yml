@@ -1,6 +1,8 @@
 name: P97-P102 Production Gate
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 jobs:
   production-gate:
