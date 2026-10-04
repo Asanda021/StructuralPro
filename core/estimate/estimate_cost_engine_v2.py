@@ -100,10 +100,6 @@ def build_estimate(
         rate_by_key[key] = rate
         currencies.add(rate.currency)
 
-    if len(currencies) != 1:
-        raise ValueError("exactly one currency is required for an estimate")
-
-    currency = next(iter(currencies))
     breakdown = {category: Decimal("0") for category in sorted(_COST_TYPES)}
     result_lines: list[dict[str, object]] = []
 
@@ -113,6 +109,14 @@ def build_estimate(
             raise LookupError(
                 f"no supplied rate for {line.item_code}/{line.category}/{line.unit}"
             )
+
+    if len(currencies) != 1:
+        raise ValueError("exactly one currency is required for an estimate")
+
+    currency = next(iter(currencies))
+
+    for line in boq:
+        rate = rate_by_key[(line.item_code, line.category, line.unit)]
         amount = line.quantity * rate.rate
         result_lines.append({
             "line_id": line.line_id,
