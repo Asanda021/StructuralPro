@@ -2,7 +2,7 @@ from core.iran.takeoff_engine_v2 import ExecutionRule, build_iranian_boq, price_
 from core.iran.data import IranDataRegistry, AdjustmentIndex
 
 def test_boq_and_waste_are_deterministic():
-    rows=build_iranian_boq("beam",{"length":5,"width":.3,"height":.5},waste_factor=.1,
+    rows=build_iranian_boq("تیر",{"length":5,"width":.3,"height":.5},waste_factor=.1,
                             rules=[ExecutionRule("R","rule",1.02)])
     assert rows and rows[0]["quantity"] > 0
     assert rows[0]["source"]=="iranian-takeoff-engine-v2"
