@@ -1,0 +1,27 @@
+name: P29 Real-World Validation
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  p29:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+      - name: P29 acceptance
+        run: |
+          pytest -q \
+            tests/test_p29_real_world_validation.py \
+            tests/test_priority_35_real_world_golden.py \
+            tests/test_priority_29_user_validation.py \
+            tests/test_priority_14_real_data_validation.py
