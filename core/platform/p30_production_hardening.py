@@ -22,7 +22,7 @@ REQUIRED_SURFACES = (
     "data_integrity", "backup_restore", "migration", "compatibility",
 )
 PRODUCTION_MODULES = (
-    "core.pdf.graphical_measurement",
+    "core.drawing.graphical_pdf_measurement_engine_v1",
     "core.cad.native_dwg_dxf_production_boundary_v1",
     "core.bim.roundtrip",
     "core.platform.backup",
@@ -56,7 +56,7 @@ def run_p30_gate() -> P30Result:
     add("concurrency", _concurrency_probe)
     add("error_handling", _error_probe)
     add("crash_recovery", _recovery_probe)
-    add("logging", lambda: _logging_probe())
+    add("logging", _logging_probe)
     add("security", lambda: SecurityPolicy(allow_network=False).validate())
     add("data_integrity", _integrity_probe)
     add("backup_restore", _backup_probe)
