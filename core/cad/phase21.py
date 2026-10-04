@@ -144,8 +144,8 @@ def extract_dxf(payload: bytes) -> CadExtractionResult:
         raise CadExtractionError("DXF artifact must be non-empty bytes")
     try:
         import ezdxf
-        from io import BytesIO
-        doc = ezdxf.read(BytesIO(payload))
+        from io import StringIO
+        doc = ezdxf.read(StringIO(payload.decode("utf-8")))
     except Exception as exc:
         raise CadExtractionError("DXF decoding failed") from exc
 
