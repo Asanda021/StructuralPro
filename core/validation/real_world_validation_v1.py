@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable
 
 REQUIRED_SURFACES = tuple(sorted(("pdf", "cad", "revision", "takeoff", "boq", "estimate", "reports", "excel", "output_pdf")))
-REQUIRED_SCALES = ("small", "medium", "large")
+REQUIRED_SCALES = tuple(sorted(("small", "medium", "large")))
 
 @dataclass(frozen=True)
 class Evidence:
