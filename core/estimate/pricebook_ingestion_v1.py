@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-import csv, json
+import csv, json, zipfile
 
 @dataclass(frozen=True)
 class PriceRow:
@@ -40,6 +40,42 @@ def load_json(path,year,currency="IRR"):
 def load_csv(path,year,currency="IRR"):
     with open(path,encoding="utf-8-sig",newline="") as f: return parse_rows(csv.DictReader(f),year,currency)
 
+def load_xls(path,year,currency="IRR"):
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise RuntimeError("pandas is required for XLS ingestion") from e
+    sheets=pd.read_excel(path, sheet_name=None, dtype=object)
+    rows=[]
+    for frame in sheets.values(): rows.extend(frame.to_dict("records"))
+    return parse_rows(rows, year, currency)
+
+def load_archive(path, year, currency="IRR"):
+    p=Path(path)
+    if p.suffix.lower()==".zip":
+        opener=lambda: zipfile.ZipFile(p)
+    else:
+        try: import rarfile
+        except ImportError as e: raise RuntimeError("RAR ingestion requires rarfile") from e
+        opener=lambda: rarfile.RarFile(p)
+    with opener() as archive:
+        names=archive.namelist()
+        supported=[x for x in names if Path(x).suffix.lower() in {".xlsx",".xls",".csv",".json"}]
+        if not supported: raise ValueError("archive contains no supported pricebook file")
+        name=supported[0]
+        tmp=p.parent/(p.stem+"_"+Path(name).name)
+        tmp.write_bytes(archive.read(name))
+        try: return load_supported(tmp,year,currency)
+        finally: tmp.unlink(missing_ok=True)
+
+def load_supported(path,year,currency="IRR"):
+    ext=Path(path).suffix.lower()
+    if ext==".xlsx": return load_xlsx(path,year,currency)
+    if ext==".xls": return load_xls(path,year,currency)
+    if ext==".csv": return load_csv(path,year,currency)
+    if ext==".json": return load_json(path,year,currency)
+    if ext in {".zip",".rar"}: return load_archive(path,year,currency)
+    raise ValueError(f"unsupported pricebook extension: {ext}")
 def load_xlsx(path,year,currency="IRR"):
     try:
         from openpyxl import load_workbook
@@ -74,3 +110,10 @@ def price_takeoff(takeoff_rows, price_rows):
 def fingerprint(rows):
     payload="|".join(sorted(f"{r.year}|{r.chapter}|{r.item_code}|{r.description}|{r.unit}|{r.rate}|{r.currency}" for r in rows))
     return sha256(payload.encode()).hexdigest()
+
+
+def coverage(rows, expected_year=None):
+    if not rows: raise ValueError("no rows for coverage")
+    years=sorted({r.year for r in rows})
+    codes=sorted({r.item_code for r in rows})
+    return {"row_count":len(rows),"years":years,"item_code_count":len(codes),"fingerprint":fingerprint(rows),"year_ok":expected_year is None or years==[expected_year]}
