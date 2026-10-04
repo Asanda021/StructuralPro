@@ -22,9 +22,9 @@ def _sample_dxf() -> bytes:
     msp.add_circle((10, 10), 2, dxfattribs={"layer": layer.dxf.name})
     msp.add_text("B1", dxfattribs={"layer": layer.dxf.name})
     msp.add_lwpolyline([(0, 0), (2, 0), (2, 2)], dxfattribs={"layer": layer.dxf.name})
-    stream = __import__("io").BytesIO()
+    stream = __import__("io").StringIO()
     doc.write(stream)
-    return stream.getvalue()
+    return stream.getvalue().encode("utf-8")
 
 
 def test_dxf_extracts_geometry_layers_blocks_units_and_count():
@@ -51,9 +51,9 @@ def test_layer_index_and_export_are_deterministic():
 def test_invalid_or_unitless_dxf_fails_closed():
     doc = ezdxf.new("R2018")
     doc.header["$INSUNITS"] = 0
-    stream = __import__("io").BytesIO()
+    stream = __import__("io").StringIO()
     doc.write(stream)
-    result = extract_dxf(stream.getvalue())
+    result = extract_dxf(stream.getvalue().encode("utf-8"))
     with pytest.raises(CadExtractionError, match="units"):
         validate_extraction(result)
 
