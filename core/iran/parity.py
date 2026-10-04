@@ -54,6 +54,7 @@ class IranianTakeoffParity:
             item=self.coefficient(code)
             if item is None: raise KeyError(code)
             result*=item.value; applied.append(asdict(item))
+        result = round(result, 12)
         return {'base_quantity':q,'quantity':result,'coefficients':applied}
     def chapters(self, year, discipline=None): return self.catalog.chapters(year=year, group=discipline)
     def groups(self, year): return self.catalog.groups(year)

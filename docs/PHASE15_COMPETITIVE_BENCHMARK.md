@@ -97,4 +97,4 @@ Any new capability discovered after this freeze is treated as a user-requested f
 
 The repository's existing BENCHMARK_COVERAGE.md remains the implementation-coverage rule: a named capability is not considered implemented merely because a registry entry exists; executable handlers or tested adapters are required.
 
-Phase 15 therefore freezes what must be covered. Phases 16–35 implement, validate and release that scope.
+Phase 15 therefore freezes what must be covered. Phases 16–35 implement, validate and release that scope. Phase 35 is the final implementation + tests + CI + merge + post-merge + competitive verification sign-off gate.
