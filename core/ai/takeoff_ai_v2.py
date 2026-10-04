@@ -6,7 +6,7 @@ a traceable feedback record without inventing missing quantities.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 import math
@@ -14,9 +14,8 @@ import re
 from typing import Any, Iterable, Mapping
 
 from .takeoff_ai_v1 import AITakeoffCandidate, propose_takeoff
-from .takeoff_intelligence_v1 import normalize_drawing_text
+from .takeoff_intelligence_v1 import group_candidates, normalize_drawing_text
 from .takeoff_production_v1 import ProductionTakeoffPackage, build_production_takeoff
-from .takeoff_review_v1 import TakeoffReviewDecision, create_review_decision
 
 
 COMPONENT_TERMS: dict[str, tuple[str, ...]] = {
@@ -30,9 +29,8 @@ COMPONENT_TERMS: dict[str, tuple[str, ...]] = {
     "rebar": ("rebar", "reinforcement", "bar", "میلگرد", "آرماتور", "خاموت", "سنجاقی"),
 }
 
-DIMENSION_PATTERNS = (
-    re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>mm|cm|m)\b", re.I),
-    re.compile(r"(?P<value>\d+(?:[.,]\d+)?)\s*[×x*]\s*(?P<value2>\d+(?:[.,]\d+)?)"),
+DIMENSION_PATTERN = re.compile(
+    r"(?P<value>\d+(?:[.,]\d+)?)\s*(?P<unit>mm|cm|m)\b", re.I
 )
 
 
@@ -80,7 +78,7 @@ def _source_id(entity: Any, index: int) -> str:
 
 
 def detect_components(entities: Iterable[Any]) -> list[tuple[str, str, float]]:
-    """Return unique component proposals as (source_id, component_type, confidence)."""
+    """Return unambiguous component proposals as (source_id, type, confidence)."""
     result: list[tuple[str, str, float]] = []
     for index, entity in enumerate(entities):
         data = getattr(entity, "data", None)
@@ -93,32 +91,34 @@ def detect_components(entities: Iterable[Any]) -> list[tuple[str, str, float]]:
                 data.get("block_name"), data.get("ifc_type"),
             ) if value
         ))
-        matches = [kind for kind, terms in COMPONENT_TERMS.items()
-                   if any(normalize_drawing_text(term) in text for term in terms)]
+        matches = [
+            kind for kind, terms in COMPONENT_TERMS.items()
+            if any(normalize_drawing_text(term) in text for term in terms)
+        ]
         if len(matches) == 1:
             result.append((_source_id(entity, index), matches[0], 0.92))
     return result
 
 
 def extract_dimensions(entities: Iterable[Any]) -> list[DetectedDimension]:
-    """Extract only explicit dimensions present in source text/data."""
+    """Extract only dimensions whose source explicitly contains a unit."""
     result: list[DetectedDimension] = []
     for index, entity in enumerate(entities):
         data = getattr(entity, "data", None)
         data = data if isinstance(data, Mapping) else {}
         source = _source_id(entity, index)
-        texts = [data.get("text"), data.get("dimension"), getattr(entity, "text", None)]
-        for raw in texts:
+        for raw in (data.get("text"), data.get("dimension"), getattr(entity, "text", None)):
             if not raw:
                 continue
             text = normalize_drawing_text(raw).replace(",", ".")
-            for pattern in DIMENSION_PATTERNS:
-                for match in pattern.finditer(text):
-                    if "value2" in match.groupdict() and match.group("value2"):
-                        for value in (match.group("value"), match.group("value2")):
-                            result.append(DetectedDimension(source, float(value), "m", confidence=0.82))
-                    else:
-                        result.append(DetectedDimension(source, float(match.group("value")), match.group("unit").lower()))
+            for match in DIMENSION_PATTERN.finditer(text):
+                result.append(
+                    DetectedDimension(
+                        source,
+                        float(match.group("value")),
+                        match.group("unit").lower(),
+                    )
+                )
     return result
 
 
@@ -128,15 +128,16 @@ def build_ai_takeoff_2_package(
     source_fingerprint: str,
     minimum_confidence: float = 0.70,
 ) -> tuple[ProductionTakeoffPackage, tuple[DetectedDimension, ...]]:
-    """Run P38 detection -> existing P23/P24 intelligence -> P25 production gate."""
+    """Run P38 detection through the existing P23-P25 production gates."""
+    if not source_fingerprint.strip():
+        raise ValueError("source_fingerprint is required")
     materialized = tuple(entities)
     candidates = propose_takeoff(materialized)
     package = build_production_takeoff(
-        __import__("core.ai.takeoff_intelligence_v1", fromlist=["group_candidates"]).group_candidates(candidates),
+        group_candidates(candidates),
         minimum_confidence=minimum_confidence,
     )
-    dimensions = tuple(extract_dimensions(materialized))
-    return package, dimensions
+    return package, tuple(extract_dimensions(materialized))
 
 
 def create_feedback(
