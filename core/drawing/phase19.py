@@ -107,17 +107,20 @@ class DrawingIntelligenceWorkflow:
         elif scale_evidence.denominator is not None:
             source = scale_evidence.source_id or "drawing-intelligence"
             try:
+                drawing_unit = adapted.source.metadata.get("unit") or adapted.source.metadata.get("units")
+                if not isinstance(drawing_unit, str) or not drawing_unit.strip():
+                    raise ValueError("drawing unit is missing; scale cannot be converted to engineering units")
                 scale = scale_from_metadata(
                     {
                         "unit": drawing_unit,
                         "scale_denominator": scale_evidence.denominator,
                     }
                 )
+                if scale is None:
+                    raise ValueError("drawing unit/scale metadata is incomplete")
                 scale = DrawingScale(scale.unit, scale.factor_to_m, scale.scale_denominator, source)
             except (TypeError, ValueError) as exc:
                 warnings.append(f"scale unresolved: {exc}")
-        else:
-            warnings.append("engineering scale not established; automatic quantities remain blocked")
 
         dimensions = self.production.extract_dimensions(primitives)
         zones = self.production.infer_zones(primitives, sheets)
