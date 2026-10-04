@@ -62,11 +62,19 @@ def load_archive(path, year, currency="IRR"):
         names=archive.namelist()
         supported=[x for x in names if Path(x).suffix.lower() in {".xlsx",".xls",".csv",".json"}]
         if not supported: raise ValueError("archive contains no supported pricebook file")
-        name=supported[0]
-        tmp=p.parent/(p.stem+"_"+Path(name).name)
-        tmp.write_bytes(archive.read(name))
-        try: return load_supported(tmp,year,currency)
-        finally: tmp.unlink(missing_ok=True)
+        parsed=[]
+        for name in supported:
+            tmp=p.parent/(p.stem+"_"+Path(name).name)
+            tmp.write_bytes(archive.read(name))
+            try:
+                parsed.extend(load_supported(tmp,year,currency))
+            except (ValueError, KeyError):
+                pass
+            finally:
+                tmp.unlink(missing_ok=True)
+        if not parsed:
+            raise ValueError("archive contains no parseable pricebook rows")
+        return tuple(parsed)
 
 def load_supported(path,year,currency="IRR"):
     ext=Path(path).suffix.lower()
