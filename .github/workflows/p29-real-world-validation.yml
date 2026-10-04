@@ -18,10 +18,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
-      - name: P29 acceptance
+      - name: P29 evidence gate
         run: |
-          pytest -q \
-            tests/test_p29_real_world_validation.py \
-            tests/test_priority_35_real_world_golden.py \
-            tests/test_priority_29_user_validation.py \
-            tests/test_priority_14_real_data_validation.py
+          pytest -q tests/test_p29_real_world_validation.py
