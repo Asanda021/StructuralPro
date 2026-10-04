@@ -46,6 +46,7 @@ def main()->int:
         from app.graphical_takeoff import GraphicalTakeoffDialog
         from app.theme import APP_STYLESHEET
         from core.ui.ux import DEFAULT_ACTIONS, navigation_groups, quick_status
+        from core.help.content import topics as help_topics, search as search_help_topics
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
     except ImportError as exc:
@@ -466,19 +467,41 @@ def main()->int:
     v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
     pages.addWidget(p); idx_settings=pages.count()-1
 
-    # Help — concise keyboard and navigation reference for the polished desktop shell.
-    p,v=page("راهنما","راهنمای سریع کار با StructuralPro بدون نیاز به اینترنت")
+    # Help — Persian user guide integrated with the shared offline help catalog.
+    p,v=page("راهنما","راهنمای فارسی مرحله‌به‌مرحله کار با StructuralPro")
+    help_toolbar=QHBoxLayout()
+    help_search=QLineEdit(); help_search.setPlaceholderText("جستجو در راهنما؛ مثال: متره، گزارش، پشتیبان")
+    help_topic=QComboBox()
+    help_toolbar.addWidget(help_search,2); help_toolbar.addWidget(QLabel("موضوع")); help_toolbar.addWidget(help_topic,1)
+    v.addLayout(help_toolbar)
     help_box=QTextEdit(); help_box.setReadOnly(True); help_box.setObjectName("HelpPanel")
-    help_box.setPlainText("\n".join([
-        "شروع سریع",
-        "۱) پروژه بسازید یا باز کنید.\n۲) متره را از ورود سریع یا نقشه انجام دهید.\n۳) BOQ و گزارش را بررسی و خروجی بگیرید.",
-        "",
-        "میانبرها",
-        *[f"{a.shortcut}  —  {a.label}: {a.tooltip}" for a in DEFAULT_ACTIONS],
-        "",
-        "نکته: همه داده‌ها به‌صورت محلی ذخیره می‌شوند و کنترل‌های مهندسی/مالی قبل از خروجی قابل بازبینی هستند."
-    ]))
     v.addWidget(help_box,1)
+
+    def render_help(topic_key=None, query=""):
+        rows=search_help_topics(query)
+        if topic_key:
+            rows=[x for x in rows if x.key==topic_key]
+        if not rows:
+            help_box.setPlainText("راهنمایی برای این جستجو پیدا نشد. عبارت دیگری را امتحان کنید.")
+            return
+        blocks=[]
+        for item in rows:
+            blocks.append(item.title)
+            blocks.append(item.summary)
+            blocks.extend(f"  {i}. {step}" for i,step in enumerate(item.steps,1))
+            blocks.append("")
+        blocks.append("میانبرها")
+        blocks.extend(f"{a.shortcut}  —  {a.label}: {a.tooltip}" for a in DEFAULT_ACTIONS)
+        blocks.append("")
+        blocks.append("نکته: راهنما آفلاین است و اطلاعات پروژه را تغییر نمی‌دهد. موارد مشکوک نقشه و متره باید قبل از ورود به BOQ بررسی و تأیید شوند.")
+        help_box.setPlainText("\n".join(blocks))
+
+    help_topic.addItem("همه موضوعات","")
+    for item in help_topics():
+        help_topic.addItem(item.title,item.key)
+    help_search.textChanged.connect(lambda text: render_help(help_topic.currentData(), text))
+    help_topic.currentIndexChanged.connect(lambda _=0: render_help(help_topic.currentData(), help_search.text()))
+    render_help()
     pages.addWidget(p); idx_help=pages.count()-1
 
     # Project management: floors/drawings/takeoff/BOQ/report workflow
