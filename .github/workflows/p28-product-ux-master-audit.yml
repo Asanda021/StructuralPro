@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install test dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest
       - name: Run P28 UX audit and regression
         run: >
           pytest -q
