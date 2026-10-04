@@ -40,6 +40,10 @@ def _payload(obj: object) -> dict:
     raise TypeError("expected dataclass")
 
 def fingerprint_evidence(evidence: Iterable[ReadinessEvidence]) -> str:
+    evidence = tuple(evidence)
+    for item in evidence:
+        if not item.gate or not item.source or not item.observed:
+            raise ValueError("readiness evidence requires gate, source and observed")
     rows = [_payload(x) for x in evidence]
     rows.sort(key=lambda x: (x["gate"], x["observed"], x["source"]))
     raw = json.dumps(rows, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
