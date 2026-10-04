@@ -1,6 +1,6 @@
 import hashlib
 import pytest
-from core.security.security_hardening_v2 import *
+from core.security_hardening_v2 import *
 def backup(project="p1", payload=b"data"): return BackupArtifact(project,"b1",hashlib.sha256(payload).hexdigest(),"2026-10-04T00:00:00Z")
 def test_authorization_enforces_project_isolation():
     assert authorize(SecurityPrincipal("u1","p1","editor"),"p1",["editor"])
