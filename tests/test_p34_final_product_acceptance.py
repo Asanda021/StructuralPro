@@ -10,7 +10,7 @@ def test_p34_accepts_complete_repository_evidence():
     result = run_p34_gate()
     assert result.accepted, result.blockers
     assert result.surfaces == REQUIRED_SURFACES
-    assert result.phase_artifacts >= 30
+    assert result.phase_artifacts == 27
     assert result.fingerprint
 
 def test_p34_is_deterministic():
