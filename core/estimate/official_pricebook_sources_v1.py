@@ -1,34 +1,61 @@
-"""Official Iranian pricebook source registry.
-Sources point to the Planning and Budget Organization / SAMA publication system.
-Raw files are not embedded until their bytes are actually retrieved and hashed.
+"""Evidence-backed registry for Iranian Abnieh pricebook sources.
+
+The registry records publication/source evidence only. It never embeds rates.
+Direct SAMA pages are used where verified; otherwise the official portal is
+recorded and the row remains a source-catalog entry until the raw bytes are
+retrieved and hashed.
 """
 from dataclasses import dataclass
 from hashlib import sha256
 
 @dataclass(frozen=True)
 class OfficialPricebookSource:
-    year:int
-    discipline:str
-    title:str
-    official_url:str
-    document_type:str
-    circular_date:str
+    year: int
+    discipline: str
+    title: str
+    official_url: str
+    document_type: str
+    circular_date: str
+    source_status: str
 
-SOURCES=(
+SOURCES = (
+    OfficialPricebookSource(1399,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۳۹۹",
+        "https://sama.mporg.ir/","official-publication-portal","1398/12/27","official-portal"),
+    OfficialPricebookSource(1400,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۴۰۰",
+        "https://sama.mporg.ir/","official-publication-portal","1399/12/25","official-portal"),
+    OfficialPricebookSource(1401,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۴۰۱",
+        "https://sama.mporg.ir/sites/publish/SitePages/ZabetehView.aspx?mdid=5681","official-publication-page","1400/12/28","official-page"),
     OfficialPricebookSource(1402,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۴۰۲",
-        "https://sama.mporg.ir/","official-publication-portal",""),
+        "https://sama.mporg.ir/","official-publication-portal","1401/12/28","official-portal"),
+    OfficialPricebookSource(1403,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۴۰۳",
+        "https://sama.mporg.ir/sites/publish/SitePages/ZabetehView.aspx?mdid=5852","official-publication-page","1402/12/26","official-page"),
     OfficialPricebookSource(1404,"ابنیه","فهرست بهای واحد پایه رشته ابنیه سال ۱۴۰۴",
-        "https://sama.mporg.ir/DigitalAsset/DigitalAsset/FehrestBaha1404.rar?Web=1","official-publication-archive","1403/12/29"),
+        "https://sama.mporg.ir/sites/publish/SitePages/ZabetehView.aspx?mdid=5957","official-publication-page","1403/12/29","official-page"),
 )
 
 def validate_sources():
-    if not SOURCES: raise ValueError("official sources required")
+    if not SOURCES:
+        raise ValueError("official sources required")
+    seen=set()
     for s in SOURCES:
         if s.discipline!="ابنیه" or not s.official_url.startswith("https://"):
             raise ValueError("invalid official source")
+        if s.source_status not in {"official-page","official-portal"}:
+            raise ValueError("invalid source status")
+        if s.year in seen:
+            raise ValueError("duplicate source year")
+        seen.add(s.year)
     return True
 
 def registry_fingerprint():
     validate_sources()
-    raw="|".join(f"{s.year}|{s.discipline}|{s.title}|{s.official_url}|{s.document_type}|{s.circular_date}" for s in SOURCES)
+    raw="|".join(
+        f"{s.year}|{s.discipline}|{s.title}|{s.official_url}|{s.document_type}|{s.circular_date}|{s.source_status}"
+        for s in SOURCES
+    )
     return sha256(raw.encode()).hexdigest()
+
+def coverage():
+    validate_sources()
+    years=sorted(s.year for s in SOURCES)
+    return {"discipline":"ابنیه","years":years,"min_year":years[0],"max_year":years[-1],"count":len(years)}
