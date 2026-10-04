@@ -26,7 +26,7 @@ A release is blocked when:
 - an artifact hash or size does not match the generated manifest.
 
 ## Deployment boundary
-This phase provides **real production distribution**, not a fake cloud deployment. StructuralPro remains offline-first and Windows-desktop-first. No external hosted service, database, API key, or cloud runtime is invented as a substitute for the product's actual architecture.
+This phase provides **real production distribution**, not a fake cloud-hosted deployment. StructuralPro remains offline-first and Windows-desktop-first. No external hosted service, database, API key, or cloud runtime is invented as a substitute for the product's actual architecture.
 
 The resulting GitHub Release is the canonical public production distribution channel until a separate hosted service is deliberately specified and verified.
 
