@@ -16,7 +16,7 @@ def valid_payload():
 def test_valid_release_evidence_is_deterministic():
     a = validate_release_evidence(valid_payload())
     b = validate_release_evidence({
-        "checks": [{"status": "success", "name": "ci"}, {"name": "tests", "status": "success"}],
+        "checks": [{"status": "success", "name": "tests"}, {"status": "success", "name": "ci"}],
         "commit": "abc123", "version": "1.0.0", "build_id": "build-941",
     })
     assert a.valid and b.valid
