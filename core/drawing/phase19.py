@@ -109,7 +109,7 @@ class DrawingIntelligenceWorkflow:
             try:
                 scale = scale_from_metadata(
                     {
-                        "unit": adapted.source.metadata.get("unit") or adapted.source.metadata.get("units") or "m",
+                        "unit": adapted.source.metadata.get("unit") or adapted.source.metadata.get("units"),
                         "scale_denominator": scale_evidence.denominator,
                     }
                 )
