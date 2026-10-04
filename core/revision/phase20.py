@@ -62,7 +62,7 @@ class RevisionManagementWorkflow:
         impact = deepcopy(comparison.impact)
         impact["revision_id"] = new.revision_id
         impact["parent_revision_id"] = old.revision_id
-        impact["quantity_delta_present"] = any(x["quantity_changes"] for x in changes)
+        impact["quantity_delta_present"] = any(x.get("quantity_changes") for x in changes)
         impact["affected_sections"] = tuple(sorted({x["section"] for x in changes}))
         history = (
             {"revision_id": old.revision_id, "parent_revision_id": old.parent_revision_id, "label": old.label},
