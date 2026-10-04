@@ -55,6 +55,11 @@ def registry_fingerprint():
     )
     return sha256(raw.encode()).hexdigest()
 
+RAW_FILE_CANDIDATES = {1404: "https://sama.mporg.ir/DigitalAsset/DigitalAsset/FehrestBaha1404.rar?Web=1"}
+
+def raw_file_candidates():
+    return dict(RAW_FILE_CANDIDATES)
+
 def coverage():
     validate_sources()
     years=sorted(s.year for s in SOURCES)
