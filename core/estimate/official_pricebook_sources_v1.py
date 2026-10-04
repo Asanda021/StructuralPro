@@ -71,3 +71,12 @@ def building_1404_coverage():
     present={s.discipline for s in SOURCES if s.year==1404}
     missing=[d for d in BUILDING_1404_DISCIPLINES if d not in present]
     return {"year":1404,"required":list(BUILDING_1404_DISCIPLINES),"present":sorted(present),"missing":missing,"complete":not missing}
+
+BUILDING_SOURCES_1404 = (
+    OfficialPricebookSource(1404,"تاسیسات مکانیکی","فهرست بهای واحد پایه رشته تاسیسات مکانیکی سال ۱۴۰۴","https://sama.mporg.ir/","official-publication-portal","1403/12/29","official-portal"),
+    OfficialPricebookSource(1404,"تاسیسات برقی","فهرست بهای واحد پایه رشته تاسیسات برقی سال ۱۴۰۴","https://sama.mporg.ir/","official-publication-portal","1403/12/29","official-portal"),
+    OfficialPricebookSource(1404,"مرمت بناهای تاریخی","فهرست بهای واحد پایه رشته مرمت بناهای تاریخی سال ۱۴۰۴","https://sama.mporg.ir/","official-publication-portal","1403/12/29","official-portal"),
+)
+
+def all_building_sources():
+    return SOURCES + BUILDING_SOURCES_1404
