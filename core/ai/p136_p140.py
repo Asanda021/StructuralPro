@@ -85,10 +85,17 @@ def run_quality_gate(ctx: AIContext, required_items: Iterable[str] = ()) -> dict
             findings.append(Finding("P140-NEGATIVE-PRICE", "error", f"Estimate '{e.item}' has a negative unit price.", (e.source_id,)))
     errors = sum(f.severity == "error" for f in findings)
     warnings = sum(f.severity == "warning" for f in findings)
-    return {"project_id": ctx.project_id, "scope": ctx.scope,
-            "status": "fail" if errors else ("review" if warnings else "pass"),
-            "errors": errors, "warnings": warnings,
-            "findings": [{"code": f.code, "severity": f.severity, "message": f.message, "sources": list(f.sources) for f in findings]}
+    return {
+        "project_id": ctx.project_id,
+        "scope": ctx.scope,
+        "status": "fail" if errors else ("review" if warnings else "pass"),
+        "errors": errors,
+        "warnings": warnings,
+        "findings": [
+            {"code": f.code, "severity": f.severity, "message": f.message, "sources": list(f.sources)}
+            for f in findings
+        ],
+    }
 
 def deterministic_digest(ctx: AIContext) -> str:
     payload = {"project_id": ctx.project_id, "scope": ctx.scope,
