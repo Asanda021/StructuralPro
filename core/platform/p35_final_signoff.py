@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 import json
 from pathlib import Path
+from core.platform.p34_final_product_acceptance import run_p34_gate
 
 REQUIRED = {
     34: ("core/platform/p34_final_product_acceptance.py","tests/test_p34_final_product_acceptance.py","docs/P34_FINAL_PRODUCT_ACCEPTANCE.md"),
@@ -31,6 +32,10 @@ def run_p35_gate() -> P35Result:
         text=p34.read_text(encoding="utf-8")
         if "run_p34_gate" not in text:
             blockers.append("P34 acceptance gate contract missing")
+        else:
+            result = run_p34_gate()
+            if not result.accepted:
+                blockers.extend(f"P34 gate failed:{item}" for item in result.blockers)
     payload={"surfaces":REQUIRED_SURFACES,"p34_required":True,"signed_off":not blockers}
     fp=sha256(json.dumps(payload,sort_keys=True,separators=(",",":")).encode()).hexdigest()
     return P35Result(not blockers,REQUIRED_SURFACES,tuple(sorted(blockers)),fp)
