@@ -9,6 +9,12 @@ from pathlib import Path
 from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
+# Running a script from scripts/ puts that directory first on sys.path.
+# Add the repository root so the package imports work both locally and in CI.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from core.estimate.pricebook_row_extraction_v2 import extract_xlsx
 
 ARCHIVE_INDEX = "https://fehrestbaha.github.io/"
@@ -78,7 +84,7 @@ def slug(s):
     return re.sub(r"[^a-z0-9]+","_",s.lower()).strip("_")
 
 def main():
-    root=Path(__file__).resolve().parents[1]
+    root=ROOT
     raw=root/"data/pricebooks/raw"
     norm=root/"data/pricebooks/normalized"
     index_links=links_from(ARCHIVE_INDEX)
