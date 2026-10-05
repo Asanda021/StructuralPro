@@ -78,7 +78,7 @@ def slug(s):
     return re.sub(r"[^a-z0-9]+","_",s.lower()).strip("_")
 
 def main():
-    root=Path(__file__).resolve().parents[2]
+    root=Path(__file__).resolve().parents[1]
     raw=root/"data/pricebooks/raw"
     norm=root/"data/pricebooks/normalized"
     index_links=links_from(ARCHIVE_INDEX)
