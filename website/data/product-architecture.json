@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "title": "StructuralPro Product Architecture",
+  "commercial_model": {
+    "specialized_products": 29,
+    "enterprise_platforms": 1
+  },
+  "product_detail_template": {
+    "required_sections": [
+      "Hero",
+      "Problem",
+      "Workflow",
+      "Capabilities",
+      "Product visual",
+      "Target users",
+      "Integrations",
+      "AI/BIM",
+      "Outputs",
+      "Resources",
+      "CTA"
+    ],
+    "actions": [
+      "Learn More",
+      "Get Started"
+    ],
+    "integrity_rules": [
+      "Never claim unreleased capability as released",
+      "Use planned/available/integration labels when applicable",
+      "No fake screenshots, customer claims or unsupported certifications"
+    ]
+  },
+  "card_rules": {
+    "required": [
+      "name",
+      "category",
+      "short_description",
+      "target_users",
+      "key_capabilities"
+    ],
+    "optional": [
+      "status",
+      "visual",
+      "learn_more",
+      "get_started"
+    ],
+    "max_capabilities_on_card": 4
+  },
+  "categories": [
+    "Takeoff & Estimating",
+    "Project & Commercial Management",
+    "BIM, AI & Intelligence",
+    "Engineering",
+    "Enterprise"
+  ],
+  "routing": [
+    "/products",
+    "/products/{product-id}",
+    "/products/category/{category-id}"
+  ],
+  "search_filters": [
+    "category",
+    "discipline",
+    "workflow",
+    "role",
+    "availability"
+  ],
+  "display_rule": "Show category and role context before exposing the full 30-item catalog."
+}
