@@ -48,15 +48,17 @@ jobs:
           assert len({(c["year"],c["discipline"]) for c in cells})==24
           print("24/24 cells verified with priced rows, URLs and SHA-256 provenance")
           PY
-      - name: Commit imported pricebooks
+      - name: Publish imported pricebooks on automation branch
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/pricebooks
           if git diff --cached --quiet; then
-            echo "No pricebook changes to commit."
-          else
-            git commit -m "data: sync 24 Iranian building pricebooks"
-            git push
+            echo "No pricebook changes to publish."
+            exit 0
           fi
+          branch="automation/p100-pricebook-sync-${GITHUB_RUN_ID}"
+          git switch -c "$branch"
+          git commit -m "data: sync 24 Iranian building pricebooks"
+          git push --set-upstream origin "$branch"
