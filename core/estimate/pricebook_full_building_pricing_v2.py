@@ -30,3 +30,33 @@ def price_full_building(takeoff_rows,pricebook_rows,year,discipline):
         priced.append({"takeoff_id":str(item["takeoff_id"]),"year":year,"discipline":discipline,"item_code":row.item_code,"unit":row.unit,"quantity":qty,"unit_price":row.unit_price,"total":qty*row.unit_price,"source_sha256":row.source_sha256,"source_file":row.source_file})
     if unresolved: raise ValueError("unresolved production pricebook rows: "+",".join(unresolved))
     return tuple(priced)
+
+
+def price_full_building_project(takeoff_rows, pricebook_rows, year):
+    """Price a complete multi-discipline building takeoff fail-closed."""
+    normalized = normalize_rows(pricebook_rows)
+    by_key = {}
+    for row in normalized:
+        if row.year != int(year):
+            continue
+        key = (row.discipline, code_key(row.item_code, row.unit))
+        previous = by_key.get(key)
+        if previous is not None and previous.unit_price != row.unit_price:
+            raise ValueError("conflicting code/unit price")
+        by_key[key] = row
+    if not by_key:
+        raise ValueError("pricebook year dataset is empty")
+    priced, unresolved = [], []
+    for item in takeoff_rows:
+        key = (str(item.get("discipline", "")), code_key(item.get("item_code"), item.get("unit")))
+        row = by_key.get(key)
+        if row is None:
+            unresolved.append(str(item.get("takeoff_id", "")))
+            continue
+        qty = float(item["quantity"])
+        if qty < 0:
+            raise ValueError("negative takeoff quantity")
+        priced.append({"takeoff_id":str(item["takeoff_id"]),"year":int(year),"discipline":row.discipline,"item_code":row.item_code,"unit":row.unit,"quantity":qty,"unit_price":row.unit_price,"total":qty*row.unit_price,"source_sha256":row.source_sha256,"source_file":row.source_file})
+    if unresolved:
+        raise ValueError("unresolved production pricebook rows: "+",".join(unresolved))
+    return tuple(priced)
