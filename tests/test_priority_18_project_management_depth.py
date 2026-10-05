@@ -41,10 +41,13 @@ def test_priority18_application_persistence():
     from tempfile import TemporaryDirectory
     with TemporaryDirectory() as tmp:
         app = StructuralProApp(tmp)
-        app.create_project("Demo", "P1")
-        manager = ProjectManagement(tasks=[ScheduleTask("T1", "Foundation", "2026-01-01", "2026-01-05", progress=25)])
-        snap = app.save_project_management("P1", manager)
-        assert snap["project_id"] == "P1"
-        assert snap["dashboard"]["task_count"] == 1
-        loaded = app.project_management_snapshot("P1", as_of="2026-01-10")
-        assert loaded["actual_vs_plan"][0]["progress"] == 25
+        try:
+            app.create_project("Demo", "P1")
+            manager = ProjectManagement(tasks=[ScheduleTask("T1", "Foundation", "2026-01-01", "2026-01-05", progress=25)])
+            snap = app.save_project_management("P1", manager)
+            assert snap["project_id"] == "P1"
+            assert snap["dashboard"]["task_count"] == 1
+            loaded = app.project_management_snapshot("P1", as_of="2026-01-10")
+            assert loaded["actual_vs_plan"][0]["progress"] == 25
+        finally:
+            app.store.close()
