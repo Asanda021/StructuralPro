@@ -47,6 +47,19 @@ def test_p101_scaled_pricing():
                    [R("12-3","m3",100)],1404,"ابنیه")
     assert out[0]["total"]==200
 
+def test_p101_unpriced_row_fails_closed():
+    class R:
+        def __init__(self):
+            self.year=1404; self.discipline="ابنیه"; self.item_code="12-3"
+            self.unit="m3"; self.unit_price=None
+    try:
+        price_rows([{"takeoff_id":"1","item_code":"12-3","unit":"m3","quantity":2}],
+                   [R()],1404,"ابنیه")
+    except ValueError as exc:
+        assert str(exc)=="unpriced pricebook row: 12-3/m3"
+    else:
+        raise AssertionError("unpriced pricebook rows must fail closed")
+
 def test_p102_all_disciplines_contract():
     rules=[QuantityRule(f"r{i}",d,"source","v1",f"c{i}","m","quantity") for i,d in enumerate(DISCIPLINES)]
     assert validate_registry(rules)["complete"]
