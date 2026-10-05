@@ -1,156 +1,79 @@
 from __future__ import annotations
-import hashlib
-import json
-import re
-import sys
-import time
+import hashlib,json,re,sys,time
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
+from urllib.request import Request,urlopen
+ROOT=Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from core.estimate.pricebook_row_extraction_v2 import extract_xlsx
-
-ARCHIVE_INDEX = "https://fehrestbaha.github.io/"
-OFFICIAL_INDEX = "https://acco.ir/فهرست-بها"
-YEARS = range(1399, 1405)
-DISCIPLINES = ("ابنیه", "تاسیسات مکانیکی", "تاسیسات برقی", "مرمت بناهای تاریخی")
-
-def norm_text(value: str) -> str:
-    value = value.replace("ي", "ی").replace("ك", "ک").replace("\u200c", " ")
-    return re.sub(r"\s+", " ", value).strip()
-
-class ArchiveParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.rows = []
-        self._in_row = False
-        self._row_text = []
-        self._row_links = []
-        self._href = None
-        self._link_text = []
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if tag == "tr":
-            self._in_row = True
-            self._row_text = []
-            self._row_links = []
-        elif self._in_row and tag == "a":
-            self._href = attrs.get("href")
-            self._link_text = []
-
-    def handle_data(self, data):
-        if not self._in_row:
-            return
-        if self._href is not None:
-            self._link_text.append(data)
-        self._row_text.append(data)
-
-    def handle_endtag(self, tag):
-        if tag == "a" and self._href is not None:
-            self._row_links.append((" ".join(self._link_text), self._href))
-            self._href = None
-            self._link_text = []
-        elif tag == "tr" and self._in_row:
-            self.rows.append((norm_text(" ".join(self._row_text)), list(self._row_links)))
-            self._in_row = False
-
-def get(url: str):
-    req = Request(url, headers={"User-Agent": "StructuralPro-PricebookSync/2.0"})
-    with urlopen(req, timeout=90) as response:
-        return response.read(), response.headers.get("Content-Type", "")
-
-def archive_rows(url: str):
-    body, _ = get(url)
-    parser = ArchiveParser()
-    parser.feed(body.decode("utf-8", "ignore"))
-    return parser.rows
-
-def find_download_page(rows, year: int, discipline: str):
-    wanted = norm_text(f"دانلود فایل اکسل فهرست بهای واحد پایه رشته {discipline} سال {year}")
-    candidates = []
-    for row_text, links in rows:
-        if wanted in row_text:
-            candidates.extend(urljoin(ARCHIVE_INDEX, href) for _, href in links if href)
-    if not candidates:
-        needle = norm_text(f"فهرست بهای واحد پایه رشته {discipline} سال {year}")
-        for row_text, links in rows:
-            if needle in row_text and links:
-                candidates.extend(urljoin(ARCHIVE_INDEX, href) for _, href in links if href)
-    if not candidates:
-        raise RuntimeError(f"archive page not found: {wanted}")
-    return candidates[0]
-
-def find_excel(page_url: str):
-    body, _ = get(page_url)
-    parser = ArchiveParser()
-    parser.feed(body.decode("utf-8", "ignore"))
-    candidates = []
-    for _, links in parser.rows:
-        for text, href in links:
-            low = norm_text(f"{text} {href}").lower()
-            if href.lower().endswith((".xlsx", ".xls", ".zip", ".rar")) or "excel" in low or "اکسل" in low or "drive.google.com" in href.lower() or "download" in low:
-                candidates.append(urljoin(page_url, href))
-    if not candidates:
-        raise RuntimeError(f"excel/download link not found: {page_url}")
-    return candidates[-1]
-
-def download(url: str, dst: Path):
-    data, ctype = get(url)
-    if not data or len(data) < 1024:
-        raise RuntimeError(f"empty/suspicious download: {url}")
-    sample = data[:1024].lower()
-    if b"<html" in sample or b"<!doctype" in sample:
-        raise RuntimeError(f"HTML returned instead of file: {url}")
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_bytes(data)
-    return hashlib.sha256(data).hexdigest(), len(data), ctype
-
-def slug(value: str):
-    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_") or "pricebook"
-
+ARCHIVE_INDEX="https://fehrestbaha.github.io/"
+OFFICIAL_INDEX="https://acco.ir/فهرست-بها"
+YEARS=range(1399,1405)
+DISCIPLINES=("ابنیه","تاسیسات مکانیکی","تاسیسات برقی","مرمت بناهای تاریخی")
+def norm_text(v): return re.sub(r"\s+"," ",v.replace("ي","ی").replace("ك","ک").replace("\u200c"," ")).strip()
+class Parser(HTMLParser):
+    def __init__(self): super().__init__(); self.rows=[]; self.row=False; self.text=[]; self.href=None; self.ltxt=[]; self.links=[]
+    def handle_starttag(self,t,a):
+        a=dict(a)
+        if t=="tr": self.row=True; self.text=[]; self.links=[]
+        elif self.row and t=="a": self.href=a.get("href"); self.ltxt=[]
+    def handle_data(self,d):
+        if self.row:
+            self.text.append(d)
+            if self.href is not None: self.ltxt.append(d)
+    def handle_endtag(self,t):
+        if t=="a" and self.href is not None: self.links.append((" ".join(self.ltxt),self.href)); self.href=None; self.ltxt=[]
+        elif t=="tr" and self.row: self.rows.append((norm_text(" ".join(self.text)),list(self.links))); self.row=False
+def get(url):
+    req=Request(url,headers={"User-Agent":"StructuralPro-PricebookSync/3.0"})
+    with urlopen(req,timeout=90) as r: return r.read(),r.headers.get("Content-Type","")
+def rows(url):
+    p=Parser(); body,_=get(url); p.feed(body.decode("utf-8","ignore")); return p.rows
+def find_page(all_rows,y,d):
+    needles=(norm_text(f"فهرست بهای واحد پایه رشته {d} سال {y}"),norm_text(f"فهرست بها {d} سال {y}"))
+    for needle in needles:
+        for txt,links in all_rows:
+            if needle in txt and links: return urljoin(ARCHIVE_INDEX,links[0][1])
+    return None
+def links(page):
+    p=Parser(); body,_=get(page); p.feed(body.decode("utf-8","ignore")); out=[]
+    for _,ls in p.rows:
+        for txt,href in ls:
+            if not href: continue
+            low=norm_text(f"{txt} {href}").lower()
+            if href.lower().split("?")[0].endswith((".xlsx",".xls")) or any(k in low for k in ("excel","اکسل","download","دانلود","drive.google.com","picofile")): out.append(urljoin(page,href))
+    return list(dict.fromkeys(out))
+def download(url,dst):
+    data,ctype=get(url)
+    if len(data)<1024 or b"<html" in data[:1024].lower() or b"<!doctype" in data[:1024].lower(): raise RuntimeError("non-file response")
+    dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(data)
+    return hashlib.sha256(data).hexdigest(),len(data),ctype
+def slug(v): return re.sub(r"[^a-z0-9]+","_",v.lower()).strip("_") or "pricebook"
 def main():
-    root = ROOT
-    raw = root / "data/pricebooks/raw"
-    norm = root / "data/pricebooks/normalized"
-    (root / "data/pricebooks").mkdir(parents=True, exist_ok=True)
-    rows = archive_rows(ARCHIVE_INDEX)
-    manifest = {"index": ARCHIVE_INDEX, "official_index": OFFICIAL_INDEX, "generated_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "cells": []}
-    failures = []
-    for year in YEARS:
-        for discipline in DISCIPLINES:
+    root=ROOT; raw=root/"data/pricebooks/raw"; norm=root/"data/pricebooks/normalized"; (root/"data/pricebooks").mkdir(parents=True,exist_ok=True)
+    all_rows=rows(ARCHIVE_INDEX); manifest={"index":ARCHIVE_INDEX,"official_index":OFFICIAL_INDEX,"cells":[]}; failures=[]
+    for y in YEARS:
+      for d in DISCIPLINES:
+       try:
+        page=find_page(all_rows,y,d)
+        if not page: raise RuntimeError("archive discovery failed")
+        candidates=links(page); parsed=None
+        for url in candidates:
+            if Path(url.split("?")[0]).suffix.lower() not in (".xlsx",".xls"): continue
             try:
-                page = find_download_page(rows, year, discipline)
-                file_url = find_excel(page)
-                dst = raw / str(year) / (slug(discipline) + ".xlsx")
-                digest, size, _ = download(file_url, dst)
-                extracted = extract_xlsx(dst, year, discipline)
-                if not extracted:
-                    raise RuntimeError("zero extracted rows")
-                out = norm / str(year) / (slug(discipline) + ".jsonl")
-                out.parent.mkdir(parents=True, exist_ok=True)
-                with out.open("w", encoding="utf-8") as fh:
-                    for item in extracted:
-                        fh.write(json.dumps({"year": item.year, "discipline": item.discipline, "item_code": item.item_code, "description": item.description, "unit": item.unit, "unit_price": item.unit_price, "source_sha256": item.source_sha256, "source_file": item.source_file, "source_sheet": item.source_sheet}, ensure_ascii=False) + "\n")
-                manifest["cells"].append({"year": year, "discipline": discipline, "source_tier": "archive", "archive_page": page, "download_url": file_url, "local_file": str(dst.relative_to(root)), "normalized_file": str(out.relative_to(root)), "sha256": digest, "bytes": size, "rows": len(extracted), "priced_rows": sum(item.unit_price is not None for item in extracted)})
-                print(f"OK {year} {discipline}: {len(extracted)} rows")
-            except Exception as exc:
-                failures.append({"year": year, "discipline": discipline, "error": str(exc)})
-                print(f"FAIL {year} {discipline}: {exc}", file=sys.stderr)
-    manifest_path = root / "data/pricebooks/manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                dst=raw/str(y)/(slug(d)+".xlsx"); digest,size,ctype=download(url,dst); extracted=extract_xlsx(dst,y,d)
+                if extracted: parsed=(url,digest,size,dst,extracted); break
+            except Exception: continue
+        if parsed is None: raise RuntimeError(f"no parseable XLSX among {len(candidates)} candidates")
+        url,digest,size,dst,extracted=parsed; out=norm/str(y)/(slug(d)+".jsonl"); out.parent.mkdir(parents=True,exist_ok=True)
+        with out.open("w",encoding="utf-8") as f:
+            for x in extracted: f.write(json.dumps({"year":x.year,"discipline":x.discipline,"item_code":x.item_code,"description":x.description,"unit":x.unit,"unit_price":x.unit_price,"source_sha256":x.source_sha256,"source_file":x.source_file,"source_sheet":x.source_sheet},ensure_ascii=False)+"\n")
+        manifest["cells"].append({"year":y,"discipline":d,"source_tier":"archive","archive_page":page,"download_url":url,"local_file":str(dst.relative_to(root)),"normalized_file":str(out.relative_to(root)),"sha256":digest,"bytes":size,"rows":len(extracted),"priced_rows":sum(x.unit_price is not None for x in extracted)})
+        print(f"OK {y} {d}: {len(extracted)} rows")
+       except Exception as e: failures.append({"year":y,"discipline":d,"error":str(e)}); print(f"FAIL {y} {d}: {e}",file=sys.stderr)
+    (root/"data/pricebooks/manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     if failures:
-        (root / "data/pricebooks/failures.json").write_text(json.dumps(failures, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        raise SystemExit(f"{len(failures)}/24 pricebook cells failed")
-    failure_file = root / "data/pricebooks/failures.json"
-    if failure_file.exists():
-        failure_file.unlink()
+        (root/"data/pricebooks/failures.json").write_text(json.dumps(failures,ensure_ascii=False,indent=2)+"\n",encoding="utf-8"); raise SystemExit(f"{len(failures)}/24 pricebook cells failed")
     print("ALL 24 PRICEBOOK CELLS EXTRACTED")
-
-if __name__ == "__main__":
-    main()
+if __name__=="__main__": main()
