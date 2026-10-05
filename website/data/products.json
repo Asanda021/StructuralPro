@@ -1,0 +1,155 @@
+{
+  "schema_version": "1.0",
+  "ecosystem_label": "30 Products. One AEC Ecosystem.",
+  "specialized_product_count": 29,
+  "enterprise_platform_count": 1,
+  "categories": [
+    {
+      "id": "takeoff-estimating",
+      "name": "Takeoff & Estimating",
+      "products": [
+        {
+          "id": "takeoff",
+          "name": "StructuralPro Takeoff"
+        },
+        {
+          "id": "cad-takeoff",
+          "name": "StructuralPro CAD Takeoff"
+        },
+        {
+          "id": "bim-takeoff",
+          "name": "StructuralPro BIM Takeoff"
+        },
+        {
+          "id": "boq",
+          "name": "StructuralPro BOQ"
+        },
+        {
+          "id": "estimating",
+          "name": "StructuralPro Estimating"
+        }
+      ]
+    },
+    {
+      "id": "project-commercial",
+      "name": "Project & Commercial Management",
+      "products": [
+        {
+          "id": "technical-office",
+          "name": "StructuralPro Technical Office"
+        },
+        {
+          "id": "site-supervisor",
+          "name": "StructuralPro Site Supervisor"
+        },
+        {
+          "id": "project-controls",
+          "name": "StructuralPro Project Controls"
+        },
+        {
+          "id": "project-manager",
+          "name": "StructuralPro Project Manager"
+        },
+        {
+          "id": "cost-control",
+          "name": "StructuralPro Cost Control"
+        },
+        {
+          "id": "contract-claims",
+          "name": "StructuralPro Contract & Claims"
+        },
+        {
+          "id": "procurement",
+          "name": "StructuralPro Procurement"
+        }
+      ]
+    },
+    {
+      "id": "bim-ai-intelligence",
+      "name": "BIM, AI & Intelligence",
+      "products": [
+        {
+          "id": "bim-coordination",
+          "name": "StructuralPro BIM & Coordination"
+        },
+        {
+          "id": "ai-assistant",
+          "name": "StructuralPro AI & AEC Assistant"
+        },
+        {
+          "id": "reports-intelligence",
+          "name": "StructuralPro Reports & Intelligence"
+        },
+        {
+          "id": "price-cost-intelligence",
+          "name": "StructuralPro Price & Cost Intelligence"
+        }
+      ]
+    },
+    {
+      "id": "engineering",
+      "name": "Engineering",
+      "products": [
+        {
+          "id": "structural-analysis-design",
+          "name": "StructuralPro Structural Analysis & Design"
+        },
+        {
+          "id": "geotechnical",
+          "name": "StructuralPro Geotechnical"
+        },
+        {
+          "id": "architecture",
+          "name": "StructuralPro Architecture"
+        },
+        {
+          "id": "mep",
+          "name": "StructuralPro MEP"
+        },
+        {
+          "id": "civil-site",
+          "name": "StructuralPro Civil & Site"
+        },
+        {
+          "id": "concrete-engineering",
+          "name": "StructuralPro Concrete Engineering"
+        },
+        {
+          "id": "steel-engineering",
+          "name": "StructuralPro Steel Engineering"
+        },
+        {
+          "id": "masonry-engineering",
+          "name": "StructuralPro Masonry Engineering"
+        },
+        {
+          "id": "timber-engineering",
+          "name": "StructuralPro Timber Engineering"
+        },
+        {
+          "id": "composite-structures",
+          "name": "StructuralPro Composite Structures"
+        },
+        {
+          "id": "precast",
+          "name": "StructuralPro Precast"
+        },
+        {
+          "id": "special-structures",
+          "name": "StructuralPro Special Structures"
+        }
+      ]
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "products": [
+        {
+          "id": "aec-enterprise",
+          "name": "StructuralPro AEC Enterprise",
+          "platform": true
+        }
+      ]
+    }
+  ]
+}
