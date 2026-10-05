@@ -84,7 +84,7 @@ class TakeoffTraceabilityV2:
         for q in quantities:
             for sid in getattr(q,"source_ids",()):
                 sid=str(sid).strip()
-                if sid: qmap.setdefault(sid,[]).append(str(q.quantity_id))
+                if sid: qmap.setdefault(sid,[]).append(str(getattr(q,"quantity_id",getattr(q,"fingerprint",""))))
         out=[]
         for sid in sorted({str(x).strip() for x in source_ids if str(x).strip()}):
             es=tuple(sorted(set(emap.get(sid,())))); qs=tuple(sorted(set(qmap.get(sid,()))))
