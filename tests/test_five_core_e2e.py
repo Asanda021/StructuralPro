@@ -1,4 +1,5 @@
 """End-to-end acceptance gate for the five commercial core areas."""
+import os
 import stat
 
 from core.drawings.dwg_converter import OfflineDWGConverter
@@ -11,9 +12,13 @@ from core.reports.quality import prepare_rows, summary
 
 
 def _fake_converter(tmp_path):
-    exe = tmp_path / "dwg2dxf"
-    exe.write_text("#!/bin/sh\ncp \"$1\" \"$2\"\n", encoding="utf-8")
-    exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+    if os.name == "nt":
+        exe = tmp_path / "dwg2dxf.cmd"
+        exe.write_text("@echo off\r\ncopy /Y "%~1" "%~2" >nul\r\n", encoding="utf-8")
+    else:
+        exe = tmp_path / "dwg2dxf"
+        exe.write_text("#!/bin/sh\ncp "$1" "$2"\n", encoding="utf-8")
+        exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
     return exe
 
 
@@ -42,20 +47,15 @@ EOF
 
 
 def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
-    # 1) PDF graphical takeoff: calibration + length + area with opening.
     pdf = PDFMeasurementSession()
     pdf.calibrate(1000, 10, "m")
     line = pdf.add_length(1, [(0, 0), (300, 400)], label="دیوار")
-    area = pdf.add_area(
-        1,
-        [(0, 0), (1000, 0), (1000, 1000), (0, 1000)],
-        holes=[[(200, 200), (400, 200), (400, 400), (200, 400)]],
-        label="کف",
-    )
+    area = pdf.add_area(1, [(0, 0), (1000, 0), (1000, 1000), (0, 1000)],
+                        holes=[[(200, 200), (400, 200), (400, 400), (200, 400)]],
+                        label="کف")
     assert round(line.quantity, 6) == 5.0
     assert round(area.quantity, 6) == 96.0
 
-    # 2) DWG/DXF: real converter boundary + normalized geometry.
     exe = _fake_converter(tmp_path)
     source = tmp_path / "plan.dwg"
     source.write_text(_dxf(), encoding="utf-8")
@@ -65,17 +65,13 @@ def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
     drawing = DWGTakeoffEngine().import_file(source)
     assert drawing.entities and drawing.entities[0].data["length"] == 5.0
 
-    # 3) IFC/BIM: duplicate-safe normalization + price mapping.
     bim = normalize_bim_rows([
-        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"},
-         "quantities": {"Length": 5}},
-        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"},
-         "quantities": {"Length": 5}},
+        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"}, "quantities": {"Length": 5}},
+        {"global_id": "A", "ifc_type": "IfcWall", "properties": {"Level": "1"}, "quantities": {"Length": 5}},
     ])
     mapped = map_bim_to_price(bim, {"IfcWall": "W001"}, strict=True)
     assert len(mapped) == 1 and mapped[0]["price_code"] == "W001"
 
-    # 4) Annual price catalog: year selection must resolve the selected dataset.
     catalog = PriceCatalog([
         PriceItem(1404, "ابنیه", "فصل 1", "W001", "دیوار", "m", 1000),
         PriceItem(1405, "ابنیه", "فصل 1", "W001", "دیوار", "m", 1200),
@@ -83,21 +79,15 @@ def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
     assert catalog.get("W001", 1404).unit_price == 1000
     assert catalog.get("W001", 1405).unit_price == 1200
 
-    # 5) Progress/payment: previous + current + remaining + deductions.
     progress = build_progress(
-        [{"contract_quantity": line.quantity, "previous_quantity": 2,
-          "current_quantity": 1, "unit_price": 1200}],
-        deductions=[100],
-        payments=[500],
+        [{"contract_quantity": line.quantity, "previous_quantity": 2, "current_quantity": 1, "unit_price": 1200}],
+        deductions=[100], payments=[500],
     )
     assert progress["lines"][0]["cumulative_quantity"] == 3
     assert progress["payable_current"] == 1100
     assert progress["balance_current"] == 600
 
-    # Final commercial report path.
-    rows = prepare_rows([
-        {"source": "PDF", "price_code": "W001", "description": "دیوار",
-         "quantity": 1, "unit": "m", "unit_price": 1200}
-    ], "fa")
+    rows = prepare_rows([{"source": "PDF", "price_code": "W001", "description": "دیوار",
+                          "quantity": 1, "unit": "m", "unit_price": 1200}], "fa")
     assert summary(rows)["grand_total"] == 1200
     assert summary(rows)["rtl"] is True
