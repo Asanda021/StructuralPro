@@ -1,7 +1,7 @@
 name: P106-P110 Production Acceptance
 on:
   push:
-    branches: ["phase/p106-p110-production-acceptance"]
+    branches: ["main", "phase/p106-p110-production-acceptance"]
   pull_request:
     branches: ["main"]
 jobs:
