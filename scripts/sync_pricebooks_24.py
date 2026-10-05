@@ -2,7 +2,7 @@ from __future__ import annotations
 import hashlib,json,re,sys
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import parse_qs,urljoin,urlparse,urlunparse
 from urllib.request import Request,urlopen
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
@@ -33,8 +33,8 @@ class Parser(HTMLParser):
             self.rows.append((norm_text(" ".join(self.text)),list(self.links))); self.row=False
 
 def get(url):
-    req=Request(url,headers={"User-Agent":"StructuralPro-PricebookSync/4.0"})
-    with urlopen(req,timeout=90) as r: return r.read(),r.headers.get("Content-Type","")
+    req=Request(url,headers={"User-Agent":"StructuralPro-PricebookSync/5.0","Accept":"*/*"})
+    with urlopen(req,timeout=120) as r: return r.read(),r.headers.get("Content-Type","")
 
 def rows(url):
     p=Parser(); body,_=get(url); p.feed(body.decode("utf-8","ignore")); return p.rows
@@ -52,7 +52,6 @@ def links(page):
         for txt,href in ls:
             if not href: continue
             low=norm_text(f"{txt} {href}").lower()
-            # Google Drive download links frequently have no .xlsx suffix.
             direct_ext=href.lower().split("?")[0].endswith((".xlsx",".xls"))
             download_host=any(h in href.lower() for h in ("drive.google.com","drive.usercontent.google.com","1drv.ms","onedrive.live.com"))
             labeled_download=any(k in low for k in ("excel","اکسل","download","دانلود"))
@@ -60,13 +59,31 @@ def links(page):
                 out.append(urljoin(page,href))
     return list(dict.fromkeys(out))
 
+def google_drive_variants(url):
+    u=urlparse(url)
+    q=parse_qs(u.query)
+    file_id=(q.get("id") or [None])[0]
+    if not file_id: return [url]
+    return list(dict.fromkeys([
+        url,
+        f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t",
+        f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t",
+    ]))
+
 def download(url,dst):
-    data,ctype=get(url)
-    head=data[:2048].lower()
-    if len(data)<1024 or b"<html" in head or b"<!doctype" in head:
-        raise RuntimeError("non-file response")
-    dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(data)
-    return hashlib.sha256(data).hexdigest(),len(data),ctype
+    last=None
+    for candidate in google_drive_variants(url):
+        try:
+            data,ctype=get(candidate)
+            head=data[:4096].lower()
+            # XLSX is a ZIP container and starts with PK; HTML is never accepted.
+            if len(data)<1024 or b"<html" in head or b"<!doctype" in head or b"<title" in head:
+                raise RuntimeError("non-file response")
+            dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(data)
+            return hashlib.sha256(data).hexdigest(),len(data),ctype,candidate
+        except Exception as exc:
+            last=exc
+    raise RuntimeError(f"download failed: {last}")
 
 def slug(v):
     return re.sub(r"[^a-z0-9]+","_",v.lower()).strip("_") or "pricebook"
@@ -85,10 +102,10 @@ def main():
         for url in candidates:
             try:
                 dst=raw/str(y)/(slug(d)+".xlsx")
-                digest,size,ctype=download(url,dst)
+                digest,size,ctype,used_url=download(url,dst)
                 extracted=extract_xlsx(dst,y,d)
                 if extracted:
-                    parsed=(url,digest,size,dst,extracted); break
+                    parsed=(used_url,digest,size,dst,extracted); break
             except Exception:
                 continue
         if parsed is None:
