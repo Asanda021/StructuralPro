@@ -3,6 +3,8 @@ name: P100 Pricebook Archive Sync
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +17,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PYTHONPATH: .
     steps:
@@ -30,6 +32,7 @@ jobs:
       - name: Download and extract 24 pricebooks
         run: python scripts/sync_pricebooks_24.py
       - name: Remove raw archives from repository payload
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: rm -rf data/pricebooks/raw
       - name: Verify 24-cell production matrix
         run: |
@@ -39,10 +42,12 @@ jobs:
           m=json.loads(Path("data/pricebooks/manifest.json").read_text(encoding="utf-8"))
           cells=m["cells"]
           assert len(cells)==24, f"expected 24 cells, got {len(cells)}"
-          assert all(c["rows"]>0 and c["sha256"] for c in cells)
-          print("24/24 cells verified")
+          assert all(c["rows"]>0 and c["priced_rows"]>0 and c["sha256"] and c["download_url"] for c in cells)
+          assert len({(c["year"],c["discipline"]) for c in cells})==24
+          print("24/24 cells verified with priced rows, URLs and SHA-256 provenance")
           PY
       - name: Commit imported pricebooks
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
