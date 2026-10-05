@@ -3,6 +3,7 @@ name: P100 Pricebook Archive Sync
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -43,6 +44,7 @@ jobs:
           print("24/24 cells verified")
           PY
       - name: Commit imported pricebooks
+        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
