@@ -31,6 +31,8 @@ def price_rows(takeoff_rows,normalized_rows,year,discipline):
         else:
             qty=float(item["quantity"])
             if qty<0: raise ValueError("negative takeoff quantity")
+            if row.unit_price is None:
+                raise ValueError(f"unpriced pricebook row: {row.item_code}/{row.unit}")
             priced.append({"takeoff_id":str(item["takeoff_id"]),"item_code":row.item_code,
                            "unit":row.unit,"quantity":qty,"unit_price":row.unit_price,
                            "total":qty*row.unit_price})
