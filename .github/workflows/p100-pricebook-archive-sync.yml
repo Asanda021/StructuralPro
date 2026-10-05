@@ -1,5 +1,6 @@
 # P100 production sync: push-triggered verification is intentional.
 # P100 rerun trigger: main verification after anchor-discovery fix.
+# P100 post-merge verification trigger: keep production data publication observable.
 name: P100 Pricebook Archive Sync
 
 on:
