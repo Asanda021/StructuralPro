@@ -8,7 +8,8 @@ from typing import Mapping, Sequence
 class BOQLineage:
     boq_id:str; quantity_id:str; element_id:str; source_ids:tuple[str,...]; description:str; quantity:float; unit:str; status:str="accepted"
     def validate(self):
-        if not all(x.strip() for x in (self.boq_id,self.quantity_id,self.element_id,self.description,self.unit)): raise ValueError("complete BOQ lineage is required")
+        if not all(x.strip() for x in (self.boq_id,self.quantity_id,self.element_id,self.unit)): raise ValueError("complete BOQ identity is required")
+        if self.status=="accepted" and not self.description.strip(): raise ValueError("accepted BOQ line requires description")
         if self.quantity<0: raise ValueError("quantity cannot be negative")
         if self.status not in {"accepted","review","rejected"}: raise ValueError("invalid BOQ status")
         if self.status=="accepted" and not self.source_ids: raise ValueError("accepted BOQ line requires source identity")
@@ -52,8 +53,7 @@ class BOQPropagationWorkflow:
             out.append(BOQImpact(k,y.element_id,tuple(ch),x.quantity,y.quantity,imp).validate())
         return tuple(out)
     @staticmethod
-    def fingerprints(lines):
-        return tuple(sorted("line-"+sha256("|".join((x.boq_id,x.quantity_id,x.element_id,x.description,str(x.quantity),x.unit,x.status,*x.source_ids)).encode()).hexdigest()[:16] for x in lines))
+    def fingerprints(lines): return tuple(sorted("line-"+sha256("|".join((x.boq_id,x.quantity_id,x.element_id,x.description,str(x.quantity),x.unit,x.status,*x.source_ids)).encode()).hexdigest()[:16] for x in lines))
     @staticmethod
     def unresolved(lines): return tuple(x for x in lines if x.status!="accepted")
     @staticmethod
