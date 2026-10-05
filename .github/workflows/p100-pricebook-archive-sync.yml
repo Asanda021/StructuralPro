@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: p100-pricebook-sync
@@ -62,5 +63,21 @@ jobs:
           git switch -c "$branch"
           git commit -m "data: sync 24 Iranian building pricebooks"
           git push --set-upstream origin "$branch"
+
+          echo "Creating/updating the data publication PR..."
+          api="${GITHUB_API_URL:-https://api.github.com}"
+          prs=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api/repos/${GITHUB_REPOSITORY}/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:$branch&base=main")
+          count=$(printf "%s" "$prs" | python -c 'import json,sys; print(len(json.load(sys.stdin)))')
+          if [ "$count" -eq 0 ]; then
+            payload=$(python - "$branch" <<'PY'
+import json, sys
+branch=sys.argv[1]
+print(json.dumps({"title":"P100 — Publish 24 real Iranian pricebooks","head":branch,"base":"main","body":"Automated publication of the verified P100 1399–1404 × 4-discipline real pricebook dataset. Includes normalized rows, manifest, SHA-256 provenance and priced-row coverage.\n\nDirect pushes to main are blocked by repository rules, so this PR is the publication boundary."}))
+PY
+)
+            curl -fsSL -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" "$api/repos/${GITHUB_REPOSITORY}/pulls" -d "$payload"
+          else
+            echo "An open publication PR already exists for $branch."
+          fi
 
 # main trigger: rerun P100 production sync after repository-rule-safe publish fix
