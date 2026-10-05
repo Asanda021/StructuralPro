@@ -24,4 +24,12 @@ jobs:
       - run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
-      - run: pytest -q tests/test_p35_final_signoff.py tests/test_p34_final_product_acceptance.py
+      - run: pytest -q tests/test_p35_final_signoff.py tests/test_p34_final_product_acceptance.py tests/test_p1241_p1270_final_signoff.py
+      - name: Full regression
+        run: pytest -q
+      - name: Verify release-chain history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git log --all --oneline --grep='P34 — Final Product Acceptance\|P34 final product acceptance' -i | head -n 1 | grep -q .
+          git log --all --oneline --grep='P33 — Final Competitive Re-Benchmark\|P33 final competitive rebenchmark' -i | head -n 1 | grep -q .
