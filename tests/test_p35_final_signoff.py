@@ -9,5 +9,10 @@ def test_p35_final_signoff_passes():
 def test_p35_is_deterministic():
     assert run_p35_gate() == run_p35_gate()
 
+def test_p35_executes_p34_acceptance_gate():
+    r = run_p35_gate()
+    assert r.signed_off
+    assert not any(item.startswith("P34 gate failed:") for item in r.blockers)
+
 def test_p35_contains_final_product_surface():
     assert "final_product" in run_p35_gate().surfaces
