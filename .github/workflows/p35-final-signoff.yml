@@ -33,3 +33,5 @@ jobs:
           set -euo pipefail
           git log --all --oneline --grep='P34' -i | head -n 1 | grep -q .
           git log --all --oneline --grep='P33' -i | head -n 1 | grep -q .
+
+# Final verification trigger: release-chain history must remain fail-closed.
