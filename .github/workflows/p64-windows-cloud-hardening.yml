@@ -11,5 +11,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
+      - run: python -m pip install --upgrade pip pytest
       - run: python -m compileall -q core tests
       - run: python -m pytest -q tests/test_p64_windows_cloud_hardening.py
