@@ -68,11 +68,12 @@ def run_quality_gate(ctx: AIContext, required_items: Iterable[str] = ()) -> dict
         grouped.setdefault(q.item.strip().casefold(), []).append(q)
     for item, facts in grouped.items():
         if len({round(f.quantity, 9) for f in facts}) > 1:
-            findings.append(Finding("P138-CROSS-SOURCE-CONFLICT", "warning",
-                                    f"Conflicting quantities found for '{item}'.",
+            findings.append(Finding("P138-CROSS-SOURCE-CONFLICT", "warning", f"Conflicting quantities found for '{item}'.",
                                     tuple(sorted({f.source_id for f in facts}))))
+    scope = ctx.scope.casefold()
+    spec_review = "spec" in scope or "مشخصات" in scope
     spec_text = " ".join(e.text.casefold() for e in ctx.evidence)
-    if not spec_text.strip():
+    if spec_review and not spec_text.strip():
         findings.append(Finding("P139-NO-SPECIFICATION-TEXT", "warning",
                                 "No specification text was supplied for specification review."))
     for e in ctx.estimates:
@@ -87,7 +88,7 @@ def run_quality_gate(ctx: AIContext, required_items: Iterable[str] = ()) -> dict
     return {"project_id": ctx.project_id, "scope": ctx.scope,
             "status": "fail" if errors else ("review" if warnings else "pass"),
             "errors": errors, "warnings": warnings,
-            "findings": [{"code": f.code, "severity": f.severity, "message": f.message, "sources": list(f.sources)} for f in findings]}
+            "findings": [{"code": f.code, "severity": f.severity, "message": f.message, "sources": list(f.sources) for f in findings]}
 
 def deterministic_digest(ctx: AIContext) -> str:
     payload = {"project_id": ctx.project_id, "scope": ctx.scope,
