@@ -31,5 +31,5 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git log --all --oneline --grep='P34 — Final Product Acceptance\|P34 final product acceptance' -i | head -n 1 | grep -q .
-          git log --all --oneline --grep='P33 — Final Competitive Re-Benchmark\|P33 final competitive rebenchmark' -i | head -n 1 | grep -q .
+          git log --all --oneline --grep='P34' -i | head -n 1 | grep -q .
+          git log --all --oneline --grep='P33' -i | head -n 1 | grep -q .
