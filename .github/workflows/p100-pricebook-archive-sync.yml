@@ -1,0 +1,55 @@
+name: P100 Pricebook Archive Sync
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "data/pricebooks/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p100-pricebook-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install openpyxl
+      - name: Download and extract 24 pricebooks
+        run: python scripts/sync_pricebooks_24.py
+      - name: Remove raw archives from repository payload
+        run: rm -rf data/pricebooks/raw
+      - name: Verify 24-cell production matrix
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path("data/pricebooks/manifest.json").read_text(encoding="utf-8"))
+          cells=m["cells"]
+          assert len(cells)==24, f"expected 24 cells, got {len(cells)}"
+          assert all(c["rows"]>0 and c["sha256"] for c in cells)
+          print("24/24 cells verified")
+          PY
+      - name: Commit imported pricebooks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/pricebooks
+          if git diff --cached --quiet; then
+            echo "No pricebook changes to commit."
+          else
+            git commit -m "data: sync 24 Iranian building pricebooks"
+            git push
+          fi
