@@ -1,3 +1,4 @@
+# P100 production sync: push-triggered verification is intentional.
 name: P100 Pricebook Archive Sync
 
 on:
