@@ -1,0 +1,181 @@
+{
+  "schema_version": "1.0",
+  "title": {
+    "en": "StructuralPro Resources",
+    "fa": "منابع StructuralPro"
+  },
+  "principle": {
+    "en": "Resources are presented by availability. Existing repository documentation is linked directly; future content is clearly marked Planned.",
+    "fa": "منابع بر اساس وضعیت ارائه می‌شوند. مستندات موجود مستقیماً لینک می‌شوند و محتوای آینده با برچسب «در برنامه» مشخص است."
+  },
+  "items": [
+    {
+      "id": "user-guide",
+      "type": "Documentation",
+      "status": "Available",
+      "title": {
+        "en": "User Guide",
+        "fa": "راهنمای کاربر"
+      },
+      "description": {
+        "en": "Core product workflows, usage guidance and operational reference.",
+        "fa": "راهنمای گردش‌کارهای اصلی، استفاده از محصول و مرجع عملیاتی."
+      },
+      "href": "../docs/USER_GUIDE.md"
+    },
+    {
+      "id": "installation",
+      "type": "Documentation",
+      "status": "Available",
+      "title": {
+        "en": "Installation Guide",
+        "fa": "راهنمای نصب"
+      },
+      "description": {
+        "en": "Installation and deployment guidance for the current product build.",
+        "fa": "راهنمای نصب و استقرار نسخه فعلی محصول."
+      },
+      "href": "../docs/INSTALLATION.md"
+    },
+    {
+      "id": "developer-guide",
+      "type": "Developer",
+      "status": "Available",
+      "title": {
+        "en": "Developer Guide",
+        "fa": "راهنمای توسعه‌دهنده"
+      },
+      "description": {
+        "en": "Repository architecture, development workflow and implementation guidance.",
+        "fa": "معماری مخزن، گردش‌کار توسعه و راهنمای پیاده‌سازی."
+      },
+      "href": "../docs/DEVELOPER_GUIDE.md"
+    },
+    {
+      "id": "configuration",
+      "type": "Documentation",
+      "status": "Available",
+      "title": {
+        "en": "Configuration",
+        "fa": "پیکربندی"
+      },
+      "description": {
+        "en": "Configuration reference for supported product settings.",
+        "fa": "مرجع تنظیمات پشتیبانی‌شده محصول."
+      },
+      "href": "../docs/CONFIGURATION.md"
+    },
+    {
+      "id": "backup-restore",
+      "type": "Operations",
+      "status": "Available",
+      "title": {
+        "en": "Backup & Restore",
+        "fa": "پشتیبان‌گیری و بازیابی"
+      },
+      "description": {
+        "en": "Project backup, recovery and operational continuity guidance.",
+        "fa": "راهنمای پشتیبان‌گیری، بازیابی پروژه و تداوم عملیات."
+      },
+      "href": "../docs/BACKUP_RESTORE.md"
+    },
+    {
+      "id": "troubleshooting",
+      "type": "Support",
+      "status": "Available",
+      "title": {
+        "en": "Troubleshooting",
+        "fa": "عیب‌یابی"
+      },
+      "description": {
+        "en": "Known operational issues and practical troubleshooting guidance.",
+        "fa": "مشکلات عملیاتی شناخته‌شده و راهنمای عیب‌یابی."
+      },
+      "href": "../docs/TROUBLESHOOTING.md"
+    },
+    {
+      "id": "licensing",
+      "type": "Commercial",
+      "status": "Available",
+      "title": {
+        "en": "Licensing",
+        "fa": "مجوز و لایسنس"
+      },
+      "description": {
+        "en": "Current licensing boundaries and product release guidance.",
+        "fa": "مرزهای فعلی لایسنس و راهنمای انتشار محصول."
+      },
+      "href": "../docs/LICENSE.md"
+    },
+    {
+      "id": "release-process",
+      "type": "Release",
+      "status": "Available",
+      "title": {
+        "en": "Release Process",
+        "fa": "فرآیند انتشار"
+      },
+      "description": {
+        "en": "Versioning and release process for StructuralPro builds.",
+        "fa": "فرآیند نسخه‌بندی و انتشار نسخه‌های StructuralPro."
+      },
+      "href": "../docs/RELEASE_PROCESS.md"
+    },
+    {
+      "id": "knowledge-base",
+      "type": "Knowledge Base",
+      "status": "Planned",
+      "title": {
+        "en": "AEC Knowledge Base",
+        "fa": "پایگاه دانش AEC"
+      },
+      "description": {
+        "en": "A curated knowledge hub for AEC workflows, terminology and practical guidance.",
+        "fa": "پایگاه دانش برای گردش‌کارها، اصطلاحات و راهنمای عملی AEC."
+      },
+      "href": null
+    },
+    {
+      "id": "tutorials",
+      "type": "Tutorials",
+      "status": "Planned",
+      "title": {
+        "en": "Tutorials",
+        "fa": "آموزش‌ها"
+      },
+      "description": {
+        "en": "Step-by-step product tutorials will be published as validated workflows become available.",
+        "fa": "آموزش‌های مرحله‌به‌مرحله پس از آماده و اعتبارسنجی گردش‌کارها منتشر می‌شوند."
+      },
+      "href": null
+    },
+    {
+      "id": "standards",
+      "type": "References",
+      "status": "Planned",
+      "title": {
+        "en": "Standards & References",
+        "fa": "استانداردها و مراجع"
+      },
+      "description": {
+        "en": "A reference hub for standards and source material used by supported workflows.",
+        "fa": "مرجع استانداردها و منابع مورد استفاده در گردش‌کارهای پشتیبانی‌شده."
+      },
+      "href": null
+    },
+    {
+      "id": "blog",
+      "type": "Insights",
+      "status": "Planned",
+      "title": {
+        "en": "AEC Insights",
+        "fa": "دیدگاه‌های AEC"
+      },
+      "description": {
+        "en": "Product, workflow and engineering insights published when validated and ready.",
+        "fa": "مطالب محصول، گردش‌کار و مهندسی پس از اعتبارسنجی و آماده‌سازی منتشر می‌شوند."
+      },
+      "href": null
+    }
+  ]
+}
