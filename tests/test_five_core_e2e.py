@@ -14,10 +14,10 @@ from core.reports.quality import prepare_rows, summary
 def _fake_converter(tmp_path):
     if os.name == "nt":
         exe = tmp_path / "dwg2dxf.cmd"
-        exe.write_text("@echo off\r\ncopy /Y "%~1" "%~2" >nul\r\n", encoding="utf-8")
+        exe.write_text('@echo off\r\ncopy /Y "%~1" "%~2" >nul\r\n', encoding="utf-8")
     else:
         exe = tmp_path / "dwg2dxf"
-        exe.write_text("#!/bin/sh\ncp "$1" "$2"\n", encoding="utf-8")
+        exe.write_text('#!/bin/sh\ncp "$1" "$2"\n', encoding="utf-8")
         exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
     return exe
 
