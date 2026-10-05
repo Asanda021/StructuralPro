@@ -20,7 +20,7 @@ def test_available_resources_point_to_existing_repository_docs():
     for item in data["items"]:
         if item["status"] != "Available" or not item["href"]:
             continue
-        target = (DATA.parent / item["href"]).resolve()
+        target = (PAGE.parent / item["href"]).resolve()
         assert target.exists(), f"Missing resource target: {item['id']} -> {item['href']}"
 
 
