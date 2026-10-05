@@ -16,6 +16,17 @@ def test_p97_multisheet_header_detection(tmp_path):
     assert {r.item_code for r in rows}=={"080101","080102"}
     assert rows[0].source_sheet=="فصل 08"
 
+def test_p97_cover_only_xlsx_fails_closed(tmp_path):
+    from openpyxl import Workbook
+    p=tmp_path/"cover_only.xlsx"; wb=Workbook(); ws=wb.active
+    ws.title="Cover"; ws.append(["عنوان فهرست"]); ws.append(["سال 1404"]); wb.save(p)
+    try:
+        extract_xlsx(p,1404,"ابنیه")
+    except ValueError as exc:
+        assert str(exc)=="no parseable XLSX pricebook rows"
+    else:
+        raise AssertionError("cover-only workbook must fail closed")
+
 def test_p98_archive_audit_reports_all_files(tmp_path):
     z=tmp_path/"pb.zip"; a=tmp_path/"a.csv"; b=tmp_path/"b.csv"
     a.write_text("ردیف,شرح,واحد,بهای واحد\n100,A,m3,10\n",encoding="utf-8")
