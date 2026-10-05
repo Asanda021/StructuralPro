@@ -1,12 +1,8 @@
-# P100 production sync: push-triggered verification is intentional.
-# P100 rerun trigger: main verification after anchor-discovery fix.
+# P100 production sync is an explicit/manual data-import workflow.
+# It is intentionally not a PR/main CI gate because it depends on external archive availability.
 name: P100 Pricebook Archive Sync
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
