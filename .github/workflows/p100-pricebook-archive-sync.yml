@@ -62,3 +62,5 @@ jobs:
           git switch -c "$branch"
           git commit -m "data: sync 24 Iranian building pricebooks"
           git push --set-upstream origin "$branch"
+
+# main trigger: rerun P100 production sync after repository-rule-safe publish fix
