@@ -1,4 +1,5 @@
 name: P115-P119 Production Acceptance
+# Main-branch verification trigger for the production gate.
 
 on:
   push:
