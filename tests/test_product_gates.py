@@ -1,4 +1,4 @@
-import json, stat
+import json, stat, sys
 from core.drawings.dwg_converter import OfflineDWGConverter
 from core.drawings.dwg_takeoff import DWGTakeoffEngine
 from core.drawings.pdf_graphical import GraphicalPDFTakeoff
@@ -11,9 +11,13 @@ from core.pricing.source_registry import PriceSource, PriceSourceRegistry
 from core.platform.application import StructuralProApp
 
 def _fake_converter(tmp_path):
-    exe=tmp_path/"fake-dwg2dxf"
-    exe.write_text("#!/bin/sh" + chr(10) + "cp \"$1\" \"$2\"" + chr(10),encoding="utf-8")
-    exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
+    if sys.platform.startswith("win"):
+        exe=tmp_path/"fake-dwg2dxf.bat"
+        exe.write_text("@echo off" + chr(13) + chr(10) + "copy /Y \"%~1\" \"%~2\" >nul" + chr(13) + chr(10),encoding="utf-8")
+    else:
+        exe=tmp_path/"fake-dwg2dxf"
+        exe.write_text("#!/bin/sh" + chr(10) + "cp \"$1\" \"$2\"" + chr(10),encoding="utf-8")
+        exe.chmod(exe.stat().st_mode|stat.S_IEXEC)
     return exe
 
 def _minimal_dxf():

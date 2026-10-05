@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from hashlib import sha256
-import json, tempfile
+import json, tempfile, os
 
 SUPPORTED={".xlsx",".xls",".csv",".json"}
 
@@ -30,7 +30,9 @@ def audit_archive(path,year,currency="IRR"):
             if ext not in SUPPORTED:
                 continue
             raw=archive.read(name); digest=sha256(raw).hexdigest()
-            tmp=Path(tempfile.mkstemp(prefix="pb_",suffix=ext)[1])
+            fd,tmp_name=tempfile.mkstemp(prefix="pb_",suffix=ext)
+            os.close(fd)
+            tmp=Path(tmp_name)
             try:
                 tmp.write_bytes(raw)
                 rows=load_supported(tmp,year,currency)

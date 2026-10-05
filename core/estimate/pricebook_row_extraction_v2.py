@@ -105,6 +105,15 @@ def extract_xlsx(path,year,discipline):
         if not values: continue
         if ws.sheet_state=="hidden" and not any(any(v is not None for v in r) for r in values):
             continue
+        # Real pricebooks commonly contain cover/metadata sheets before the
+        # tabular sheets. Skip sheets with no recognizable header, but keep
+        # ambiguity fail-closed so malformed tables are never guessed.
+        try:
+            detect_header_row(values)
+        except ValueError as exc:
+            if str(exc) == "pricebook header row not detected":
+                continue
+            raise
         out.extend(extract_rows(values,year,discipline,digest,p.name,ws.title))
     if not out: raise ValueError("no parseable XLSX pricebook rows")
     return out

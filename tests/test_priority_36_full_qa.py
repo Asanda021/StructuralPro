@@ -25,11 +25,14 @@ def test_json_serialization_contract_is_stable():
     import tempfile
     with tempfile.TemporaryDirectory() as td:
         app=StructuralProApp(Path(td))
-        app.create_project("QA","QA36")
-        app.add_takeoff("QA36","building","slab_volume",length=2,width=3,thickness=.2)
-        estimate=app.recalculate_estimate("QA36")
-        json.dumps(estimate,ensure_ascii=False)
-        json.dumps(app.open_project("QA36"),ensure_ascii=False)
+        try:
+            app.create_project("QA","QA36")
+            app.add_takeoff("QA36","building","slab_volume",length=2,width=3,thickness=.2)
+            estimate=app.recalculate_estimate("QA36")
+            json.dumps(estimate,ensure_ascii=False)
+            json.dumps(app.open_project("QA36"),ensure_ascii=False)
+        finally:
+            app.store.close()
 
 def test_core_python_files_compile():
     import py_compile
