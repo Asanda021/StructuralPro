@@ -7,5 +7,13 @@
   "phase": "P32",
   "purpose": "Unified login/logout contract",
   "runtime_status": "not_implemented",
-  "auth": {"provider": "ERVIRA", "operations": ["login", "logout"], "runtime_implemented": false}
+  "auth": {
+    "provider": "ERVIRA",
+    "operations": [
+      "login",
+      "logout"
+    ],
+    "runtime_implemented": false
+  },
+  "release_ready": false
 }
