@@ -34,13 +34,15 @@ def test_license_authority_is_ervira():
         "feature_entitlement",
         "e2e_verification",
     ]
-    for i, key in zip(range(41, 51), keys):
-        assert load(i)[key]["authority"] == "ERVIRA" if key != "license_service" else load(i)[key]["provider"] == "ERVIRA"
+    for i, key in zip(IDS, keys):
+        contract = load(i)[key]
+        assert contract["provider"] == "ERVIRA"
+        assert contract["authority"] == "ERVIRA" if key != "license_service" else contract["identity_authority"] == "ERVIRA"
 
 
 def test_entitlement_model_is_closed_until_runtime_exists():
-    p48 = load(48)["edition_entitlement"]
-    p49 = load(49)["feature_entitlement"]
+    p48 = load("p48")["edition_entitlement"]
+    p49 = load("p49")["feature_entitlement"]
     assert p48["runtime_implemented"] is False
     assert p48["editions"] == ["light", "standard", "pro", "enterprise"]
     assert p49["runtime_implemented"] is False
@@ -48,7 +50,7 @@ def test_entitlement_model_is_closed_until_runtime_exists():
 
 
 def test_p50_e2e_gate_is_closed():
-    p50 = load(50)
+    p50 = load("p50")
     assert p50["e2e_verification"]["runtime_implemented"] is False
     assert p50["e2e_verification"]["verification_implemented"] is False
     assert p50["release_ready"] is False
