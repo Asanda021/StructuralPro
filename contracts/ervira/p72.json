@@ -1,0 +1,12 @@
+{
+  "phase":"P72",
+  "name":"Customer Notification Contract",
+  "status":"closed_until_runtime_evidence",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "rules":[
+    "notifications must be attributable to a verified lifecycle event",
+    "delivery attempts and outcomes must be auditable and idempotent",
+    "notifications must not disclose secrets or sensitive payment data"
+  ]
+}
