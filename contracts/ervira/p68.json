@@ -1,0 +1,1 @@
+{"phase":"P68","name":"Plan Change and Proration Contract","status":"governance_ready","runtime_status":"not_implemented","release_ready":false,"rules":["plan changes require an attributable commercial event","effective time and proration policy are recorded","entitlement changes follow verified provider state","unsupported transitions fail closed"]}
