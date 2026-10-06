@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "product_id": "structuralpro",
+  "parent_platform": "ERVIRA",
+  "source_contract": "contracts/product-contract.json",
+  "version": "0.1.0",
+  "runtime_status": "not_implemented",
+  "release_ready": false,
+  "phase": "P56",
+  "purpose": "Customer and Subscription Contract",
+  "customer_subscription": {
+    "authority": "ERVIRA",
+    "provider": "STRIPE",
+    "runtime_implemented": false,
+    "customer_source_of_truth": "STRIPE",
+    "subscription_source_of_truth": "STRIPE"
+  }
+}
