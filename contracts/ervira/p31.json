@@ -7,5 +7,10 @@
   "phase": "P31",
   "purpose": "Real account identity boundary",
   "runtime_status": "not_implemented",
-  "account": {"provider": "ERVIRA", "identity_authority": "ERVIRA", "runtime_implemented": false}
+  "account": {
+    "provider": "ERVIRA",
+    "identity_authority": "ERVIRA",
+    "runtime_implemented": false
+  },
+  "release_ready": false
 }
