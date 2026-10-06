@@ -49,6 +49,7 @@ def main()->int:
         from core.help.content import topics as help_topics, search as search_help_topics
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
+        from core.aec.disciplines import all_disciplines
     except ImportError as exc:
         logger.exception("Required dependency import failed")
         print("StructuralPro dependencies are required:", exc)
@@ -115,7 +116,7 @@ def main()->int:
 
     # Quick takeoff
     p,v=page("متره سریع","ورود سریع مقادیر با فرم استاندارد")
-    form=QFormLayout(); qpid=QLineEdit(); item=QComboBox(); item.addItems(["slab","wall","column","beam","footing_concrete"])
+    form=QFormLayout(); qpid=QLineEdit(); item=QComboBox(); item.addItems([f"{d.key} — {d.title_fa}" for d in all_disciplines()] + ["slab","wall","column","beam","footing_concrete"])
     length=QLineEdit(); width=QLineEdit(); height=QLineEdit(); price_code=QLineEdit()
     for x,l in ((qpid,"شناسه پروژه"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
     v.addLayout(form); calc=QPushButton("محاسبه و ثبت"); out=QTextEdit(); out.setReadOnly(True); v.addWidget(calc); v.addWidget(out)
