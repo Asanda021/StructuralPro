@@ -9,7 +9,7 @@ def test_ervira_integration_phase_contracts():
         assert data["product_id"] == BASE["product_id"]
         assert data["parent_platform"] == BASE["parent_platform"]
         assert data["version"] == BASE["product"]["current_version"]
-        assert data["phase"] == phase.upper()
+        assert data["phase"] == ("P" + str(int(phase[1:])))
 def test_p2_capabilities_match_canonical():
     data = json.loads((ROOT / "contracts/ervira/p02.json").read_text())
     canonical = {x["id"]: x["status"] for x in BASE["capabilities"]}
