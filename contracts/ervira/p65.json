@@ -1,0 +1,10 @@
+{
+  "phase":"P65",
+  "name":"Billing Operations E2E Verification Gate",
+  "domain":"ERVIRA commercial",
+  "status":"closed_until_runtime_evidence",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "live_billing_allowed":false,
+  "rules":["P61-P64 require runtime integration tests before release","invoice/refund/tax records must reconcile with provider events","customer-facing billing activation remains blocked until real evidence exists"]
+}
