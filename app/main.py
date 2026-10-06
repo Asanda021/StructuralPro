@@ -49,6 +49,7 @@ def main()->int:
         from core.help.content import topics as help_topics, search as search_help_topics
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
+        from core.aec.disciplines import all_disciplines
     except ImportError as exc:
         logger.exception("Required dependency import failed")
         print("StructuralPro dependencies are required:", exc)
@@ -116,12 +117,14 @@ def main()->int:
     # Quick takeoff
     p,v=page("متره سریع","ورود سریع مقادیر با فرم استاندارد")
     form=QFormLayout(); qpid=QLineEdit(); item=QComboBox(); item.addItems(["slab","wall","column","beam","footing_concrete"])
+    discipline=QComboBox(); discipline.addItem("همه ابنیه", "")
+    for d in all_disciplines(): discipline.addItem(d.title_fa, d.key)
     length=QLineEdit(); width=QLineEdit(); height=QLineEdit(); price_code=QLineEdit()
-    for x,l in ((qpid,"شناسه پروژه"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
+    for x,l in ((qpid,"شناسه پروژه"),(discipline,"رشته/دیسپلین"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
     v.addLayout(form); calc=QPushButton("محاسبه و ثبت"); out=QTextEdit(); out.setReadOnly(True); v.addWidget(calc); v.addWidget(out)
     def do_calc():
         try:
-            params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"price_code":price_code.text().strip() or None}
+            params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"discipline":discipline.currentData() or "building","price_code":price_code.text().strip() or None}
             row=service.add_takeoff(qpid.text().strip(),"building",item.currentText(),**params)
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
