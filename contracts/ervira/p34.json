@@ -2,13 +2,9 @@
   "schema_version": "1.0",
   "product_id": "structuralpro",
   "parent_platform": "ERVIRA",
-  "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
   "phase": "P34",
   "purpose": "Account linking",
-  "linking": {
-    "explicit_consent": true,
-    "reversible": true,
-    "runtime_implemented": false
-  }
+  "runtime_status": "not_implemented",
+  "linking": {"explicit_consent": true, "reversible": true, "runtime_implemented": false}
 }
