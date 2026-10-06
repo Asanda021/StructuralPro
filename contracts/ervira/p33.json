@@ -6,13 +6,6 @@
   "version": "0.1.0",
   "phase": "P33",
   "purpose": "Session lifecycle",
-  "session": {
-    "owner": "ERVIRA",
-    "states": [
-      "active",
-      "expired",
-      "revoked"
-    ],
-    "runtime_implemented": false
-  }
+  "runtime_status": "not_implemented",
+  "session": {"owner": "ERVIRA", "states": ["active", "expired", "revoked"], "runtime_implemented": false}
 }
