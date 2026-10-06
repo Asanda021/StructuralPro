@@ -38,3 +38,5 @@ jobs:
           git cat-file -e c3c32f465e27a57b236e6d71d006407f790f17bf^{commit}
 
 # Final verification trigger: release-chain history must remain fail-closed.
+
+# Release-chain verification is intentionally immutable.
