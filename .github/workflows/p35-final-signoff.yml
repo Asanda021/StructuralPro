@@ -40,3 +40,5 @@ jobs:
 # Final verification trigger: release-chain history must remain fail-closed.
 
 # Release-chain verification is intentionally immutable.
+
+# Final regression normalization fix verification trigger.
