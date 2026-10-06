@@ -4,13 +4,21 @@
   "parent_platform": "ERVIRA",
   "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
-  "runtime_status": "not_implemented",
+  "runtime_status": "implemented",
   "release_ready": false,
   "phase": "P41",
   "purpose": "License Service Contract",
   "license_service": {
     "provider": "ERVIRA",
     "identity_authority": "ERVIRA",
-    "runtime_implemented": false
+    "runtime_implemented": true,
+    "endpoint": "https://mbbaihvuhhmkzmuawvxg.supabase.co/functions/v1/structuralpro-license",
+    "actions": [
+      "status",
+      "issue",
+      "activate",
+      "deactivate",
+      "renew"
+    ]
   }
 }
