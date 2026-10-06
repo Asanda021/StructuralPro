@@ -1,0 +1,1 @@
+{"phase":"P66","name":"Customer Account Contract","status":"governance_ready","runtime_status":"not_implemented","release_ready":false,"rules":["account identity maps to authenticated customer identity","account deletion or closure preserves required commercial audit records","no credentials or secrets are stored in commercial contracts"]}
