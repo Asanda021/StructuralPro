@@ -6,11 +6,11 @@ IDS = [f"p{i}" for i in range(41, 51)]
 
 
 def load(i):
-    return json.loads((ROOT / "contracts" / "ervira" / f"{i}.json").read_text(encoding="utf-8"))
+    return json.loads((ROOT / "contracts" / "ervira" / f"p{i}.json").read_text(encoding="utf-8"))
 
 
 def test_license_contracts_are_implemented_but_not_release_ready():
-    for i in IDS:
+    for i in range(41, 51):
         d = load(i)
         assert d["product_id"] == "structuralpro"
         assert d["parent_platform"] == "ERVIRA"
