@@ -4,14 +4,15 @@
   "parent_platform": "ERVIRA",
   "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
-  "runtime_status": "not_implemented",
+  "runtime_status": "implemented",
   "release_ready": false,
   "phase": "P49",
   "purpose": "Feature Entitlement Enforcement",
   "feature_entitlement": {
     "authority": "ERVIRA",
     "provider": "ERVIRA",
-    "runtime_implemented": false,
-    "enforcement_implemented": false
+    "runtime_implemented": true,
+    "enforcement_implemented": true,
+    "exact_match": true
   }
 }
