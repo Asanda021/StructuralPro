@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "product_id": "structuralpro",
+  "parent_platform": "ERVIRA",
+  "source_contract": "contracts/product-contract.json",
+  "version": "0.1.0",
+  "runtime_status": "not_implemented",
+  "release_ready": false,
+  "phase": "P59",
+  "purpose": "Commercial Audit and Reconciliation",
+  "commercial_audit": {
+    "authority": "ERVIRA",
+    "provider": "STRIPE",
+    "runtime_implemented": false,
+    "payment_event_id_required": true,
+    "idempotency_required": true,
+    "reconciliation_required": true
+  }
+}

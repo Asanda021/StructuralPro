@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "product_id": "structuralpro",
+  "parent_platform": "ERVIRA",
+  "source_contract": "contracts/product-contract.json",
+  "version": "0.1.0",
+  "runtime_status": "not_implemented",
+  "release_ready": false,
+  "phase": "P55",
+  "purpose": "Payment Verification",
+  "payment_verification": {
+    "authority": "ERVIRA",
+    "provider": "STRIPE",
+    "runtime_implemented": false,
+    "webhook_signature_required": true,
+    "payment_verified_before_entitlement": true
+  }
+}
