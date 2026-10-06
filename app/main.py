@@ -116,13 +116,15 @@ def main()->int:
 
     # Quick takeoff
     p,v=page("متره سریع","ورود سریع مقادیر با فرم استاندارد")
-    form=QFormLayout(); qpid=QLineEdit(); item=QComboBox(); item.addItems([f"{d.key} — {d.title_fa}" for d in all_disciplines()] + ["slab","wall","column","beam","footing_concrete"])
+    form=QFormLayout(); qpid=QLineEdit(); item=QComboBox(); item.addItems(["slab","wall","column","beam","footing_concrete"])
+    discipline=QComboBox(); discipline.addItem("همه ابنیه", "")
+    for d in all_disciplines(): discipline.addItem(d.title_fa, d.key)
     length=QLineEdit(); width=QLineEdit(); height=QLineEdit(); price_code=QLineEdit()
-    for x,l in ((qpid,"شناسه پروژه"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
+    for x,l in ((qpid,"شناسه پروژه"),(discipline,"رشته/دیسپلین"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
     v.addLayout(form); calc=QPushButton("محاسبه و ثبت"); out=QTextEdit(); out.setReadOnly(True); v.addWidget(calc); v.addWidget(out)
     def do_calc():
         try:
-            params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"price_code":price_code.text().strip() or None}
+            params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"discipline":discipline.currentData() or "building","price_code":price_code.text().strip() or None}
             row=service.add_takeoff(qpid.text().strip(),"building",item.currentText(),**params)
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
