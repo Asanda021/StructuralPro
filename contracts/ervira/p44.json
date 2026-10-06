@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "product_id": "structuralpro",
+  "parent_platform": "ERVIRA",
+  "source_contract": "contracts/product-contract.json",
+  "version": "0.1.0",
+  "runtime_status": "not_implemented",
+  "release_ready": false,
+  "phase": "P44",
+  "purpose": "License Deactivation",
+  "deactivation": {
+    "authority": "ERVIRA",
+    "provider": "ERVIRA",
+    "runtime_implemented": false
+  }
+}
