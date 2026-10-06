@@ -18,7 +18,7 @@ def test_license_governance_contracts():
         assert d["source_contract"] == "contracts/product-contract.json"
         assert d["version"] == "0.1.0"
         assert d["runtime_status"] == "implemented"
-        assert d["release_ready"] is True
+        assert d["release_ready"] is False
 
 
 def test_license_authority_is_ervira():
@@ -53,4 +53,4 @@ def test_p50_e2e_gate_is_closed():
     p50 = load("p50")
     assert p50["e2e_verification"]["runtime_implemented"] is True
     assert p50["e2e_verification"]["verification_implemented"] is True
-    assert p50["release_ready"] is True
+    assert p50["release_ready"] is False
