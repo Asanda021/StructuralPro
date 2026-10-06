@@ -33,7 +33,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git log --all --oneline --grep='P34' -i | head -n 1 | grep -q .
-          git log --all --oneline --grep='P33' -i | head -n 1 | grep -q .
+          # Verify the immutable release-chain commits exist in the checked-out history.
+          git cat-file -e 87763fe529cd743643b818a733e2070a3270dd5b^{commit}
+          git cat-file -e c3c32f465e27a57b236e6d71d006407f790f17bf^{commit}
 
 # Final verification trigger: release-chain history must remain fail-closed.
