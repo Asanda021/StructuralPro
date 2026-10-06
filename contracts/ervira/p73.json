@@ -1,0 +1,12 @@
+{
+  "phase":"P73",
+  "name":"Customer Data Export and Privacy Contract",
+  "status":"closed_until_runtime_evidence",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "rules":[
+    "exports must be limited to the authenticated customer's authorized records",
+    "export requests and generated artifacts must be auditable",
+    "unsupported or unauthorized export requests must fail closed"
+  ]
+}
