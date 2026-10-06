@@ -1,0 +1,9 @@
+{
+  "phase":"P61",
+  "name":"Customer Billing Profile Contract",
+  "domain":"ERVIRA commercial",
+  "status":"governance_ready",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "rules":["billing identity must map to an authenticated customer","billing profile changes require audit attribution","no payment method data is stored in StructuralPro"]
+}

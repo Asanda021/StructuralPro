@@ -1,0 +1,9 @@
+{
+  "phase":"P64",
+  "name":"Tax and Regional Billing Contract",
+  "domain":"ERVIRA commercial",
+  "status":"governance_ready",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "rules":["tax treatment requires an explicit jurisdiction and policy version","tax amounts must be reproducible from recorded inputs","unsupported jurisdictions fail closed","no tax rate is fabricated or presented as official without source evidence"]
+}

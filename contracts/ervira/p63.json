@@ -1,0 +1,9 @@
+{
+  "phase":"P63",
+  "name":"Refund and Dispute Contract",
+  "domain":"ERVIRA commercial",
+  "status":"governance_ready",
+  "runtime_status":"not_implemented",
+  "release_ready":false,
+  "rules":["refund requires an attributable verified payment","refund is idempotent by provider event or refund id","dispute state cannot silently grant or extend entitlement","commercial records remain auditable after refund or dispute"]
+}
