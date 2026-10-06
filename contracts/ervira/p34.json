@@ -6,5 +6,10 @@
   "phase": "P34",
   "purpose": "Account linking",
   "runtime_status": "not_implemented",
-  "linking": {"explicit_consent": true, "reversible": true, "runtime_implemented": false}
+  "linking": {
+    "explicit_consent": true,
+    "reversible": true,
+    "runtime_implemented": false
+  },
+  "release_ready": false
 }
