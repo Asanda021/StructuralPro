@@ -1,0 +1,1 @@
+{"phase":"P67","name":"Billing Portal Contract","status":"governance_ready","runtime_status":"not_implemented","release_ready":false,"rules":["billing portal access requires authenticated customer context","portal exposes only records belonging to that customer","payment-method management delegates sensitive data handling to the payment provider"]}
