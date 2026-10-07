@@ -68,10 +68,13 @@ jobs:
           $v=(Get-Content VERSION -Raw).Trim()
           $installer="dist/StructuralPro-$v-Setup.exe"
           ./packaging/windows_installer_smoke.ps1 -Installer $installer -ExpectedVersion $v
-      - name: Generate dependency inventory
+      - name: Generate dependency and license inventory
         shell: pwsh
         run: |
+          python -m pip install pip-licenses
           python -m pip freeze | Out-File -Encoding utf8 dist/StructuralPro-pip-freeze.txt
+          python -m piplicenses --format=csv --with-urls --output-file=dist/StructuralPro-third-party-licenses.csv
+          if (-not (Test-Path "dist/StructuralPro-third-party-licenses.csv")) { throw "Third-party license inventory missing" }
       - name: Generate SHA256 checksums
         shell: pwsh
         run: ./packaging/generate_sha256.ps1
@@ -127,3 +130,4 @@ jobs:
             dist/StructuralPro-ReleaseManifest.json
             dist/StructuralPro-ReleaseRegistry.json
             dist/StructuralPro-pip-freeze.txt
+            dist/StructuralPro-third-party-licenses.csv

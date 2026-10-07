@@ -7,10 +7,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/p100-pricebook-archive-sync.yml"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/p100-pricebook-archive-sync.yml"
 
 permissions:
   contents: write
@@ -83,4 +79,3 @@ PY
             echo "An open publication PR already exists for $branch."
           fi
 
-# main trigger: rerun P100 production sync after repository-rule-safe publish fix
