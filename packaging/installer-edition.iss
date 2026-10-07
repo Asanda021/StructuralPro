@@ -4,7 +4,7 @@
 #define MyAppId "E2E3D4D5-7C21-4A1A-9D4A-123456789ABC-__EDITION__"
 #define MyAppExeName "StructuralPro.exe"
 [Setup]
-AppId={{#MyAppId}
+AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\StructuralPro\{#MyEdition}
