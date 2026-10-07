@@ -45,3 +45,6 @@ def test_p75_documentation_gate_is_fail_closed():
     x = load(75)
     assert any("customer release remains fail-closed" in r for r in x["rules"])
     assert x["release_ready"] is False
+
+
+# CI retrigger marker: no runtime behavior change.
