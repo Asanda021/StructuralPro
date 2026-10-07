@@ -1,9 +1,1 @@
-{
-  "phase":"P62",
-  "name":"Invoice and Receipt Contract",
-  "domain":"ERVIRA commercial",
-  "status":"governance_ready",
-  "runtime_status":"not_implemented",
-  "release_ready":false,
-  "rules":["invoice requires a verified commercial event","receipt requires verified payment evidence","invoice identifiers must be unique and auditable","amount and currency must reconcile to the verified transaction"]
-}
+{"phase":"P62","name":"Version Synchronization","domain":"ERVIRA delivery","status":"implemented","runtime_status":"implemented","release_ready":false,"rules":["canonical VERSION is the single release version authority","packaged VERSION must equal canonical VERSION","release tag and requested release version must equal canonical VERSION"]}
