@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+import os
 
 
 class ProductEdition(str, Enum):
@@ -120,3 +122,39 @@ def validate_license_features(
     profile = product_profile(edition)
     requested = set(licensed_features)
     return requested <= profile.features
+
+
+def packaged_edition(
+    bundle_dir: str | Path | None = None,
+    *,
+    fail_closed: bool = False,
+) -> ProductEdition | None:
+    """Read the edition marker shipped beside the Windows payload.
+
+    CI/release builds always ship EDITION. Development checkouts may omit it;
+    in that case None is returned unless fail_closed=True.
+    """
+    raw = os.getenv("STRUCTURALPRO_EDITION", "").strip().lower()
+    if not raw:
+        base = Path(bundle_dir) if bundle_dir is not None else Path(__file__).resolve().parents[2]
+        marker = base / "EDITION"
+        if marker.exists():
+            raw = marker.read_text(encoding="utf-8").strip().lower()
+    if not raw:
+        if fail_closed:
+            raise ValueError("StructuralPro edition marker is missing")
+        return None
+    try:
+        return ProductEdition(raw)
+    except ValueError as exc:
+        if fail_closed:
+            raise ValueError(f"Invalid StructuralPro edition marker: {raw!r}") from exc
+        return None
+
+
+def validate_packaged_edition_features(
+    bundle_dir: str | Path,
+    licensed_features: tuple[str, ...] | list[str] | set[str],
+) -> bool:
+    edition = packaged_edition(bundle_dir, fail_closed=True)
+    return validate_license_features(edition, licensed_features)
