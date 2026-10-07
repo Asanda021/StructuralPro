@@ -134,6 +134,7 @@ class LocalAIEngine:
                     "--image", str(image),
                     "-p", p,
                     "-n", "768",
+                    "-st",
                     "--temp", "0.1",
                 ],
                 cwd=str(self.runtime_dir),
@@ -174,7 +175,7 @@ class LocalAIEngine:
             result = subprocess.run(
                 [
                     str(binary), "-m", str(self.model_path),
-                    "-p", user, "-n", "768", "--temp", "0.1",
+                    "-p", user, "-n", "768", "--temp", "0.1", "-st",
                 ],
                 cwd=str(self.runtime_dir),
                 capture_output=True,
