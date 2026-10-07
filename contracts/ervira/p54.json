@@ -4,16 +4,14 @@
   "parent_platform": "ERVIRA",
   "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
-  "runtime_status": "not_implemented",
+  "runtime_status": "implemented",
   "release_ready": false,
   "phase": "P54",
-  "purpose": "Checkout Contract",
-  "checkout": {
+  "purpose": "Order Creation",
+  "order_creation": {
     "authority": "ERVIRA",
-    "provider": "STRIPE",
-    "mode": "test",
-    "checkout_type": "hosted",
-    "runtime_implemented": false,
-    "live_checkout_enabled": false
+    "runtime_implemented": true,
+    "requires_authenticated_user": true,
+    "status_on_create": "pending"
   }
 }
