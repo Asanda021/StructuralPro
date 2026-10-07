@@ -17,6 +17,11 @@ Expand-Archive $runtimeZip $extract -Force
 $cli=Get-ChildItem $extract -Filter "llama-cli.exe" -File -Recurse | Select-Object -First 1
 if (-not $cli) { throw "llama-cli.exe missing from llama.cpp runtime" }
 Copy-Item $cli.FullName "$Payload/ai_runtime/llama-cli.exe" -Force
+# The prebuilt CLI binaries depend on llama.cpp/ggml shared libraries; keep the
+# complete CPU runtime beside the executables so the bundled AI is self-contained.
+$dlls=Get-ChildItem $extract -Filter "*.dll" -File -Recurse
+if (-not $dlls) { throw "llama.cpp runtime DLLs are missing from the archive" }
+foreach ($dll in $dlls) { Copy-Item $dll.FullName "$Payload/ai_runtime/$($dll.Name)" -Force }
 $mtmd=Get-ChildItem $extract -Filter "llama-mtmd-cli.exe" -File -Recurse | Select-Object -First 1
 if (($Edition -eq "pro" -or $Edition -eq "enterprise") -and -not $mtmd) { throw "llama-mtmd-cli.exe missing from llama.cpp runtime" }
 if ($mtmd) { Copy-Item $mtmd.FullName "$Payload/ai_runtime/llama-mtmd-cli.exe" -Force }
@@ -49,6 +54,7 @@ if ($Edition -eq "standard") {
   mmproj=$mmproj
   offline=$true
   network_required_for_inference=$false
+  runtime_dlls=(@($dlls | ForEach-Object { $_.Name } | Sort-Object -Unique))
 } | ConvertTo-Json | Set-Content "$Payload/AI_MODEL_PROFILE.json" -Encoding utf8
 "Embedded AI runtime: llama.cpp b10549 (MIT)" | Set-Content "$Payload/AI_THIRD_PARTY_LICENSES.txt" -Encoding utf8
 "Embedded model license: Apache-2.0 (Qwen2.5 / Qwen2.5-VL)" | Add-Content "$Payload/AI_THIRD_PARTY_LICENSES.txt" -Encoding utf8
