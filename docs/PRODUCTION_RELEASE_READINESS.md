@@ -26,3 +26,9 @@ Repository tests prove gate behavior; they do not fabricate Windows, commercial,
 
 ## Delivery boundary
 The next bounded deliverable is the Release Candidate package. No new mandatory roadmap phases are created by this document.
+
+## Evidence hardening completed
+- Windows Release now emits a machine-readable third-party license inventory (`StructuralPro-third-party-licenses.csv`) together with the exact pip freeze for the build environment.
+- P100 external pricebook synchronization is manual/explicit rather than a Main CI trigger. This keeps external archive availability separate from application CI while preserving fail-closed provenance checks.
+- Customer entitlement remains a real authorization boundary: CI cannot manufacture a customer authorization record.
+- Customer artifact production remains tied to the Windows installer build, smoke acceptance, SHA-256 manifest and release registry.
