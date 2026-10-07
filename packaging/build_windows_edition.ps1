@@ -14,9 +14,31 @@ $generated=$template.Replace("__VERSION__",$Version).Replace("__EDITION__",$Edit
 $generatedPath="build/installer-$Edition-$Version.iss"
 New-Item -ItemType Directory -Force build | Out-Null
 Set-Content $generatedPath -Value $generated -Encoding utf8
-$iscc=Get-Command "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue
-if (-not $iscc) { throw "Inno Setup compiler not found" }
-& $iscc.Source $generatedPath
+
+# Resolve Inno Setup robustly. Chocolatey can report an installed package while
+# the executable is not on the current PowerShell PATH, so do not rely on PATH
+# or one hard-coded installation directory.
+$isccCandidates=@(
+  "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+  "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
+  "$env:ChocolateyInstall\lib\innosetup\tools\ISCC.exe",
+  "$env:ChocolateyInstall\lib\innosetup.install\tools\ISCC.exe"
+)
+$isccPath=$isccCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $isccPath) {
+  $isccCommand=Get-Command ISCC.exe -ErrorAction SilentlyContinue
+  if ($isccCommand) { $isccPath=$isccCommand.Source }
+}
+if (-not $isccPath) {
+  $searchRoots=@($env:ProgramFiles,$env:ProgramFiles(x86),$env:ChocolateyInstall)
+  foreach ($root in $searchRoots | Where-Object { $_ -and (Test-Path $_) }) {
+    $found=Get-ChildItem -Path $root -Filter ISCC.exe -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $isccPath=$found.FullName; break }
+  }
+}
+if (-not $isccPath) { throw "Inno Setup compiler not found after installation" }
+Write-Host "Using Inno Setup compiler: $isccPath"
+& $isccPath $generatedPath
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
 $installer="dist/StructuralPro-$Edition-$Version-Setup.exe"
 if (-not (Test-Path $installer)) { throw "Edition installer missing: $installer" }
