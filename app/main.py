@@ -50,6 +50,7 @@ def main()->int:
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
         from core.aec.disciplines import all_disciplines
+        from core.platform.product import packaged_edition
     except ImportError as exc:
         logger.exception("Required dependency import failed")
         print("StructuralPro dependencies are required:", exc)
@@ -61,6 +62,9 @@ def main()->int:
     app.setStyleSheet(APP_STYLESHEET)
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
+    bundle_dir=Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+    packaged=packaged_edition(bundle_dir, fail_closed=False)
+    current_edition=packaged.value if packaged else "pro"
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
@@ -368,17 +372,35 @@ def main()->int:
     tools.addTab(qa,"کنترل محصول")
     pages.addWidget(p); idx_tools=pages.count()-1
 
-    # AI
-    p,v=page("هوش مصنوعی آفلاین","بازبینی پروژه، هشدار داده‌های ناقص و مقایسه تغییرات")
+    # AI — embedded in the same StructuralPro installation; edition controls the AI tier.
+    p,v=page("هوش مصنوعی آفلاین",f"نسخه {current_edition} | AI داخلی، بدون سرویس خارجی")
     apid=QLineEdit(); ago=QPushButton("🤖 بازبینی پروژه"); aout=QTextEdit(); aout.setReadOnly(True)
-    v.addWidget(apid); v.addWidget(ago); v.addWidget(aout)
+    v.addWidget(apid); v.addWidget(ago)
+    if current_edition == "light":
+        ago.setEnabled(False)
+        aout.setPlainText("این Edition فاقد AI است. برای استفاده از AI، نسخه Standard یا Pro/Enterprise را نصب کنید.")
+    else:
+        v.addWidget(aout)
     def review():
+        if current_edition == "light": return
         project=service.open_project(apid.text().strip())
         if not project: QMessageBox.warning(w,"AI","پروژه پیدا نشد."); return
         r=assistant.review(project)
         text=r["text"]+"\n\n"+"\n".join(f'{x["severity"]}: {x["code"]}' for x in r["issues"]) if r["issues"] else r["text"]+"\n\nایراد داده‌ای پیدا نشد."
         aout.setPlainText(text)
     ago.clicked.connect(review)
+    if current_edition in ("pro","enterprise"):
+        image_path=QLineEdit(); image_btn=QPushButton("🖼️ AI Takeoff از تصویر")
+        image_run=QPushButton("تحلیل تصویر")
+        v.addWidget(image_path); v.addWidget(image_btn); v.addWidget(image_run)
+        def choose_ai_image():
+            image_path.setText(QFileDialog.getOpenFileName(w,"انتخاب تصویر نقشه","","Images (*.png *.jpg *.jpeg *.webp);;All files (*)")[0])
+        def run_ai_image():
+            if not image_path.text().strip(): return
+            result=assistant.engine.answer_with_image(image_path.text().strip(),"این تصویر نقشه را برای آیتم‌های قابل متره بررسی کن؛ مقادیر قطعی را فقط در صورت وجود شواهد کافی اعلام کن.")
+            aout.setPlainText(result.text)
+        image_btn.clicked.connect(choose_ai_image)
+        image_run.clicked.connect(run_ai_image)
     pages.addWidget(p); idx_ai=pages.count()-1
 
     # Commercial statement — persistent numbered period workspace
