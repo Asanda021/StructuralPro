@@ -9,6 +9,17 @@ $payload="dist/StructuralPro"
 if (-not (Test-Path "$payload/StructuralPro.exe")) { throw "Missing Windows executable" }
 Set-Content "$payload/EDITION" -Value $Edition -Encoding ascii
 Set-Content "$payload/EDITION_VERSION" -Value "$Edition@$Version" -Encoding ascii
+
+# AI is embedded into the same StructuralPro installation for AI-enabled editions.
+if ($Edition -ne "light") {
+  & "$PSScriptRoot/fetch_embedded_ai_assets.ps1" -Payload $payload -Edition $Edition
+  if ($LASTEXITCODE -ne 0) { throw "Embedded AI asset preparation failed" }
+} else {
+  New-Item -ItemType Directory -Force "$payload/models","$payload/ai_runtime" | Out-Null
+  @{
+    edition=$Edition; ai_tier="none"; runtime=$null; model=$null; mmproj=$null; offline=$true
+  } | ConvertTo-Json | Set-Content "$payload/AI_MODEL_PROFILE.json" -Encoding utf8
+}
 $template=Get-Content "$PSScriptRoot/installer-edition.iss" -Raw
 $generated=$template.Replace("__VERSION__",$Version).Replace("__EDITION__",$Edition)
 $generatedPath="build/installer-$Edition-$Version.iss"
