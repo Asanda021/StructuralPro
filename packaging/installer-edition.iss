@@ -1,7 +1,7 @@
 #define MyAppName "StructuralPro __EDITION__"
 #define MyAppVersion "__VERSION__"
 #define MyEdition "__EDITION__"
-#define MyAppId "E2E3D4D5-7C21-4A1A-9D4A-123456789ABC-__EDITION__"
+#define MyAppId "StructuralPro-__EDITION__"
 #define MyAppExeName "StructuralPro.exe"
 [Setup]
 AppId={#MyAppId}
