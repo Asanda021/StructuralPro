@@ -40,3 +40,9 @@ The repository now includes a fail-closed Production Release Readiness evaluator
 - Android and Telegram native distribution deliverables, if those clients are included in the release scope.
 
 These dependencies are intentionally explicit so repository tests do not create a false claim of commercial readiness.
+
+## Release evidence closure hardening
+
+- Windows Release now fails closed if the generated third-party license inventory is empty or contains an `UNKNOWN`/blank license entry.
+- The repository-side release evidence boundary is documented in `docs/PRODUCTION_RELEASE_EVIDENCE_CLOSURE.md`.
+- External legal/customer facts are deliberately not fabricated: entitlement, redistribution rights for pricebooks/DWG SDKs, and any required signing certificate must come from the real rights holder/release account.
