@@ -75,6 +75,10 @@ jobs:
           python -m pip freeze | Out-File -Encoding utf8 dist/StructuralPro-pip-freeze.txt
           python -m piplicenses --format=csv --with-urls --output-file=dist/StructuralPro-third-party-licenses.csv
           if (-not (Test-Path "dist/StructuralPro-third-party-licenses.csv")) { throw "Third-party license inventory missing" }
+          $rows=Import-Csv "dist/StructuralPro-third-party-licenses.csv"
+          if (-not $rows -or $rows.Count -lt 1) { throw "Third-party license inventory is empty" }
+          $unknown=@($rows | Where-Object { $_.License -match "^(UNKNOWN|Unknown|unknown)$" -or [string]::IsNullOrWhiteSpace($_.License) })
+          if ($unknown.Count -gt 0) { throw "Unresolved third-party license entries: $($unknown.Count)" }
       - name: Generate SHA256 checksums
         shell: pwsh
         run: ./packaging/generate_sha256.ps1
