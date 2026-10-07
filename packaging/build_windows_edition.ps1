@@ -14,7 +14,7 @@ $generated=$template.Replace("__VERSION__",$Version).Replace("__EDITION__",$Edit
 $generatedPath="build/installer-$Edition-$Version.iss"
 New-Item -ItemType Directory -Force build | Out-Null
 Set-Content $generatedPath -Value $generated -Encoding utf8
-$iscc=Get-Command "C:Program Files (x86)Inno Setup 6ISCC.exe" -ErrorAction SilentlyContinue
+$iscc=Get-Command "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue
 if (-not $iscc) { throw "Inno Setup compiler not found" }
 & $iscc.Source $generatedPath
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
