@@ -59,3 +59,6 @@ The offline help contract is available in `core/help/content.py` and covers star
 - Official website: **ERVIRA.ir**
 - Production date: **1405/07/14**
 - Product identity record: `docs/PRODUCT_IDENTITY_FA.md` / `docs/PRODUCT_IDENTITY_EN.md`
+
+
+<!-- CI verification marker: release pipeline validation -->
