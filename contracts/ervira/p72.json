@@ -1,12 +1,1 @@
-{
-  "phase":"P72",
-  "name":"Customer Notification Contract",
-  "status":"closed_until_runtime_evidence",
-  "runtime_status":"not_implemented",
-  "release_ready":false,
-  "rules":[
-    "notifications must be attributable to a verified lifecycle event",
-    "delivery attempts and outcomes must be auditable and idempotent",
-    "notifications must not disclose secrets or sensitive payment data"
-  ]
-}
+{"phase":"P72","name":"User Guide Synchronization","status":"implemented","runtime_status":"implemented","rules":["Persian and English guide versions match canonical release version","guide references only verified UI and runtime behavior","missing guide assets fail validation"]}
