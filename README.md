@@ -52,3 +52,10 @@ The commercial license lifecycle boundary also validates expiration, revocation,
 
 ## In-app help
 The offline help contract is available in `core/help/content.py` and covers startup, takeoff, reports, backup/recovery, and AI usage. It is intentionally deterministic and does not depend on network access.
+
+## Official product identity
+
+- Creator and owner: **Engineer Mohammad Soltani (مهندس محمد سلطانی)**
+- Official website: **ERVIRA.ir**
+- Production date: **1405/07/14**
+- Product identity record: `docs/PRODUCT_IDENTITY_FA.md` / `docs/PRODUCT_IDENTITY_EN.md`
