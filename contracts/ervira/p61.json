@@ -1,9 +1,1 @@
-{
-  "phase":"P61",
-  "name":"Customer Billing Profile Contract",
-  "domain":"ERVIRA commercial",
-  "status":"governance_ready",
-  "runtime_status":"not_implemented",
-  "release_ready":false,
-  "rules":["billing identity must map to an authenticated customer","billing profile changes require audit attribution","no payment method data is stored in StructuralPro"]
-}
+{"phase":"P61","name":"Release Registry","domain":"ERVIRA delivery","status":"implemented","runtime_status":"implemented","release_ready":false,"rules":["every release has a unique product/version identity","registry records source commit and workflow run evidence","release records are generated from verified build output, never hand-entered"]}

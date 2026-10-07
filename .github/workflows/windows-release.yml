@@ -8,6 +8,7 @@ on:
         type: string
   pull_request:
   push:
+    branches: [main]
     tags: ["v*"]
 permissions:
   contents: read
@@ -99,6 +100,20 @@ jobs:
             if ($actualSize -ne $expectedSize) { throw "Size mismatch: $path" }
           }
           Write-Host "All release manifest artifact hashes and sizes verified."
+      - name: Generate release registry
+        shell: pwsh
+        run: ./packaging/generate_release_registry.ps1
+      - name: Validate release registry
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/StructuralPro-ReleaseRegistry.json")) { throw "Release registry missing" }
+          $registry=Get-Content "dist/StructuralPro-ReleaseRegistry.json" -Raw | ConvertFrom-Json
+          $expected=(Get-Content VERSION -Raw).Trim()
+          if ($registry.product -ne "StructuralPro") { throw "Registry product mismatch" }
+          if ($registry.version -ne $expected) { throw "Registry VERSION mismatch" }
+          if (-not $registry.source_commit) { throw "Registry source commit missing" }
+          if ($registry.download_authorization -ne "entitlement_required") { throw "Download authorization boundary invalid" }
+          if ($registry.release_ready -ne $false) { throw "CI registry must remain fail-closed" }
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -108,4 +123,5 @@ jobs:
             dist/StructuralPro-*-Setup.exe
             dist/StructuralPro-SHA256SUMS.txt
             dist/StructuralPro-ReleaseManifest.json
+            dist/StructuralPro-ReleaseRegistry.json
             dist/StructuralPro-pip-freeze.txt
