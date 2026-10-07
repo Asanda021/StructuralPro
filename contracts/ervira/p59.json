@@ -4,16 +4,14 @@
   "parent_platform": "ERVIRA",
   "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
-  "runtime_status": "not_implemented",
+  "runtime_status": "implemented",
   "release_ready": false,
   "phase": "P59",
-  "purpose": "Commercial Audit and Reconciliation",
-  "commercial_audit": {
+  "purpose": "Upgrade/Downgrade",
+  "upgrade_downgrade": {
     "authority": "ERVIRA",
-    "provider": "STRIPE",
-    "runtime_implemented": false,
-    "payment_event_id_required": true,
-    "idempotency_required": true,
-    "reconciliation_required": true
+    "runtime_implemented": true,
+    "mode": "new_target_plan_order",
+    "entitlement_changes_after_payment": true
   }
 }

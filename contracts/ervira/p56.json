@@ -4,15 +4,14 @@
   "parent_platform": "ERVIRA",
   "source_contract": "contracts/product-contract.json",
   "version": "0.1.0",
-  "runtime_status": "not_implemented",
+  "runtime_status": "implemented",
   "release_ready": false,
   "phase": "P56",
-  "purpose": "Customer and Subscription Contract",
-  "customer_subscription": {
+  "purpose": "Purchase Verification",
+  "purchase_verification": {
     "authority": "ERVIRA",
-    "provider": "STRIPE",
-    "runtime_implemented": false,
-    "customer_source_of_truth": "STRIPE",
-    "subscription_source_of_truth": "STRIPE"
+    "runtime_implemented": true,
+    "provider_verification": "signed_provider_event",
+    "no_client_side_payment_confirmation": true
   }
 }
