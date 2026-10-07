@@ -60,6 +60,8 @@ jobs:
           $installer="dist/StructuralPro-$v-Setup.exe"
           if (-not (Test-Path $installer)) { throw "Installer missing: $installer" }
           if ((Get-Item $installer).Length -le 0) { throw "Installer is empty" }
+          $installerInfo=Get-Item $installer
+          if ($installerInfo.Length -lt 1024) { throw "Installer is implausibly small: $($installerInfo.Length) bytes" }
       - name: Run installed application acceptance smoke
         shell: pwsh
         run: |
