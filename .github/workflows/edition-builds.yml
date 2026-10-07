@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: python -m pip install -r requirements.txt pytest
-      - run: python -m pytest -q tests/test_product_packaging.py tests/test_product_editions_runtime.py tests/test_ai_edition_models.py
+      - run: python -m pytest -q tests/test_product_packaging.py tests/test_product_editions_runtime.py tests/test_ai_edition_models.py tests/test_local_ai_engine.py
   light:
     needs: contract
     runs-on: windows-latest
