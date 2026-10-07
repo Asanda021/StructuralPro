@@ -1,6 +1,7 @@
 name: P57 DWG DXF Validation
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, "feat/p57-dwg-dxf-validation"]
   pull_request:
