@@ -15,12 +15,10 @@ $generatedPath="build/installer-$Edition-$Version.iss"
 New-Item -ItemType Directory -Force build | Out-Null
 Set-Content $generatedPath -Value $generated -Encoding utf8
 
-# Resolve Inno Setup robustly. Chocolatey can report an installed package while
-# the executable is not on the current PowerShell PATH, so do not rely on PATH
-# or one hard-coded installation directory.
+# Resolve Inno Setup robustly across standard Windows and Chocolatey installs.
 $isccCandidates=@(
   "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-  "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
+  "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
   "$env:ChocolateyInstall\lib\innosetup\tools\ISCC.exe",
   "$env:ChocolateyInstall\lib\innosetup.install\tools\ISCC.exe"
 )
@@ -30,7 +28,7 @@ if (-not $isccPath) {
   if ($isccCommand) { $isccPath=$isccCommand.Source }
 }
 if (-not $isccPath) {
-  $searchRoots=@($env:ProgramFiles,$env:ProgramFiles(x86),$env:ChocolateyInstall)
+  $searchRoots=@($env:ProgramFiles,${env:ProgramFiles(x86)},$env:ChocolateyInstall)
   foreach ($root in $searchRoots | Where-Object { $_ -and (Test-Path $_) }) {
     $found=Get-ChildItem -Path $root -Filter ISCC.exe -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($found) { $isccPath=$found.FullName; break }
