@@ -24,3 +24,5 @@ jobs:
         run: python -m compileall -q core app tests
       - name: P57 tests
         run: python -m pytest -q tests/test_p57_dwg_dxf_validation.py
+      - name: Real DXF and PDF provider tests
+        run: python -m pytest -q tests/test_ezdxf_provider_v1.py tests/test_real_pdf_vector_takeoff.py
