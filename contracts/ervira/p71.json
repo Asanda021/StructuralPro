@@ -1,12 +1,1 @@
-{
-  "phase":"P71",
-  "name":"Customer Support Case Contract",
-  "status":"closed_until_runtime_evidence",
-  "runtime_status":"not_implemented",
-  "release_ready":false,
-  "rules":[
-    "support cases must be attributable to an authenticated customer context",
-    "case ownership and status changes must be auditable",
-    "support records must not expose secrets or payment-method data"
-  ]
-}
+{"phase":"P71","name":"Documentation Registry","status":"implemented","runtime_status":"implemented","rules":["documentation is versioned and tied to canonical product version","public documentation contains only verified capabilities","documentation metadata is machine-readable"]}
