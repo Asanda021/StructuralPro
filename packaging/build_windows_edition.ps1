@@ -20,6 +20,23 @@ if ($Edition -ne "light") {
     edition=$Edition; ai_tier="none"; runtime=$null; model=$null; mmproj=$null; offline=$true
   } | ConvertTo-Json | Set-Content "$payload/AI_MODEL_PROFILE.json" -Encoding utf8
 }
+
+# Fail closed if the embedded AI payload is incomplete. These checks run before
+# Inno Setup so an installer can never be produced with a broken AI edition.
+$aiProfile = Get-Content "$payload/AI_MODEL_PROFILE.json" -Raw | ConvertFrom-Json
+if ($aiProfile.edition -ne $Edition) { throw "AI profile edition mismatch" }
+if ($Edition -eq "light") {
+  if (@(Get-ChildItem "$payload/models" -Filter "*.gguf" -File -ErrorAction SilentlyContinue).Count -ne 0) { throw "Light edition must not contain AI model files" }
+  if (Test-Path "$payload/ai_runtime/llama-cli.exe") { throw "Light edition must not contain AI runtime" }
+} else {
+  if (-not (Test-Path "$payload/ai_runtime/llama-cli.exe")) { throw "Embedded llama-cli.exe missing" }
+  if (@(Get-ChildItem "$payload/ai_runtime" -Filter "*.dll" -File -ErrorAction SilentlyContinue).Count -eq 0) { throw "Embedded llama.cpp DLL dependencies missing" }
+  if (-not (Test-Path "$payload/models/$($aiProfile.model)")) { throw "Embedded AI model missing" }
+  if ($Edition -in @("pro","enterprise")) {
+    if (-not (Test-Path "$payload/ai_runtime/llama-mtmd-cli.exe")) { throw "Embedded multimodal runtime missing" }
+    if (-not $aiProfile.mmproj -or -not (Test-Path "$payload/models/$($aiProfile.mmproj)")) { throw "Embedded vision projector missing" }
+  }
+}
 $template=Get-Content "$PSScriptRoot/installer-edition.iss" -Raw
 $generated=$template.Replace("__VERSION__",$Version).Replace("__EDITION__",$Edition)
 $generatedPath="build/installer-$Edition-$Version.iss"
