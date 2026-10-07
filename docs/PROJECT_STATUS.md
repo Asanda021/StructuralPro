@@ -21,7 +21,7 @@ The current Main branch has completed Priority 49, including real Windows instal
 
 ## Remaining release dependencies
 
-The following require external provisioning or evidence rather than speculative repository implementation:
+The repository now includes a fail-closed Production Release Readiness evaluator and evidence manifest. The following still require real external provisioning/evidence rather than speculative repository implementation:
 
 - Licensed/verified official Iranian annual price-list datasets.
 - A redistributable GGUF model and license/checksum evidence if a model is bundled.
