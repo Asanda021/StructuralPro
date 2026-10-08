@@ -165,5 +165,5 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
         except Exception as exc:
             quick_hint.setText("🟡 " + str(exc))
     quick_apply.clicked.connect(apply_quick)
-    item.currentIndexChanged.connect(update_fields); assembly_mode.toggled.connect(assembly_mode.toggled); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
+    item.currentIndexChanged.connect(update_fields); assembly_mode.toggled.connect(update_fields); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
     return root
