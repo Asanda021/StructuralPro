@@ -127,35 +127,32 @@ class PricebookImportService:
     @classmethod
     def _rows_from_csv(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
         text = path.read_text(encoding="utf-8-sig")
-        reader = csv.DictReader(StringIO(text))
+        reader = csv.reader(StringIO(text))
+        headers = next(reader, None)
+        if not headers:
+            return []
+        mapping = cls._map_headers(headers)
         required = {"code", "description", "unit", "unit_price"}
-        if not reader.fieldnames or not required.issubset({cls._norm(x) for x in reader.fieldnames}):
-            # Let the catalog produce the canonical error for the legacy exact schema.
-            return [
-                PriceItem(
-                    year=int(raw["year"] or fallback_year), group=raw.get("group", "").strip(),
-                    chapter=raw.get("chapter", "").strip(), code=raw["code"].strip(),
-                    description=raw["description"].strip(), unit=raw["unit"].strip(),
-                    unit_price=cls._number(raw["unit_price"]), analysis=raw.get("analysis", ""),
-                    notes=raw.get("notes", ""),
-                )
-                for raw in reader
-            ]
-        rows = []
+        if not required.issubset(mapping):
+            raise ValueError("ساختار CSV قابل تشخیص نیست. ستون‌های ضروری: کد، شرح، واحد و بهای واحد.")
+        out: list[PriceItem] = []
         for raw in reader:
-            norm = {cls._norm(k): v for k, v in raw.items()}
-            rows.append(PriceItem(
-                year=int(cls._number(norm.get("year") or fallback_year)),
-                group=str(norm.get("group") or ""),
-                chapter=str(norm.get("chapter") or ""),
-                code=str(norm.get("code") or "").strip(),
-                description=str(norm.get("description") or "").strip(),
-                unit=str(norm.get("unit") or "").strip(),
-                unit_price=cls._number(norm.get("unit_price")),
-                analysis=str(norm.get("analysis") or ""),
-                notes=str(norm.get("notes") or ""),
+            values = list(raw)
+            def val(field: str, default: Any = ""):
+                idx = mapping.get(field)
+                return values[idx] if idx is not None and idx < len(values) else default
+            out.append(PriceItem(
+                year=int(cls._number(val("year", fallback_year)) or fallback_year),
+                group=str(val("group", "") or ""),
+                chapter=str(val("chapter", "") or ""),
+                code=str(val("code", "") or "").strip(),
+                description=str(val("description", "") or "").strip(),
+                unit=str(val("unit", "") or "").strip(),
+                unit_price=cls._number(val("unit_price")),
+                analysis=str(val("analysis", "") or ""),
+                notes=str(val("notes", "") or ""),
             ))
-        return rows
+        return out
 
     def _load_items(self, path: Path, *, fallback_year: int) -> tuple[list[PriceItem], str]:
         suffix = path.suffix.casefold()
