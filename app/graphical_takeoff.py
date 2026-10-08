@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from core.drawings.graphical_takeoff import Point
 from core.drawings.pdf_engine import PDFDrawingEngine
 from core.drawings.takeoff_session import DrawingTakeoffSession
+from core.drawings.viewer_model import DrawingViewerModel
 
 
 class TakeoffCanvas(QGraphicsView):
@@ -127,6 +128,8 @@ class GraphicalTakeoffDialog(QDialog):
         self.session = DrawingTakeoffSession(pdf_path)
         self.pdf_path = pdf_path
         self.engine = None
+        self.viewer = DrawingViewerModel()
+        self.cad_document = None
         self.page = 1
 
         root = QVBoxLayout(self)
@@ -146,7 +149,7 @@ class GraphicalTakeoffDialog(QDialog):
         header.addWidget(self.scale_label)
         header.addWidget(self.calibrate)
 
-        self.open_pdf = QPushButton("بازکردن PDF")
+        self.open_pdf = QPushButton("بازکردن نقشه")
         self.prev = QPushButton("صفحه قبلی")
         self.next = QPushButton("صفحه بعدی")
         self.page_no = QSpinBox()
@@ -156,6 +159,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.zoom_out = QPushButton("−")
         self.zoom_in = QPushButton("+")
         self.fit = QPushButton("نمایش کامل")
+        self.source_label = QLabel("منبع: —")
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
         self.redo = QPushButton("↷ تکرار")
@@ -166,6 +170,7 @@ class GraphicalTakeoffDialog(QDialog):
             self.delete, self.finish
         ]:
             header.addWidget(x)
+        header.addWidget(self.source_label)
         root.addWidget(toolbar)
 
         self.canvas = TakeoffCanvas(self.session, self.refresh, self.add_note)
@@ -191,7 +196,7 @@ class GraphicalTakeoffDialog(QDialog):
 
         self.mode.currentTextChanged.connect(self.apply_tool)
         self.calibrate.clicked.connect(self.calibrate_scale)
-        self.open_pdf.clicked.connect(self.select_pdf)
+        self.open_pdf.clicked.connect(self.select_drawing)
         self.prev.clicked.connect(lambda: self.load_page(self.page - 1))
         self.next.clicked.connect(lambda: self.load_page(self.page + 1))
         self.page_no.valueChanged.connect(self.load_page)
@@ -211,23 +216,32 @@ class GraphicalTakeoffDialog(QDialog):
             except Exception as exc:
                 QMessageBox.warning(self, "PDF", "فایل برای نمایش گرافیکی باز نشد: " + str(exc))
 
-    def select_pdf(self):
+    def select_drawing(self):
         path = QFileDialog.getOpenFileName(
-            self, "انتخاب نقشه PDF", "", "PDF (*.pdf)"
+            self, "انتخاب نقشه", "", "نقشه‌ها (*.pdf *.dwg *.dxf);;PDF (*.pdf);;CAD (*.dwg *.dxf);;همه فایل‌ها (*)"
         )[0]
         if not path:
             return
         try:
-            self.engine = PDFDrawingEngine(path)
-            self.pdf_path = path
-            self.session.drawing_source = path
-            self.page_no.setMaximum(self.engine.page_count)
-            self.load_page(1)
+            self.open_drawing(path)
         except Exception as exc:
-            QMessageBox.critical(self, "خطای PDF", str(exc))
+            QMessageBox.critical(self, "خطای نقشه", str(exc))
+
+    def select_pdf(self):
+        self.select_drawing()
+
+    def open_drawing(self, path):
+        self.viewer.open(path)
+        self.pdf_path = str(path)
+        self.session.drawing_source = str(path)
+        self.source_label.setText(f"منبع: {self.viewer.source_name} | {self.viewer.kind.upper()}")
+        self.page_no.setMaximum(max(1, self.viewer.page_count))
+        self.cad_document = self.viewer.cad_document
+        self.engine = PDFDrawingEngine(path) if self.viewer.kind == "pdf" else None
+        self.load_page(1)
 
     def load_page(self, page):
-        if not self.engine or page < 1 or page > self.engine.page_count:
+        if not self.viewer.path or page < 1 or page > max(1, self.viewer.page_count):
             return
         try:
             self.page = int(page)
@@ -236,19 +250,63 @@ class GraphicalTakeoffDialog(QDialog):
             self.page_no.setValue(self.page)
             self.page_no.blockSignals(False)
 
-            data = self.engine.render(self.page, 150)
-            pix = QPixmap()
-            pix.loadFromData(QByteArray(data), "PNG")
             self.canvas.scene.clear()
-            self.canvas.scene.addPixmap(pix)
-            self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
             self.canvas.points = []
-            for item in self.session.for_page(self.page):
-                self.canvas._draw_measurement(item)
+            if self.viewer.kind == "pdf":
+                data = self.engine.render(self.page, 150)
+                pix = QPixmap()
+                if not pix.loadFromData(QByteArray(data), "PNG"):
+                    raise RuntimeError("رندر PDF ناموفق بود.")
+                self.canvas.scene.addPixmap(pix)
+                self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
+                for item in self.session.for_page(self.page):
+                    self.canvas._draw_measurement(item)
+            else:
+                self._render_cad()
             self.refresh()
             self.reset_zoom()
         except Exception as exc:
             QMessageBox.critical(self, "خطای نمایش PDF", str(exc))
+
+    def _render_cad(self):
+        doc = self.cad_document
+        if doc is None:
+            raise RuntimeError("سند CAD برای نمایش آماده نیست.")
+        coords=[]
+        for entity in doc.entities:
+            data=entity.data
+            coords.extend((float(x),float(y)) for x,y in data.get("points",[]))
+            for key in ("start","end","center","insert"):
+                if key in data and data[key] is not None:
+                    coords.append((float(data[key][0]),float(data[key][1])))
+        if not coords:
+            self.canvas.scene.addText("CAD فاقد هندسه قابل نمایش است.")
+            self.canvas.setSceneRect(0,0,1000,700)
+            return
+        min_x=min(x for x,_ in coords); max_x=max(x for x,_ in coords)
+        min_y=min(y for _,y in coords); max_y=max(y for _,y in coords)
+        margin=max(max_x-min_x,max_y-min_y,1.0)*0.05
+        min_x-=margin; max_x+=margin; min_y-=margin; max_y+=margin
+        def sx(x): return x-min_x
+        def sy(y): return max_y-y
+        pen=QPen(Qt.GlobalColor.darkBlue,0)
+        for entity in doc.entities:
+            d=entity.data
+            if entity.entity_type=="LINE" and d.get("start") and d.get("end"):
+                a,b=d["start"],d["end"]
+                self.canvas.scene.addLine(sx(a[0]),sy(a[1]),sx(b[0]),sy(b[1]),pen)
+            elif entity.entity_type in {"LWPOLYLINE","POLYLINE"} and len(d.get("points",[]))>=2:
+                pts=[QPointF(sx(x),sy(y)) for x,y in d["points"]]
+                if len(pts)>=3: self.canvas.scene.addPolygon(QPolygonF(pts),pen)
+                else: self.canvas.scene.addLine(pts[0].x(),pts[0].y(),pts[-1].x(),pts[-1].y(),pen)
+            elif entity.entity_type=="CIRCLE" and d.get("center") and d.get("radius"):
+                x,y=d["center"]; r=float(d["radius"])
+                self.canvas.scene.addEllipse(sx(x-r),sy(y+r),2*r,2*r,pen)
+            elif entity.entity_type in {"TEXT","MTEXT"} and d.get("text"):
+                pos=d.get("insert",d.get("start",(0,0)))
+                item=self.canvas.scene.addText(str(d["text"])); item.setPos(sx(pos[0]),sy(pos[1]))
+        self.canvas.setSceneRect(0,0,max_x-min_x,max_y-min_y)
+        self.status.setText(f"🟢 CAD نمایش داده شد | {len(doc.entities)} المان | لایه‌ها: {len(doc.layers)} | واحد: {doc.units}")
 
     def reset_zoom(self):
         self.canvas.resetTransform()
@@ -327,17 +385,19 @@ class GraphicalTakeoffDialog(QDialog):
             self.refresh()
 
     def redraw_current_page(self):
-        if not self.engine:
+        if not self.viewer.path:
             return
-        data = self.engine.render(self.page, 150)
-        pix = QPixmap()
-        pix.loadFromData(QByteArray(data), "PNG")
         self.canvas.scene.clear()
-        self.canvas.scene.addPixmap(pix)
-        self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
-        self.canvas.points = []
-        for item in self.session.for_page(self.page):
-            self.canvas._draw_measurement(item)
+        if self.viewer.kind == "pdf":
+            data = self.engine.render(self.page, 150)
+            pix = QPixmap()
+            pix.loadFromData(QByteArray(data), "PNG")
+            self.canvas.scene.addPixmap(pix)
+            self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
+            for item in self.session.for_page(self.page):
+                self.canvas._draw_measurement(item)
+        else:
+            self._render_cad()
 
     def refresh(self):
         self.table.setRowCount(0)
