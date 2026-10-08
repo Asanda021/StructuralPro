@@ -94,7 +94,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
+sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
