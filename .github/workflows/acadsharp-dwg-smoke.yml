@@ -64,6 +64,25 @@ jobs:
             if ((Get-Item $output).Length -lt 1000) { throw "DXF output for $v is unexpectedly small" }
           }
 
+      - name: Exercise StructuralPro production DWG provider
+        shell: pwsh
+        run: |
+          $bridge=(Resolve-Path "build/dwg-bridge/StructuralPro.DwgBridge.exe").Path
+          $env:STRUCTURALPRO_DWG_BRIDGE=$bridge
+          @'
+          from pathlib import Path
+          from core.cad.external_dwg_provider_v1 import ACadSharpDWGProvider
+
+          versions = ["AC1014","AC1015","AC1018","AC1021","AC1024","AC1027","AC1032"]
+          for version in versions:
+              source = Path("testdata/dwg") / f"sample_{version}.dwg"
+              evidence = ACadSharpDWGProvider().read(source)
+              assert evidence.dxf_version
+              assert evidence.entities, f"{version}: no modelspace entities reached StructuralPro"
+              assert evidence.layers, f"{version}: no layers reached StructuralPro"
+              print(f"{version}: dxf={evidence.dxf_version} entities={len(evidence.entities)} layers={len(evidence.layers)} blocks={len(evidence.blocks)}")
+          '@ | python -
+
       - name: Parse every generated DXF with ezdxf
         shell: pwsh
         run: |
