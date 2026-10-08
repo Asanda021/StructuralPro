@@ -53,33 +53,11 @@ QStatusBar { background: #10233f; color: #e7f0fb; }
 QToolTip { background: #172b47; color: white; border: 0; padding: 6px; }
 QTabBar::tab { background: #e8eef6; padding: 9px 16px; border: 1px solid #d1dbe8; }
 QTabBar::tab:selected { background: white; font-weight: 700; }
-"""    # Contextual command ribbon (professional desktop/AEC workflow).
-    # The ribbon is intentionally lightweight: it reuses existing pages/actions.
-    # No duplicate business logic is introduced here.
-    #CommandRibbon {
-        background: #f7f9fc;
-        border-top: 1px solid #d9e0ea;
-        border-bottom: 1px solid #d9e0ea;
-    }
-    #CommandRibbon QPushButton {
-        min-height: 34px;
-        padding: 5px 13px;
-        border-radius: 6px;
-        font-weight: 600;
-    }
-    #CommandRibbon QPushButton#RibbonAction {
-        background: #ffffff;
-        border: 1px solid #cbd5e1;
-    }
-    #CommandRibbon QPushButton#RibbonAction:hover {
-        background: #eef4fb;
-    }
-    #CommandRibbon QPushButton#RibbonPrimary {
-        background: #e9f2ff;
-        border: 1px solid #8fb7e8;
-    }
-    #CommandRibbon QPushButton#RibbonPrimary:hover {
-        background: #dcecff;
-    }
-
-
+#CommandRibbon { background: #f7f9fc; border-top: 1px solid #d9e0ea; border-bottom: 1px solid #d9e0ea; }
+#CommandRibbon QPushButton { min-height: 34px; padding: 5px 13px; border-radius: 6px; font-weight: 600; }
+#CommandRibbon QPushButton#RibbonAction { background: #ffffff; border: 1px solid #cbd5e1; }
+#CommandRibbon QPushButton#RibbonAction:hover { background: #eef4fb; }
+#CommandRibbon QPushButton#RibbonPrimary { background: #e9f2ff; border: 1px solid #8fb7e8; }
+#CommandRibbon QPushButton#RibbonPrimary:hover { background: #dcecff; }
+}
+"""
