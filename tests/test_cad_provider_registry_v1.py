@@ -20,12 +20,13 @@ def test_dxf_is_a_bundled_authorized_provider(tmp_path):
     assert evidence.dxf_version == "AC1032"
     assert len(evidence.entities) == 1
 
-def test_dwg_requires_explicit_authorized_provider(tmp_path):
+def test_dwg_registry_reports_bundled_authorized_acadsharp_provider(tmp_path):
     path = tmp_path / "drawing.dwg"
     path.write_bytes(b"not-a-dwg")
     info = provider_info("DWG")
-    assert info.bundled is False
-    assert info.authorized is False
+    assert info.bundled is True
+    assert info.authorized is True
+    assert info.provider == "ACadSharp"
     with pytest.raises(ValueError, match="authorized provider"):
         read_production_cad(path)
 
