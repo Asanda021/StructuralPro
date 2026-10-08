@@ -506,14 +506,34 @@ def main()->int:
     stsave.clicked.connect(save_statement_period)
     pages.addWidget(p); idx_statement=pages.count()-1
 
-    # Project documents
-    p,v=page("اسناد پروژه","مرکز ثبت و پیگیری نقشه‌ها، فایل‌های قراردادی و خروجی‌های پروژه")
-    docpath=QLineEdit(); docadd=QPushButton("افزودن مسیر سند"); doclist=QListWidget()
-    v.addWidget(docpath); v.addWidget(docadd); v.addWidget(doclist)
+    # Project documents — persisted with the selected project.
+    p,v=page("اسناد پروژه","ثبت مسیر فایل‌های واقعی پروژه در داده همان پروژه؛ نه یک لیست موقت.")
+    doc_project=QLineEdit(); doc_project.setPlaceholderText("شناسه پروژه")
+    docpath=QLineEdit(); docpath.setPlaceholderText("مسیر فایل سند")
+    docbrowse=QPushButton("انتخاب فایل"); docadd=QPushButton("ثبت سند"); doclist=QListWidget()
+    v.addWidget(doc_project); v.addWidget(docpath); v.addWidget(docbrowse); v.addWidget(docadd); v.addWidget(doclist)
+    def refresh_docs():
+        doclist.clear()
+        project=service.open_project(doc_project.text().strip()) if doc_project.text().strip() else None
+        for doc in (project or {}).get("documents",[]):
+            doclist.addItem(f'{doc.get("name","")} | {doc.get("path","")}')
     def add_doc():
-        path=docpath.text().strip()
-        if path: doclist.addItem(path); docpath.clear()
-    docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
+        project_id=doc_project.text().strip(); path=docpath.text().strip()
+        if not project_id or not path:
+            QMessageBox.warning(w,"اسناد","شناسه پروژه و مسیر فایل الزامی است."); return
+        project=service.open_project(project_id)
+        if not project: QMessageBox.warning(w,"اسناد","پروژه پیدا نشد."); return
+        docs=list(project.get("documents",[]))
+        if any(str(x.get("path","")) == path for x in docs):
+            QMessageBox.warning(w,"اسناد","این سند قبلاً ثبت شده است."); return
+        docs.append({"id":len(docs)+1,"name":Path(path).name,"path":path})
+        project["documents"]=docs
+        service.store.save(project_id,project)
+        docpath.clear(); refresh_docs()
+    docbrowse.clicked.connect(lambda: docpath.setText(QFileDialog.getOpenFileName(w,"انتخاب سند پروژه")[0]))
+    docadd.clicked.connect(add_doc)
+    doc_project.editingFinished.connect(refresh_docs)
+    pages.addWidget(p); idx_docs=pages.count()-1
 
     # Collaboration workspace — uses the existing provider-neutral collaboration core.
     p,v=page("همکاری پروژه","مدیریت اعضا، تخصیص کار، نظرها و بازبینی‌های پروژه در همان هسته همکاری موجود؛ بدون ایجاد منطق موازی.")
