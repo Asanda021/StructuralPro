@@ -45,3 +45,22 @@ def test_pricebook_is_real_file_import_workflow():
     assert "Excel (*.xlsx *.xlsm)" in MAIN
     assert "catalog.resolve" in MAIN
     assert "catalog.export_csv" in MAIN
+
+
+def test_contextual_command_ribbon_reuses_existing_workflows():
+    assert "CommandRibbon" in MAIN
+    assert "RibbonPrimary" in MAIN
+    assert "refresh_command_ribbon" in MAIN
+    assert 'add_command("📥 ورود Excel/CSV", load_prices, True)' in MAIN
+    assert 'add_command("🔄 بازسازی برآورد", show_boq, True)' in MAIN
+    assert 'add_command("🧮 محاسبه دوره", statement_shortcut, True)' in MAIN
+
+
+def test_user_pricebook_is_persisted_locally():
+    assert 'pricebook_store=Path.home()/".structuralpro"/"pricebook_user.csv"' in MAIN
+    assert 'catalog.import_csv(pricebook_store.read_text' in MAIN
+    assert 'pricebook_store.write_text(catalog.export_csv' in MAIN
+
+
+def test_quick_takeoff_preserves_selected_discipline():
+    assert 'service.add_takeoff(qpid.text().strip(),discipline.currentData() or "building"' in MAIN
