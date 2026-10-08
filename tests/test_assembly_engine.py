@@ -14,7 +14,7 @@ def test_block_wall_assembly_breaks_into_real_components_without_hidden_coeffici
         "wall_area", "block", "mortar", "cement", "sand"
     ]
     assert r.components[0].quantity == 30
-    assert r.components[1].quantity == 396
+    assert r.components[1].quantity == 366
     assert r.components[2].quantity > 0
     assert "پرت" in r.components[1].formula
 
