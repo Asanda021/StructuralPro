@@ -51,6 +51,7 @@ def main()->int:
         from app.dashboard import DashboardPage
         from core.drawings.dwg_capabilities import detect_dwg_capabilities
         from core.aec.disciplines import all_disciplines
+        from core.collaboration.workspace import CollaborationWorkspace, Role, User, Assignment, Comment, Review, Notification
         from core.platform.product import packaged_edition
     except ImportError as exc:
         logger.exception("Required dependency import failed")
@@ -94,7 +95,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
+    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🤝 همکاری","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
@@ -489,6 +490,71 @@ def main()->int:
         if path: doclist.addItem(path); docpath.clear()
     docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
 
+    # Collaboration workspace — uses the existing provider-neutral collaboration core.
+    p,v=page("همکاری پروژه","مدیریت اعضا، تخصیص کار، نظرها و بازبینی‌های پروژه در همان هسته همکاری موجود؛ بدون ایجاد منطق موازی.")
+    collaboration=CollaborationWorkspace()
+    for role_name, permissions in {
+        "owner": frozenset({"edit","review","approve"}),
+        "admin": frozenset({"edit","review"}),
+        "editor": frozenset({"edit"}),
+        "reviewer": frozenset({"review"}),
+        "viewer": frozenset(),
+    }.items():
+        collaboration.add_role(Role(role_name, permissions))
+    cform=QFormLayout(); cuser=QLineEdit(); cname=QLineEdit(); crole=QComboBox(); crole.addItems(["owner","admin","editor","reviewer","viewer"])
+    cform.addRow("شناسه عضو:",cuser); cform.addRow("نام نمایشی:",cname); cform.addRow("نقش:",crole); v.addLayout(cform)
+    cadd=QPushButton("➕ افزودن عضو"); cadd.setObjectName("PrimaryAction")
+    cproject=QLineEdit(); cproject.setPlaceholderText("شناسه پروژه / شیء همکاری")
+    ccreate=QPushButton("📁 ایجاد فضای همکاری"); cassign=QPushButton("📌 تخصیص پروژه به عضو")
+    ccomment=QLineEdit(); ccomment.setPlaceholderText("نظر یا یادداشت پروژه")
+    ccomment_btn=QPushButton("💬 ثبت نظر"); creview=QPushButton("🔎 ثبت بازبینی")
+    cstatus=QTextEdit(); cstatus.setReadOnly(True); cstatus.setObjectName("QualityPanel")
+    for widget in (cadd,cproject,ccreate,cassign,ccomment,ccomment_btn,creview,cstatus): v.addWidget(widget)
+    def collaboration_status(message=""):
+        snap=collaboration.snapshot()
+        cstatus.setPlainText(json.dumps({
+            "وضعیت":"آفلاین/محلی",
+            "پیام":message,
+            "اعضا":snap["users"], "اشیاء":snap["objects"], "تخصیص‌ها":snap["assignments"],
+            "نظرها":snap["comments"], "بازبینی‌ها":snap["reviews"],
+            "اعلان‌ها":snap["notifications"], "فعالیت‌ها":snap["activities"],
+        },ensure_ascii=False,indent=2))
+    def add_collaborator():
+        try:
+            collaboration.add_user(User(cuser.text().strip(),cname.text().strip(),crole.currentText()))
+            collaboration_status("عضو با موفقیت به فضای همکاری محلی اضافه شد.")
+        except Exception as e: QMessageBox.critical(w,"همکاری",str(e))
+    def create_collaboration_object():
+        try:
+            project_id=cproject.text().strip()
+            project=service.open_project(project_id)
+            if not project: raise ValueError("ابتدا یک پروژه موجود را انتخاب کنید.")
+            collaboration.create_object(project_id,{"project_id":project_id,"name":project.get("name",""),"source":"StructuralPro"})
+            collaboration_status("فضای همکاری پروژه ایجاد شد.")
+        except Exception as e: QMessageBox.critical(w,"همکاری",str(e))
+    def assign_collaboration():
+        try:
+            project_id=cproject.text().strip(); user_id=cuser.text().strip()
+            collaboration.assign(Assignment(f"ASN-{len(collaboration.assignments)+1}",user_id,project_id))
+            collaboration_status("تخصیص پروژه ثبت شد.")
+        except Exception as e: QMessageBox.critical(w,"همکاری",str(e))
+    def add_collaboration_comment():
+        try:
+            collaboration.comment(Comment(f"COM-{len(collaboration.comments)+1}",cuser.text().strip(),cproject.text().strip(),ccomment.text().strip()))
+            ccomment.clear(); collaboration_status("نظر پروژه ثبت شد.")
+        except Exception as e: QMessageBox.critical(w,"همکاری",str(e))
+    def add_collaboration_review():
+        try:
+            review_id=f"REV-{len(collaboration.reviews)+1}"
+            collaboration.review(Review(review_id,cproject.text().strip(),cuser.text().strip(),"pending","بازبینی ثبت شد"))
+            collaboration.notify(Notification(f"NOT-{len(collaboration.notifications)+1}",cuser.text().strip(),"review",cproject.text().strip()))
+            collaboration_status("بازبینی و اعلان آن ثبت شد.")
+        except Exception as e: QMessageBox.critical(w,"همکاری",str(e))
+    cadd.clicked.connect(add_collaborator); ccreate.clicked.connect(create_collaboration_object); cassign.clicked.connect(assign_collaboration)
+    ccomment_btn.clicked.connect(add_collaboration_comment); creview.clicked.connect(add_collaboration_review)
+    collaboration_status("فضای همکاری آماده است. این صفحه از هسته همکاری موجود استفاده می‌کند و ادعای اتصال ابری ندارد.")
+    pages.addWidget(p); idx_collaboration=pages.count()-1
+
     # Quality control — live, project-scoped checks instead of static green claims.
     p,v=page("کنترل کیفیت","اجرای کنترل‌های واقعی روی پروژه انتخاب‌شده و نمایش نتیجه قابل پیگیری")
     qc=QTextEdit(); qc.setReadOnly(True); qc.setObjectName("QualityPanel")
@@ -699,6 +765,12 @@ def main()->int:
         elif index == idx_docs:
             add_command("📎 افزودن سند", add_doc, True)
             add_command("🗺 نقشه‌ها", lambda: pages.setCurrentIndex(idx_drawing))
+        elif index == idx_collaboration:
+            add_command("➕ افزودن عضو", add_collaborator, True)
+            add_command("📁 ایجاد فضای پروژه", create_collaboration_object)
+            add_command("📌 تخصیص", assign_collaboration)
+            add_command("💬 نظر", add_collaboration_comment)
+            add_command("🔎 بازبینی", add_collaboration_review)
         elif index == idx_quality:
             add_command("🔎 اجرای کنترل کیفیت", qc_refresh.click, True)
             add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
