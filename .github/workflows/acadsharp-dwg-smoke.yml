@@ -1,0 +1,70 @@
+name: StructuralPro ACadSharp DWG Smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "core/cad/**"
+      - "tools/acadsharp-dwg-bridge/**"
+      - "tests/test_external_dwg_provider.py"
+      - ".github/workflows/acadsharp-dwg-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  real-dwg-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Python CAD parser
+        shell: pwsh
+        run: python -m pip install "ezdxf>=1.3" pytest
+
+      - name: Unit tests
+        shell: pwsh
+        run: python -m pytest tests/test_external_dwg_provider.py -q
+
+      - name: Build ACadSharp bridge
+        shell: pwsh
+        run: dotnet publish tools/acadsharp-dwg-bridge/StructuralPro.DwgBridge.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true --output build/dwg-bridge
+
+      - name: Download representative real DWG fixtures
+        shell: pwsh
+        run: |
+          $versions=@("AC1014","AC1015","AC1018","AC1021","AC1024","AC1027","AC1032")
+          New-Item -ItemType Directory -Force testdata/dwg | Out-Null
+          foreach ($v in $versions) {
+            $url="https://raw.githubusercontent.com/DomCR/ACadSharp/master/samples/sample_$v.dwg"
+            Invoke-WebRequest -Uri $url -OutFile "testdata/dwg/sample_$v.dwg"
+            if ((Get-Item "testdata/dwg/sample_$v.dwg").Length -lt 10000) { throw "Fixture $v is unexpectedly small" }
+          }
+
+      - name: Convert every DWG through ACadSharp
+        shell: pwsh
+        run: |
+          $bridge="build/dwg-bridge/StructuralPro.DwgBridge.exe"
+          $versions=@("AC1014","AC1015","AC1018","AC1021","AC1024","AC1027","AC1032")
+          foreach ($v in $versions) {
+            $input=(Resolve-Path "testdata/dwg/sample_$v.dwg").Path
+            $output=(Resolve-Path "testdata/dwg").Path + "\sample_$v.dxf"
+            & $bridge $input $output
+            if ($LASTEXITCODE -ne 0) { throw "ACadSharp conversion failed for $v" }
+            if (-not (Test-Path $output)) { throw "No DXF output for $v" }
+            if ((Get-Item $output).Length -lt 1000) { throw "DXF output for $v is unexpectedly small" }
+          }
+
+      - name: Parse every generated DXF with ezdxf
+        shell: pwsh
+        run: |
+          python -c "import ezdxf, pathlib; files=list(pathlib.Path('testdata/dwg').glob('*.dxf')); assert len(files)==7, files; [ezdxf.readfile(str(p)) for p in files]; print('Parsed', len(files), 'real ACadSharp-generated DXFs')"
