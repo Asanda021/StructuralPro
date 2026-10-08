@@ -1,7 +1,7 @@
 from core.takeoff.manual_input import parse_manual_batch, parse_manual_entry
 
 def test_persian_column_quick_entry():
-    r=parse_manual_entry("۱۲ ستون 50x50 ارتفاع 3")
+    r=parse_manual_entry("۱۲ ستون 50cmx50cm ارتفاع 3m")
     assert r.code=="column"
     assert r.params["count"]==12
     assert r.params["width"]==0.5
