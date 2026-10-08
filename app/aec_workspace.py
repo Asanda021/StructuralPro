@@ -73,6 +73,8 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     specs={c:f for c,_,f in ITEMS[key]}; labels={c:l for c,l,_ in ITEMS[key]}
     for c,l,_ in ITEMS[key]: item.addItem(l,c)
     grid.addRow("پروژه",project); grid.addRow("آیتم / نوع سقف",item); grid.addRow("کد فهرست‌بها (اختیاری)",price)
+    assembly_mode=QCheckBox("متره به‌صورت Assembly (عملیات → اجزای مستقل)")
+    grid.addRow("روش متره",assembly_mode)
     fields={}
     for name,label in FIELDS.items():
         w=QDoubleSpinBox(); w.setDecimals(4); w.setRange(0,1000000000); w.setSingleStep(.1)
