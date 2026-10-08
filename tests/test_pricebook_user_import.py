@@ -53,3 +53,16 @@ def test_invalid_pricebook_fails_closed(tmp_path):
         assert "اعتبارسنجی" in str(exc)
     else:
         raise AssertionError("invalid pricebook must fail closed")
+
+
+def test_persian_csv_headers_are_supported(tmp_path):
+    path = tmp_path / "pricebook-fa.csv"
+    path.write_text(
+        "سال,رشته,فصل,شماره ردیف,شرح,واحد,بهای واحد\n"
+        "1404,ابنیه,01,010104,آجرکاری,مترمربع,2500000\n",
+        encoding="utf-8-sig",
+    )
+    catalog = PriceCatalog()
+    receipt = PricebookImportService(catalog).import_file(path, year=1404)
+    assert receipt.rows == 1
+    assert catalog.get("010104", 1404).unit_price == 2500000
