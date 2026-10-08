@@ -50,7 +50,7 @@ def test_invalid_pricebook_fails_closed(tmp_path):
     try:
         service.import_file(path, year=1404)
     except ValueError as exc:
-        assert "اعتبارسنجی" in str(exc)
+        assert "ساختار فایل Excel قابل تشخیص نیست" in str(exc)
     else:
         raise AssertionError("invalid pricebook must fail closed")
 
