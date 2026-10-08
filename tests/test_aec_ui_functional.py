@@ -17,7 +17,7 @@ def test_aec_navigation_has_separate_real_workspaces():
 
 
 def test_aec_workspace_has_real_save_path():
-    assert "service.add_takeoff(pid,domain,code" in WORKSPACE
+    assert "service.add_takeoff(pid,effective_domain,code" in WORKSPACE
     assert "service.open_project(pid)" in WORKSPACE
     assert "catalog.resolve(pc)" in WORKSPACE
     assert "محاسبه و ثبت واقعی" in WORKSPACE
