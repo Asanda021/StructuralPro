@@ -125,6 +125,32 @@ class PricebookImportService:
             wb.close()
 
     @classmethod
+    def _rows_from_pdf(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
+        try:
+            import fitz
+        except ImportError as exc:
+            raise RuntimeError("برای ورود PDF باید PyMuPDF نصب باشد.") from exc
+        text_parts=[]
+        with fitz.open(path) as doc:
+            for page in doc:
+                text_parts.append(page.get_text("text") or "")
+        text="\n".join(text_parts)
+        if not text.strip():
+            raise ValueError("PDF اسکن‌شده یا تصویری است و برای جلوگیری از حدس‌زدن رد شد.")
+        out=[]
+        for line in text.splitlines():
+            cols=[x.strip() for x in line.split("|") if x.strip()]
+            if len(cols)<4: continue
+            code,desc,unit,raw_price=cols[0],cols[1],cols[2],cols[3]
+            try: price=cls._number(raw_price)
+            except ValueError: continue
+            if code and desc and unit and price>=0:
+                out.append(PriceItem(year=fallback_year,group="",chapter="",code=code,description=desc,unit=unit,unit_price=price))
+        if not out:
+            raise ValueError("PDF قابل تشخیص نیست؛ PDF باید متن واقعی با ستون‌های کد، شرح، واحد و بهای واحد داشته باشد.")
+        return out
+
+    @classmethod
     def _rows_from_csv(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
         text = path.read_text(encoding="utf-8-sig")
         reader = csv.reader(StringIO(text))
@@ -160,7 +186,9 @@ class PricebookImportService:
             return self._rows_from_excel(path, fallback_year=fallback_year), "excel"
         if suffix == ".csv":
             return self._rows_from_csv(path, fallback_year=fallback_year), "csv"
-        raise ValueError("فرمت پشتیبانی‌شده برای فهرست‌بها: XLSX، XLSM یا CSV")
+        if suffix == ".pdf":
+            return self._rows_from_pdf(path, fallback_year=fallback_year), "pdf"
+        raise ValueError("فرمت پشتیبانی‌شده برای فهرست‌بها: XLSX، XLSM، CSV یا PDF متنی")
 
     def inspect(self, path: str | Path, *, year: int, discipline: str = "building",
                 source_id: str = "user-import") -> dict[str, Any]:

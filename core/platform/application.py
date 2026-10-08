@@ -215,12 +215,15 @@ class StructuralProApp:
         p=self.store.get(project_id)
         if p is None: raise KeyError(project_id)
         source_id=str(params.pop("source_id","")).strip()
+        description=str(params.pop("description","")).strip()
+        system=str(params.pop("system","")).strip() or None
         if source_id and any(str(t.get("source_id","")).strip()==source_id for t in p.get("takeoffs",[])):
             raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source_id}")
-        result=self.takeoff.calculate(takeoff_domain(domain),item,**params)
+        result=self.takeoff.calculate(takeoff_domain(domain),item,description=description or item,**params)
         row={"id":f"{len(p['takeoffs'])+1}","member_code":str(params.get("member_code",item)),
              "source_id":source_id,
-             "description":item,"quantities":[{"code":item,"title":item,"unit":result.unit,"amount":result.quantity,
+             "description":description or item,"system":system,
+             "quantities":[{"code":item,"title":description or item,"system":system,"unit":result.unit,"amount":result.quantity,
              "formula":result.formula,"warning":result.warning,"price_code":params.get("price_code"),"unit_price":params.get("unit_price")}]}
         p["takeoffs"].append(row)
         boq_inputs=[]

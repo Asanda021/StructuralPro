@@ -32,8 +32,45 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
         q=_wall_area(p["length"],p["height"],p.get("openings",0)); return QuantityResult("ابنیه","دیوار",q,"m2","L×H−بازشو")
     if k in {"slab","slab_area","floor","کف"}:
         q=_rect_area(p["length"],p["width"]); return QuantityResult("ابنیه","سطح سقف/کف",q,"m2","L×W")
+    if k in {"solid_slab_roof","solid_slab","flat_slab"}:
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness", minimum=1e-12)*_n(p.get("count",1),"count")
+        return QuantityResult("سقف بتن‌آرمه",item,q,"m3","L×W×t×تعداد")
+    if k in {"joist_block_roof","joist_foam_roof"}:
+        area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
+        topping=area*_n(p["topping_thickness"],"topping_thickness", minimum=1e-12)
+        ribs=(area/_n(p["joist_spacing"],"joist_spacing", minimum=1e-12))*_n(p["joist_width"],"joist_width", minimum=1e-12)*_n(p["joist_depth"],"joist_depth", minimum=1e-12)
+        q=topping+ribs
+        return QuantityResult("سقف سبک بتنی",item,q,"m3","A×t رویه + (A/s)×b تیرچه×h مؤثر",("تیرها و کلاف‌های مستقل باید جداگانه متره شوند.",))
+    if k in {"hollow_core_roof","دال_مجوف"}:
+        area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
+        gross=area*_n(p["thickness"],"thickness", minimum=1e-12)
+        void=3.141592653589793*(_n(p["void_diameter"],"void_diameter")/2)**2*_n(p["length"],"length")*_n(p["void_count"],"void_count")*_n(p.get("count",1),"count")
+        q=max(0.0,gross-void)
+        return QuantityResult("سقف دال مجوف",item,q,"m3","L×W×t − π(d/2)²×L×تعداد فضای خالی",())
+    if k in {"waffle_roof","وافل"}:
+        area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
+        top=area*_n(p["top_thickness"],"top_thickness")
+        dx=(area/_n(p["spacing_x"],"spacing_x", minimum=1e-12))*_n(p["rib_width"],"rib_width", minimum=1e-12)*_n(p["rib_depth"],"rib_depth", minimum=1e-12)
+        dy=(area/_n(p["spacing_y"],"spacing_y", minimum=1e-12))*_n(p["rib_width"],"rib_width")*_n(p["rib_depth"],"rib_depth")
+        overlap=(area/(_n(p["spacing_x"],"spacing_x")*_n(p["spacing_y"],"spacing_y")))*_n(p["rib_width"],"rib_width")**2*_n(p["rib_depth"],"rib_depth")
+        q=top+dx+dy-overlap
+        return QuantityResult("سقف وافل",item,q,"m3","A×t رویه + A/sx×b×h + A/sy×b×h − تقاطع تیرچه‌ها",())
+    if k in {"uboot_roof","cobiax_roof"}:
+        area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
+        gross=area*_n(p["thickness"],"thickness")
+        void=_n(p["void_length"],"void_length")*_n(p["void_width"],"void_width")*_n(p["void_height"],"void_height")*_n(p["void_count"],"void_count")*_n(p.get("count",1),"count")
+        q=max(0.0,gross-void)
+        return QuantityResult("سقف مجوف",item,q,"m3","L×W×t − حجم واقعی فضاهای خالی",())
     if k in {"slab_volume","concrete_slab","بتن_سقف"}:
-        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t")
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t×تعداد")
+    if k in {"tie_beam","tie_beam_concrete","شناژ"}:
+        q=_rect_area(p["width"],p["depth"])*_n(p["length"],"length")*_n(p.get("count",1),"count"); return QuantityResult("سازه","شناژ / کلاف بتنی",q,"m3","b×h×L×تعداد")
+    if k in {"shear_wall","shear_wall_concrete","دیوار_برشی"}:
+        q=_n(p["length"],"length")*_n(p["thickness"],"thickness")*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","دیوار برشی بتنی",q,"m3","L×t×H×تعداد")
+    if k in {"stair_concrete","stair","پله_بتنی"}:
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("سازه","حجم مدل پایه پله بتنی",q,"m3","L×W×t×تعداد")
+    if k in {"roof_area","roof","سقف"}:
+        q=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count"); return QuantityResult("سقف","مساحت سیستم سقف",q,"m2","L×W×تعداد")
     if k in {"column","column_concrete","بتن_ستون"}:
         q=_rect_area(p["width"],p["depth"])*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","بتن ستون",q,"m3","b×h×H×تعداد")
     if k in {"beam","beam_concrete","بتن_تیر"}:

@@ -5,13 +5,12 @@ THEME = Path("app/theme.py").read_text(encoding="utf-8")
 DASHBOARD = Path("app/dashboard.py").read_text(encoding="utf-8")
 
 
-def test_primary_navigation_is_top_tab_bar():
-    assert "QTabBar" in MAIN
-    assert "MainNavigationTabs" in MAIN
-    assert "nav_tabs.currentChanged.connect(pages.setCurrentIndex)" in MAIN
-    assert "layout.addWidget(header)" in MAIN
-    assert "layout.addWidget(pages,1)" in MAIN
-    assert "layout.addWidget(nav_widget" not in MAIN
+def test_primary_navigation_is_planswift_style_tree():
+    assert "QTreeWidget" in MAIN
+    assert 'nav_tree.setObjectName("PlanSwiftNavigation")' in MAIN
+    assert 'nav_group("متره و Takeoff"' in MAIN
+    assert 'nav_group("برآورد و تجاری"' in MAIN
+    assert 'pages.setCurrentIndex(target)' in MAIN
 
 
 def test_dashboard_is_project_first_and_action_oriented():
@@ -51,7 +50,7 @@ def test_contextual_command_ribbon_reuses_existing_workflows():
     assert "CommandRibbon" in MAIN
     assert "RibbonPrimary" in MAIN
     assert "refresh_command_ribbon" in MAIN
-    assert 'add_command("📥 ورود Excel/CSV", load_prices, True)' in MAIN
+    assert 'add_command("📥 ورود Excel/CSV/PDF", load_prices, True)' in MAIN
     assert 'add_command("➕ ایجاد پروژه", create.click, True)' in MAIN
     assert 'add_command("📄 انتخاب/بررسی نقشه", browse.click, True)' in MAIN
     assert 'add_command("🔄 بازسازی برآورد", show_boq, True)' in MAIN

@@ -59,6 +59,11 @@ QToolTip { background: #172b47; color: white; border: 0; padding: 6px; }
 #AECWorkspace QPushButton#PrimaryAction { min-height: 42px; border-radius: 9px; }
 QTabBar::tab { background: #e8eef6; padding: 9px 16px; border: 1px solid #d1dbe8; }
 QTabBar::tab:selected { background: white; font-weight: 700; }
+#PlanSwiftNavigation { background: #10233f; color: #dbe7f7; border: 0; border-left: 1px solid #d6deea; padding: 10px 7px; }
+#PlanSwiftNavigation::item { padding: 9px 10px; margin: 2px 3px; border-radius: 7px; }
+#PlanSwiftNavigation::item:hover { background: #1b385f; }
+#PlanSwiftNavigation::item:selected { background: #245a91; color: white; font-weight: 800; }
+#PlanSwiftNavigation::branch { background: #10233f; }
 #CommandRibbon { background: rgba(247,249,252,235); border-top: 1px solid rgba(217,224,234,210); border-bottom: 1px solid rgba(217,224,234,210); border-radius: 0 0 10px 10px; }
 #CommandRibbon QPushButton { min-height: 34px; padding: 5px 13px; border-radius: 6px; font-weight: 600; }
 #CommandRibbon QPushButton#RibbonAction { background: #ffffff; border: 1px solid #cbd5e1; }

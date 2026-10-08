@@ -15,7 +15,7 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
         )
         from PySide6.QtCore import Qt, QTimer
         from PySide6.QtGui import QShortcut, QKeySequence
@@ -129,8 +129,8 @@ def main()->int:
     # Real AEC discipline workspaces: each area is separate and wired to the production takeoff service.
     discipline_specs=[
         ("architecture","🏠 معماری","متره معماری و نازک‌کاری","building"),
-        ("structural_concrete","🏗 سازه بتن","متره اعضای بتن‌آرمه، قالب و آرماتور","building"),
-        ("structural_steel","🏭 سازه فولاد","متره اعضای فولادی بر اساس طول، وزن واحد و تعداد","advanced"),
+        ("structural_concrete","🏗 سازه بتن","متره اعضای بتن‌آرمه و انواع سقف بتنی","building"),
+        ("structural_steel","🏭 سازه فولاد","متره اعضای فولادی و سقف‌های قابل استفاده در سازه فولادی","advanced"),
         ("masonry","🧱 بنایی","متره دیوارهای بنایی و سطوح خالص با کسر بازشو","building"),
         ("mechanical","❄ تأسیسات مکانیکی","متره لوله، کانال، عایق، تجهیزات و اتصالات","mechanical"),
         ("electrical","⚡ تأسیسات برقی","متره کابل، لوله برق، تابلو، روشنایی، پریز و ارت","electrical"),
@@ -257,11 +257,11 @@ def main()->int:
     ptools=QFrame(); ptools.setObjectName("DashboardSection"); pform=QHBoxLayout(ptools); pform.setContentsMargins(14,12,14,12); pform.setSpacing(10)
     pyear=QLineEdit(); pyear.setPlaceholderText("سال؛ اگر داخل فایل نیست وارد کن")
     pquery=QLineEdit(); pquery.setPlaceholderText("🔎 کد، شرح، فصل یا واحد")
-    load=QPushButton("📥 ورود Excel / CSV"); load.setObjectName("PrimaryAction")
+    load=QPushButton("📥 ورود Excel / CSV / PDF"); load.setObjectName("PrimaryAction")
     export_prices=QPushButton("⬇️ خروجی CSV"); export_prices.setObjectName("SecondaryAction")
     search=QPushButton("🔎 جستجو"); search.setObjectName("SecondaryAction")
     pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(export_prices); pform.addWidget(search); v.addWidget(ptools)
-    import_status=QLabel("🟡 هنوز فهرست‌بهایی وارد نشده است. فایل XLSX/XLSM/CSV خودت را انتخاب کن."); import_status.setObjectName("DashboardNotice"); import_status.setWordWrap(True); v.addWidget(import_status)
+    import_status=QLabel("🟡 هنوز فهرست‌بهایی وارد نشده است. فایل Excel یا PDF متنی خودت را انتخاب کن؛ هیچ فهرست‌بهای داخلی اجباری وجود ندارد."); import_status.setObjectName("DashboardNotice"); import_status.setWordWrap(True); v.addWidget(import_status)
     ptitle=QLabel("📚 کتابخانه فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
     ptable=QTableWidget(0,7); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل","رشته"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
     def search_prices():
@@ -273,7 +273,7 @@ def main()->int:
             for j,val in enumerate([x.year,x.code,x.description,x.unit,f"{x.unit_price:,.2f}",x.chapter,x.group]): ptable.setItem(i,j,QTableWidgetItem(str(val)))
         import_status.setText(f"🟢 {len(rows)} ردیف نمایش داده شد | آماده استفاده در متره/BOQ")
     def load_prices():
-        path=QFileDialog.getOpenFileName(w,"ورود فهرست‌بها","","Excel (*.xlsx *.xlsm);;CSV (*.csv);;همه فایل‌ها (*)")[0]
+        path=QFileDialog.getOpenFileName(w,"ورود فهرست‌بها","","Excel (*.xlsx *.xlsm);;CSV (*.csv);;PDF (*.pdf);;همه فایل‌ها (*)")[0]
         if not path:return
         try:
             selected_year=int(pyear.text()) if pyear.text().strip() else 0
@@ -736,15 +736,45 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # Top-level navigation: horizontal tabs + contextual command ribbon.
-    nav_tabs=QTabBar()
-    nav_tabs.setObjectName("MainNavigationTabs")
-    nav_tabs.setExpanding(False)
-    nav_tabs.setDrawBase(False)
-    nav_tabs.setUsesScrollButtons(True)
-    nav_tabs.setElideMode(Qt.TextElideMode.ElideNone)
-    for name in sections:
-        nav_tabs.addTab(name)
+    # PlanSwift-inspired desktop shell: project tree on the left + contextual command ribbon.
+    # Navigation is mapped directly to the real pages above; no placeholder destinations are created.
+    nav_tree=QTreeWidget()
+    nav_tree.setObjectName("PlanSwiftNavigation")
+    nav_tree.setHeaderHidden(True)
+    nav_tree.setIndentation(18)
+    nav_tree.setMinimumWidth(250)
+    nav_tree.setMaximumWidth(310)
+
+    def nav_group(title, targets):
+        parent=QTreeWidgetItem([title])
+        parent.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        nav_tree.addTopLevelItem(parent)
+        for label,target in targets:
+            child=QTreeWidgetItem([label])
+            child.setData(0,Qt.ItemDataRole.UserRole,target)
+            parent.addChild(child)
+        parent.setExpanded(True)
+        return parent
+
+    nav_group("پروژه", [
+        ("⌂ داشبورد", idx_dash), ("📁 پروژه‌ها", idx_projects), ("📎 اسناد پروژه", idx_docs),
+        ("🤝 همکاری", idx_collaboration),
+    ])
+    nav_group("متره و Takeoff", [
+        ("🏠 معماری", idx_architecture), ("🏗 سازه بتن", idx_structural_concrete),
+        ("🏭 سازه فولاد", idx_structural_steel), ("🧱 بنایی", idx_masonry),
+        ("❄ تأسیسات مکانیکی", idx_mechanical), ("⚡ تأسیسات برقی", idx_electrical),
+        ("🌳 محوطه و عملیات بیرونی", idx_civil), ("♻ بازسازی و مرمت", idx_renovation),
+        ("📐 متره سریع", idx_quick), ("🗺 متره از نقشه", idx_drawing),
+    ])
+    nav_group("برآورد و تجاری", [
+        ("💰 فهرست‌بها", idx_prices), ("📋 برآورد و BOQ", idx_boq), ("🧾 صورت‌وضعیت", idx_statement),
+    ])
+    nav_group("گزارش و کنترل", [
+        ("📊 گزارشات", idx_reports), ("🛠 ابزارهای حرفه‌ای", idx_tools),
+        ("✓ کنترل کیفیت", idx_quality), ("🤖 هوش مصنوعی آفلاین", idx_ai),
+    ])
+    nav_group("سیستم", [("⚙ تنظیمات", idx_settings), ("❔ راهنما", idx_help)])
 
     command_bar=QFrame()
     command_bar.setObjectName("CommandRibbon")
@@ -778,35 +808,14 @@ def main()->int:
             add_command("➕ ایجاد پروژه", create.click, True)
             add_command("📂 بازکردن پروژه", openb.click)
             add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
-        elif index == idx_architecture:
-            add_command("🏠 معماری", lambda: pages.setCurrentIndex(idx_architecture), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index in discipline_pages.values():
+            add_command("📐 متره واقعی", lambda: pages.setCurrentIndex(index), True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
-        elif index == idx_structural_concrete:
-            add_command("🏗 سازه بتن", lambda: pages.setCurrentIndex(idx_structural_concrete), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_structural_steel:
-            add_command("🏭 سازه فولاد", lambda: pages.setCurrentIndex(idx_structural_steel), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_masonry:
-            add_command("🧱 بنایی", lambda: pages.setCurrentIndex(idx_masonry), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_mechanical:
-            add_command("❄ تأسیسات مکانیکی", lambda: pages.setCurrentIndex(idx_mechanical), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_electrical:
-            add_command("⚡ تأسیسات برقی", lambda: pages.setCurrentIndex(idx_electrical), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_civil:
-            add_command("🌳 محوطه", lambda: pages.setCurrentIndex(idx_civil), True)
-            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
-        elif index == idx_renovation:
-            add_command("♻ بازسازی و مرمت", lambda: pages.setCurrentIndex(idx_renovation), True)
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_quick:
             add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
-            add_command("💰 انتخاب فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
             add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_drawing:
             add_command("📄 انتخاب/بررسی نقشه", browse.click, True)
@@ -814,7 +823,7 @@ def main()->int:
             add_command("✅ تأیید و ثبت", confirm.click)
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_prices:
-            add_command("📥 ورود Excel/CSV", load_prices, True)
+            add_command("📥 ورود Excel/CSV/PDF", load_prices, True)
             add_command("🔎 جستجو", search_prices)
             add_command("⬇️ خروجی CSV", export_prices_csv)
             add_command("📋 استفاده در برآورد", lambda: pages.setCurrentIndex(idx_boq))
@@ -836,10 +845,8 @@ def main()->int:
             add_command("✓ کنترل کیفیت", lambda: pages.setCurrentIndex(idx_quality))
             add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
         elif index == idx_ai:
-            if current_edition != "light":
-                add_command("🤖 بازبینی پروژه", review, True)
-            if current_edition in ("pro","enterprise"):
-                add_command("🖼️ AI Takeoff", run_ai_image)
+            if current_edition != "light": add_command("🤖 بازبینی پروژه", review, True)
+            if current_edition in ("pro","enterprise"): add_command("🖼️ AI Takeoff", run_ai_image)
         elif index == idx_docs:
             add_command("📎 افزودن سند", add_doc, True)
             add_command("🗺 نقشه‌ها", lambda: pages.setCurrentIndex(idx_drawing))
@@ -858,13 +865,30 @@ def main()->int:
             add_command("❔ راهنما", lambda: pages.setCurrentIndex(idx_help), True)
             add_command("📐 آموزش متره", lambda: pages.setCurrentIndex(idx_drawing))
         command_layout.addStretch()
-    nav_tabs.currentChanged.connect(pages.setCurrentIndex)
-    nav_tabs.currentChanged.connect(refresh_command_ribbon)
-    pages.currentChanged.connect(lambda i: nav_tabs.setCurrentIndex(i) if 0 <= i < nav_tabs.count() else None)
-    hv.addWidget(nav_tabs)
-    hv.addWidget(command_bar)
-    layout.addWidget(header)
-    layout.addWidget(pages,1)
+
+    def navigate_from_tree(item,column=0):
+        target=item.data(0,Qt.ItemDataRole.UserRole)
+        if isinstance(target,int): pages.setCurrentIndex(target)
+    nav_tree.itemClicked.connect(navigate_from_tree)
+    def sync_tree_to_page(index):
+        iterator=QTreeWidgetItemIterator(nav_tree)
+        while iterator.value():
+            item=iterator.value()
+            if item.data(0,Qt.ItemDataRole.UserRole)==index:
+                nav_tree.setCurrentItem(item); return
+            iterator+=1
+    pages.currentChanged.connect(refresh_command_ribbon)
+    pages.currentChanged.connect(sync_tree_to_page)
+
+    shell=QHBoxLayout()
+    shell.setContentsMargins(0,0,0,0)
+    shell.setSpacing(0)
+    shell.addWidget(nav_tree)
+    content=QWidget(); content_layout=QVBoxLayout(content); content_layout.setContentsMargins(0,0,0,0); content_layout.setSpacing(0)
+    content_layout.addWidget(command_bar)
+    content_layout.addWidget(pages,1)
+    shell.addWidget(content,1)
+    layout.addLayout(shell,1)
     w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
 
@@ -889,7 +913,12 @@ def main()->int:
     w.show()
     logger.info("StructuralPro UI initialized")
     if os.getenv("STRUCTURALPRO_SMOKE") == "1":
-        QTimer.singleShot(1000, app.quit)
+        # CI smoke must validate full desktop construction without relying on
+        # platform-specific event-loop shutdown semantics.
+        app.processEvents()
+        app.quit()
+        logger.info("StructuralPro smoke initialization completed")
+        return 0
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
     return result
