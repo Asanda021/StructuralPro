@@ -15,7 +15,7 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
         )
         from PySide6.QtCore import Qt, QTimer
         from PySide6.QtGui import QShortcut, QKeySequence
@@ -871,7 +871,7 @@ def main()->int:
         if isinstance(target,int): pages.setCurrentIndex(target)
     nav_tree.itemClicked.connect(navigate_from_tree)
     def sync_tree_to_page(index):
-        iterator=__import__("PySide6.QtWidgets",fromlist=["QTreeWidgetItemIterator"]).QTreeWidgetItemIterator(nav_tree)
+        iterator=QTreeWidgetItemIterator(nav_tree)
         while iterator.value():
             item=iterator.value()
             if item.data(0,Qt.ItemDataRole.UserRole)==index:
