@@ -27,7 +27,7 @@ def test_all_concrete_roof_families_are_deterministic():
                 length=10, width=5, thickness=0.20,
                 void_diameter=0.10, void_count=20, count=1,
             ),
-            9.842920367,
+            8.429203673,
             "m3",
         ),
         (
