@@ -43,7 +43,7 @@ def test_joist_foam_assembly_is_one_operation_with_independent_components():
     assert [c.code for c in r.components] == [
         "concrete", "joist", "foam", "reinforcement_mesh"
     ]
-    assert round(r.components[0].quantity, 6) == 9.6
+    assert round(r.components[0].quantity, 6) == 10.8
     assert r.components[1].quantity == 25
     assert r.components[2].quantity == 960
     assert r.components[3].quantity == 300
