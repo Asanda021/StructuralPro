@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QRectF, QByteArray
-from PySide6.QtGui import QPen, QBrush, QPixmap, QPolygonF
+from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox,
     QLabel, QGraphicsView, QGraphicsScene, QDialog, QTableWidget,
@@ -54,6 +54,16 @@ class TakeoffCanvas(QGraphicsView):
     def _announce_tool(self, message: str):
         if self.on_tool_status:
             self.on_tool_status(message)
+
+    def _set_region_highlight(self, rect: QRectF):
+        """Keep the selected drawing region highlighted in scene coordinates."""
+        self.clear_region_selection()
+        pen = QPen(QColor(190, 70, 0), 0)
+        brush = QBrush(QColor(255, 190, 0, 58))
+        self._region_overlay = self.scene.addRect(rect, pen, brush)
+        # The overlay is visual only; it must not intercept later mouse tools.
+        self._region_overlay.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        self._region_overlay.setZValue(1000)
 
     def clear_region_selection(self):
         if self._region_overlay is not None:
@@ -139,14 +149,15 @@ class TakeoffCanvas(QGraphicsView):
                 return
             scene_rect = QRectF(selected.left, selected.top, selected.width, selected.height)
             if self.mode == "zoom_window":
+                self._set_region_highlight(scene_rect)
                 self.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
-                self._announce_tool("بزرگ‌نمایی ناحیه انجام شد؛ برای بازگشت «نمایش کامل» را بزن.")
-            else:
-                self.clear_region_selection()
-                pen = QPen(Qt.GlobalColor.darkGreen, 2, Qt.PenStyle.DashLine)
-                self._region_overlay = self.scene.addRect(scene_rect, pen)
                 self._announce_tool(
-                    f"ناحیه انتخاب شد | عرض: {selected.width:.2f} | ارتفاع: {selected.height:.2f} واحد صحنه"
+                    f"ناحیه زوم و هایلایت شد | عرض: {selected.width:.2f} | ارتفاع: {selected.height:.2f} واحد نقشه"
+                )
+            else:
+                self._set_region_highlight(scene_rect)
+                self._announce_tool(
+                    f"ناحیه هایلایت شد | عرض: {selected.width:.2f} | ارتفاع: {selected.height:.2f} واحد نقشه"
                 )
             return
         return super().mouseReleaseEvent(event)
@@ -250,7 +261,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.fit = QPushButton("نمایش کامل")
         self.zoom_window = QPushButton("Zoom Window")
         self.select_region = QPushButton("انتخاب ناحیه")
-        self.cancel_selection = QPushButton("لغو انتخاب")
+        self.cancel_selection = QPushButton("لغو انتخاب/هایلایت")
         self.source_label = QLabel("منبع: —")
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
