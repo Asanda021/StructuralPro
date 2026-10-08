@@ -38,4 +38,12 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           STRUCTURALPRO_SMOKE: "1"
           QT_QPA_PLATFORM: "offscreen"
-        run: python -c "from app.main import main; raise SystemExit(main())"
+          STRUCTURALPRO_LOG_DIR: ${{ github.workspace }}\\.smoke-logs
+        run: |
+          python -u -X faulthandler -c "from app.main import main; code = main(); print(f'SMOKE_MAIN_EXIT={code}', flush=True); raise SystemExit(code)"
+          if ($LASTEXITCODE -ne 0) {
+            if (Test-Path "$env:STRUCTURALPRO_LOG_DIR\\structuralpro.log") {
+              Get-Content "$env:STRUCTURALPRO_LOG_DIR\\structuralpro.log"
+            }
+            exit $LASTEXITCODE
+          }
