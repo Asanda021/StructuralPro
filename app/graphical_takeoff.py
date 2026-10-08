@@ -464,7 +464,9 @@ class GraphicalTakeoffDialog(QDialog):
                 [Point(x, y) for x, y in points], page=self.page, label=label.strip(),
                 takeoff_code=code.strip(), source=source,
             )
+            selected_rect = QRectF(rect)
             self.redraw_current_page()
+            self.canvas._set_region_highlight(selected_rect)
             self.refresh()
             self.status.setText(
                 f"🟢 ناحیه به متره ثبت شد | {item.id} | {item.quantity:.4f} m² | صفحه {item.page} | کد BOQ: {item.takeoff_code or '—'}"
