@@ -1,5 +1,8 @@
-"""Fail-closed price-list import with provenance and user-import support."""
+"""Fail-closed price-list import with provenance and user-import support.
 
+Supports CSV and real Excel workbooks (XLSX/XLSM). Excel data is normalized to
+StructuralPro's canonical price-item schema before it reaches the catalog.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -7,8 +10,10 @@ from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+import csv
+from io import StringIO
 
-from core.pricing.catalog import PriceCatalog
+from core.pricing.catalog import PriceCatalog, PriceItem
 from core.pricing.source_registry import PriceSource, PriceSourceRegistry
 
 
@@ -22,62 +27,199 @@ class ImportReceipt:
     rows: int
     verified_source: bool
     imported_at: str
+    format: str = "csv"
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 class PricebookImportService:
-    """Import official/user datasets without ever inventing source provenance."""
+    """Import official/user datasets without inventing source provenance."""
+
+    _ALIASES = {
+        "year": {"year", "سال", "سال فهرست بها", "سال فهرست‌بها"},
+        "group": {"group", "رشته", "دسته", "گروه", "دیسپلین", "رشته کاری"},
+        "chapter": {"chapter", "فصل", "فصل کاری", "فصل فهرست بها", "فصل فهرست‌بها"},
+        "code": {"code", "کد", "شماره ردیف", "شماره ردیف فهرست بها", "شماره فهرست بها", "شماره فهرست‌بها", "ردیف"},
+        "description": {"description", "شرح", "شرح ردیف", "شرح عملیات"},
+        "unit": {"unit", "واحد", "واحد اندازه گیری", "واحد اندازه‌گیری"},
+        "unit_price": {"unit_price", "unit price", "بهای واحد", "بهای واحد (ریال)", "قیمت واحد", "قیمت", "بها"},
+        "analysis": {"analysis", "تجزیه", "تجزیه بها", "آنالیز"},
+        "notes": {"notes", "یادداشت", "توضیحات", "توضیح"},
+    }
 
     def __init__(self, catalog: PriceCatalog | None = None, registry: PriceSourceRegistry | None = None):
         self.catalog = catalog or PriceCatalog()
         self.registry = registry or PriceSourceRegistry()
+
+    @staticmethod
+    def _norm(value: Any) -> str:
+        return " ".join(str(value or "").strip().replace("‌", " ").split()).casefold()
+
+    @classmethod
+    def _map_headers(cls, headers: list[Any]) -> dict[str, int]:
+        normalized = [cls._norm(x) for x in headers]
+        mapping: dict[str, int] = {}
+        for field, aliases in cls._ALIASES.items():
+            aliases_norm = {cls._norm(x) for x in aliases}
+            for idx, header in enumerate(normalized):
+                if header in aliases_norm:
+                    mapping[field] = idx
+                    break
+        return mapping
+
+    @staticmethod
+    def _number(value: Any) -> float:
+        raw = str(value or "").strip()
+        trans = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+        raw = raw.translate(trans).replace(",", "").replace("٬", "").replace(" ", "")
+        if not raw:
+            return 0.0
+        return float(raw)
+
+    @classmethod
+    def _rows_from_excel(cls, path: Path) -> list[PriceItem]:
+        try:
+            from openpyxl import load_workbook
+        except ImportError as exc:
+            raise RuntimeError("برای ورود Excel باید openpyxl نصب باشد.") from exc
+        wb = load_workbook(path, read_only=True, data_only=True)
+        try:
+            for ws in wb.worksheets:
+                rows = ws.iter_rows(values_only=True)
+                headers = next(rows, None)
+                if not headers:
+                    continue
+                mapping = cls._map_headers(list(headers))
+                required = {"code", "description", "unit", "unit_price"}
+                if not required.issubset(mapping):
+                    continue
+                out: list[PriceItem] = []
+                for raw in rows:
+                    values = list(raw)
+                    def val(field: str, default: Any = ""):
+                        idx = mapping.get(field)
+                        return values[idx] if idx is not None and idx < len(values) else default
+                    code = str(val("code")).strip()
+                    desc = str(val("description")).strip()
+                    unit = str(val("unit")).strip()
+                    if not code or not desc or not unit:
+                        continue
+                    year_value = val("year", 0)
+                    group = str(val("group", "")).strip()
+                    chapter = str(val("chapter", "")).strip()
+                    price = cls._number(val("unit_price"))
+                    out.append(PriceItem(
+                        year=int(cls._number(year_value)) if year_value else 0,
+                        group=group, chapter=chapter, code=code,
+                        description=desc, unit=unit, unit_price=price,
+                        analysis=str(val("analysis", "") or ""),
+                        notes=str(val("notes", "") or ""),
+                    ))
+                if out:
+                    return out
+            raise ValueError(
+                "ساختار فایل Excel قابل تشخیص نیست. ستون‌های ضروری: کد/شماره ردیف، شرح، واحد و بهای واحد."
+            )
+        finally:
+            wb.close()
+
+    @classmethod
+    def _rows_from_csv(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
+        text = path.read_text(encoding="utf-8-sig")
+        reader = csv.DictReader(StringIO(text))
+        required = {"code", "description", "unit", "unit_price"}
+        if not reader.fieldnames or not required.issubset({cls._norm(x) for x in reader.fieldnames}):
+            # Let the catalog produce the canonical error for the legacy exact schema.
+            return [
+                PriceItem(
+                    year=int(raw["year"] or fallback_year), group=raw.get("group", "").strip(),
+                    chapter=raw.get("chapter", "").strip(), code=raw["code"].strip(),
+                    description=raw["description"].strip(), unit=raw["unit"].strip(),
+                    unit_price=cls._number(raw["unit_price"]), analysis=raw.get("analysis", ""),
+                    notes=raw.get("notes", ""),
+                )
+                for raw in reader
+            ]
+        rows = []
+        for raw in reader:
+            norm = {cls._norm(k): v for k, v in raw.items()}
+            rows.append(PriceItem(
+                year=int(cls._number(norm.get("year") or fallback_year)),
+                group=str(norm.get("group") or ""),
+                chapter=str(norm.get("chapter") or ""),
+                code=str(norm.get("code") or "").strip(),
+                description=str(norm.get("description") or "").strip(),
+                unit=str(norm.get("unit") or "").strip(),
+                unit_price=cls._number(norm.get("unit_price")),
+                analysis=str(norm.get("analysis") or ""),
+                notes=str(norm.get("notes") or ""),
+            ))
+        return rows
+
+    def _load_items(self, path: Path, *, fallback_year: int) -> tuple[list[PriceItem], str]:
+        suffix = path.suffix.casefold()
+        if suffix in {".xlsx", ".xlsm"}:
+            return self._rows_from_excel(path), "excel"
+        if suffix == ".csv":
+            return self._rows_from_csv(path, fallback_year=fallback_year), "csv"
+        raise ValueError("فرمت پشتیبانی‌شده برای فهرست‌بها: XLSX، XLSM یا CSV")
 
     def inspect(self, path: str | Path, *, year: int, discipline: str = "building",
                 source_id: str = "user-import") -> dict[str, Any]:
         p = Path(path)
         if not p.exists():
             raise FileNotFoundError(p)
-        text = p.read_text(encoding="utf-8-sig")
+        raw_bytes = p.read_bytes()
+        items, file_format = self._load_items(p, fallback_year=year)
+        errors: list[str] = []
+        for item in items:
+            try:
+                self.catalog._validate_item(item)
+            except (ValueError, TypeError) as exc:
+                errors.append(f"{item.code or '?'}: {exc}")
+        if not items:
+            errors.append("هیچ ردیف قابل استفاده‌ای در فایل پیدا نشد.")
         source = self.registry.get(year, discipline, source_id)
-        validation = self.registry.validate_import(
-            source or PriceSource(year, discipline, "User supplied dataset", "User", source_id),
-            text,
-        )
         return {
-            "path": str(p),
-            "filename": p.name,
-            "year": year,
-            "discipline": discipline,
-            "source_id": source_id,
-            "sha256": validation["sha256"],
-            "rows": validation["rows"],
-            "valid": validation["valid"],
-            "errors": validation["errors"],
+            "path": str(p), "filename": p.name, "year": year,
+            "discipline": discipline, "source_id": source_id,
+            "sha256": sha256(raw_bytes).hexdigest(), "rows": len(items),
+            "valid": not errors, "errors": errors[:20],
             "verified_source": bool(source and source.verified and
-                                    self.registry.verify_record(source, validation["sha256"])),
+                                    self.registry.verify_record(source, sha256(raw_bytes).hexdigest())),
+            "format": file_format,
         }
 
     def import_file(self, path: str | Path, *, year: int, discipline: str = "building",
-                    source_id: str = "user-import", require_verified_source: bool = False) -> ImportReceipt:
-        info = self.inspect(path, year=year, discipline=discipline, source_id=source_id)
+                    source_id: str = "user-import", require_verified_source: bool = False,
+                    replace_year: bool = True) -> ImportReceipt:
+        p = Path(path)
+        info = self.inspect(p, year=year, discipline=discipline, source_id=source_id)
         if not info["valid"]:
-            raise ValueError("price-list validation failed: " + "; ".join(info["errors"][:5]))
+            raise ValueError("اعتبارسنجی فهرست‌بها ناموفق بود: " + "; ".join(info["errors"][:5]))
         if require_verified_source and not info["verified_source"]:
             raise PermissionError(
-                "Official/verified import requires a registered source and matching SHA-256; "
-                "user-import mode remains available."
+                "ورود رسمی/تأییدشده نیازمند منبع ثبت‌شده و SHA-256 منطبق است؛ حالت ورود فایل کاربر آزاد است."
             )
-        text = Path(path).read_text(encoding="utf-8-sig")
-        imported = self.catalog.import_csv(text, replace_year=False)
+        items, file_format = self._load_items(p, fallback_year=year)
+        normalized = [
+            PriceItem(
+                year=item.year or int(year), group=item.group, chapter=item.chapter,
+                code=item.code, description=item.description, unit=item.unit,
+                unit_price=item.unit_price, analysis=item.analysis, notes=item.notes,
+            ) for item in items
+        ]
+        if replace_year:
+            years = {x.year for x in normalized}
+            self.catalog._items = {
+                k: v for k, v in self.catalog._items.items() if k[0] not in years
+            }
+        for item in normalized:
+            self.catalog.add(item)
         return ImportReceipt(
-            source_id=source_id,
-            year=year,
-            discipline=discipline,
-            filename=Path(path).name,
-            sha256=sha256(text.encode("utf-8")).hexdigest(),
-            rows=imported,
+            source_id=source_id, year=year, discipline=discipline, filename=p.name,
+            sha256=info["sha256"], rows=len(normalized),
             verified_source=info["verified_source"],
-            imported_at=datetime.now(timezone.utc).isoformat(),
+            imported_at=datetime.now(timezone.utc).isoformat(), format=file_format,
         )
