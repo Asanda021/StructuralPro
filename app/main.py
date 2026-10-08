@@ -68,12 +68,17 @@ def main()->int:
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
-    root=QWidget(); layout=QHBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); nav.setContentsMargins(12,16,12,16); nav.setSpacing(6); pages=QStackedWidget()
-    title=QLabel("StructuralPro")
-    title.setObjectName("BrandTitle")
-    nav.addWidget(title)
-    status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند")
-    nav.addWidget(status)
+    # Professional desktop shell: top-level navigation is a horizontal tab bar.
+    # The old right-side navigation made the application hierarchy difficult to scan.
+    root=QWidget(); layout=QVBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0)
+    header=QFrame(); header.setObjectName("TopShell"); hv=QVBoxLayout(header); hv.setContentsMargins(18,12,18,8); hv.setSpacing(8)
+    header_row=QHBoxLayout(); header_row.setSpacing(14)
+    title=QLabel("StructuralPro"); title.setObjectName("BrandTitle"); header_row.addWidget(title)
+    edition_label=QLabel(f"نسخه {current_edition}"); edition_label.setObjectName("EditionBadge"); header_row.addWidget(edition_label)
+    header_row.addStretch()
+    status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند"); status.setObjectName("ShellStatus"); header_row.addWidget(status)
+    hv.addLayout(header_row)
+    pages=QStackedWidget()
 
     def page(name,desc):
         p=QWidget(); p.setObjectName("ContentPage"); v=QVBoxLayout(p); v.setContentsMargins(26,22,26,22); v.setSpacing(14)
@@ -81,17 +86,10 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    buttons=[]
     sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات","راهنما"]
-    group_by_item={item: group for group, items in navigation_groups() for item in items}
-    current_group=None
-    for name in sections:
-        group=group_by_item.get(name)
-        if group and group != current_group:
-            group_label=QLabel(group); group_label.setObjectName("NavGroupLabel"); nav.addWidget(group_label); current_group=group
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); b.setAccessibleName(name); buttons.append(b); nav.addWidget(b)
+    # Navigation tabs are created after all pages exist so their indices are deterministic.
 
-    # Dashboard — Canva-aligned commercial shell with real project data
+    # Dashboard — functional project overview with real project data
     dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
     pages.addWidget(dashboard_page); idx_dash=pages.count()-1
 
@@ -580,13 +578,21 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # navigation — single active item, keyboard-friendly focus and deterministic status text.
-    for b,i in zip(buttons,range(pages.count())):
-        b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
-        b.clicked.connect(lambda checked=False,btn=b: [x.setChecked(x is btn) for x in buttons])
-    buttons[0].setChecked(True)
-    nav.addStretch()
-    layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
+    # Top-level navigation: a real horizontal tab bar with one active tab.
+    nav_tabs=QTabBar()
+    nav_tabs.setObjectName("MainNavigationTabs")
+    nav_tabs.setExpanding(False)
+    nav_tabs.setDrawBase(False)
+    nav_tabs.setUsesScrollButtons(True)
+    nav_tabs.setElideMode(Qt.TextElideMode.ElideNone)
+    for name in sections:
+        nav_tabs.addTab(name)
+    nav_tabs.currentChanged.connect(pages.setCurrentIndex)
+    pages.currentChanged.connect(lambda i: nav_tabs.setCurrentIndex(i) if 0 <= i < nav_tabs.count() else None)
+    hv.addWidget(nav_tabs)
+    layout.addWidget(header)
+    layout.addWidget(pages,1)
+    w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
 
     QShortcut(QKeySequence("Ctrl+N"), w).activated.connect(lambda: (pages.setCurrentIndex(idx_projects), pname.setFocus()))
