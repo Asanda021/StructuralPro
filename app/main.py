@@ -45,6 +45,7 @@ def main()->int:
         from core.commercial.progress import build_progress
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
+        from app.aec_workspace import build_aec_workspace
         from app.theme import APP_STYLESHEET
         from core.ui.ux import DEFAULT_ACTIONS, navigation_groups, quick_status
         from core.help.content import topics as help_topics, search as search_help_topics
@@ -123,6 +124,31 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
         pout.setText(f'پروژه باز شد: {project.get("name","")}')
     openb.clicked.connect(open_selected)
     pages.addWidget(p); idx_projects=pages.count()-1
+
+    # Real AEC discipline workspaces: each area is separate and wired to the production takeoff service.
+    discipline_specs=[
+        ("architecture","🏠 معماری","متره معماری و نازک‌کاری","building"),
+        ("structural_concrete","🏗 سازه بتن","متره اعضای بتن‌آرمه، قالب و آرماتور","building"),
+        ("structural_steel","🏭 سازه فولاد","متره اعضای فولادی بر اساس طول، وزن واحد و تعداد","advanced"),
+        ("masonry","🧱 بنایی","متره دیوارهای بنایی و سطوح خالص با کسر بازشو","building"),
+        ("mechanical","❄ تأسیسات مکانیکی","متره لوله، کانال، عایق، تجهیزات و اتصالات","mechanical"),
+        ("electrical","⚡ تأسیسات برقی","متره کابل، لوله برق، تابلو، روشنایی، پریز و ارت","electrical"),
+        ("civil","🌳 محوطه و عملیات بیرونی","متره خاکبرداری، خاکریزی، بتن، آسفالت، جدول و زهکشی","civil"),
+        ("renovation","♻ بازسازی و مرمت","متره تخریب، مرمت نما، کف‌سازی و سقف کاذب","advanced"),
+    ]
+    discipline_pages={}
+    for key,title_fa,description_fa,domain in discipline_specs:
+        wp=build_aec_workspace(service,catalog,title=title_fa,description=description_fa,domain=domain,key=key,
+                               status_callback=lambda message: status.setText("🟢 "+message))
+        pages.addWidget(wp); discipline_pages[key]=pages.count()-1
+    idx_architecture=discipline_pages["architecture"]
+    idx_structural_concrete=discipline_pages["structural_concrete"]
+    idx_structural_steel=discipline_pages["structural_steel"]
+    idx_masonry=discipline_pages["masonry"]
+    idx_mechanical=discipline_pages["mechanical"]
+    idx_electrical=discipline_pages["electrical"]
+    idx_civil=discipline_pages["civil"]
+    idx_renovation=discipline_pages["renovation"]
 
     # Quick takeoff
     p,v=page("متره سریع","ورود سریع مقادیر با فرم استاندارد")
@@ -622,8 +648,16 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
     rdstatus=QLabel("RTL فعال | صفحه‌بندی و جمع گروهی آماده"); rdv.addWidget(rdstatus)
     rdb=QPushButton("اعمال چیدمان گزارش"); rdv.addWidget(rdb)
     def apply_layout():
+        project_id=rpid.text().strip()
+        if not project_id:
+            rdstatus.setText("🔴 ابتدا شناسه پروژه را در گزارشات وارد کنید."); return
+        project=service.open_project(project_id)
+        if not project:
+            rdstatus.setText("🔴 پروژه پیدا نشد."); return
         layout=ReportLayout(columns=[x.strip() for x in rdcols.text().split(",") if x.strip()],group_by=rdgroup.text().strip())
-        rdstatus.setText(f"چیدمان ذخیره شد: {len(layout.columns)} ستون | گروه‌بندی: {layout.group_by or 'ندارد'} | RTL: {layout.rtl}")
+        project["_report_layout"]={"columns":layout.columns,"group_by":layout.group_by,"rtl":layout.rtl}
+        service.store.save(project_id,project)
+        rdstatus.setText(f"🟢 چیدمان گزارش برای پروژه ذخیره شد: {len(layout.columns)} ستون | گروه‌بندی: {layout.group_by or 'ندارد'} | RTL: {layout.rtl}")
     rdb.clicked.connect(apply_layout); tools.addTab(rd,"طراحی گزارش")
 
     # Commercial progress and backup are available from the same desktop surface.
@@ -678,6 +712,31 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
             add_command("➕ ایجاد پروژه", create.click, True)
             add_command("📂 بازکردن پروژه", openb.click)
             add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
+        elif index == idx_architecture:
+            add_command("🏠 معماری", lambda: pages.setCurrentIndex(idx_architecture), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
+        elif index == idx_structural_concrete:
+            add_command("🏗 سازه بتن", lambda: pages.setCurrentIndex(idx_structural_concrete), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_structural_steel:
+            add_command("🏭 سازه فولاد", lambda: pages.setCurrentIndex(idx_structural_steel), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_masonry:
+            add_command("🧱 بنایی", lambda: pages.setCurrentIndex(idx_masonry), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_mechanical:
+            add_command("❄ تأسیسات مکانیکی", lambda: pages.setCurrentIndex(idx_mechanical), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_electrical:
+            add_command("⚡ تأسیسات برقی", lambda: pages.setCurrentIndex(idx_electrical), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_civil:
+            add_command("🌳 محوطه", lambda: pages.setCurrentIndex(idx_civil), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_renovation:
+            add_command("♻ بازسازی و مرمت", lambda: pages.setCurrentIndex(idx_renovation), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_quick:
             add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
