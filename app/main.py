@@ -96,7 +96,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
+    sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🏠 انواع سقف","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
@@ -131,6 +131,7 @@ def main()->int:
         ("architecture","🏠 معماری","متره معماری و نازک‌کاری","building"),
         ("structural_concrete","🏗 سازه بتن","متره اعضای بتن‌آرمه، قالب و آرماتور","building"),
         ("structural_steel","🏭 سازه فولاد","متره اعضای فولادی بر اساس طول، وزن واحد و تعداد","advanced"),
+        ("roofs","🏠 انواع سقف","متره و ثبت واقعی سیستم‌های سقف سازه‌ای و معماری","building"),
         ("masonry","🧱 بنایی","متره دیوارهای بنایی و سطوح خالص با کسر بازشو","building"),
         ("mechanical","❄ تأسیسات مکانیکی","متره لوله، کانال، عایق، تجهیزات و اتصالات","mechanical"),
         ("electrical","⚡ تأسیسات برقی","متره کابل، لوله برق، تابلو، روشنایی، پریز و ارت","electrical"),
@@ -145,6 +146,7 @@ def main()->int:
     idx_architecture=discipline_pages["architecture"]
     idx_structural_concrete=discipline_pages["structural_concrete"]
     idx_structural_steel=discipline_pages["structural_steel"]
+    idx_roofs=discipline_pages["roofs"]
     idx_masonry=discipline_pages["masonry"]
     idx_mechanical=discipline_pages["mechanical"]
     idx_electrical=discipline_pages["electrical"]
@@ -787,6 +789,11 @@ def main()->int:
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_structural_steel:
             add_command("🏭 سازه فولاد", lambda: pages.setCurrentIndex(idx_structural_steel), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_roofs:
+            add_command("🏠 انواع سقف", lambda: pages.setCurrentIndex(idx_roofs), True)
+            add_command("🏗 سازه بتن", lambda: pages.setCurrentIndex(idx_structural_concrete))
+            add_command("🏭 سازه فولاد", lambda: pages.setCurrentIndex(idx_structural_steel))
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_masonry:
             add_command("🧱 بنایی", lambda: pages.setCurrentIndex(idx_masonry), True)
