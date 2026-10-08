@@ -78,7 +78,7 @@ class PricebookImportService:
         return float(raw)
 
     @classmethod
-    def _rows_from_excel(cls, path: Path) -> list[PriceItem]:
+    def _rows_from_excel(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
         try:
             from openpyxl import load_workbook
         except ImportError as exc:
@@ -105,7 +105,7 @@ class PricebookImportService:
                     unit = str(val("unit")).strip()
                     if not code or not desc or not unit:
                         continue
-                    year_value = val("year", 0)
+                    year_value = val("year", fallback_year)
                     group = str(val("group", "")).strip()
                     chapter = str(val("chapter", "")).strip()
                     price = cls._number(val("unit_price"))
@@ -160,7 +160,7 @@ class PricebookImportService:
     def _load_items(self, path: Path, *, fallback_year: int) -> tuple[list[PriceItem], str]:
         suffix = path.suffix.casefold()
         if suffix in {".xlsx", ".xlsm"}:
-            return self._rows_from_excel(path), "excel"
+            return self._rows_from_excel(path, fallback_year=fallback_year), "excel"
         if suffix == ".csv":
             return self._rows_from_csv(path, fallback_year=fallback_year), "csv"
         raise ValueError("فرمت پشتیبانی‌شده برای فهرست‌بها: XLSX، XLSM یا CSV")
