@@ -29,3 +29,19 @@ def test_theme_has_clear_top_navigation_states():
     assert "#MainNavigationTabs::tab:selected" in THEME
     assert "#DashboardSection" in THEME
     assert "#DashboardAction" in THEME
+
+
+def test_navigation_uses_clear_professional_symbols():
+    assert "⌂ داشبورد" in MAIN
+    assert "📁 پروژه‌ها" in MAIN
+    assert "📐 متره سریع" in MAIN
+    assert "💰 فهرست‌بها" in MAIN
+    assert "🤖 هوش مصنوعی آفلاین" in MAIN
+
+
+def test_pricebook_is_real_file_import_workflow():
+    assert "PricebookImportService" in MAIN
+    assert "📥 ورود Excel / CSV" in MAIN
+    assert "Excel (*.xlsx *.xlsm)" in MAIN
+    assert "catalog.resolve" in MAIN
+    assert "catalog.export_csv" in MAIN
