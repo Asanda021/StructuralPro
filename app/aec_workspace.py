@@ -12,6 +12,7 @@ ITEMS={
 "civil":[("excavation","خاکبرداری",("length","width","depth")),("backfill","خاکریزی",("excavation","deductions")),("paving","بتن محوطه",("length","width","thickness")),("asphalt","آسفالت",("length","width","thickness")),("curb","جدول",("length","count")),("drainage","زهکشی",("length",)),("fence_wall","دیوارکشی",("length","height"))],
 "renovation":[("demolition","تخریب",("length","width","height","count")),("facade","نما / مرمت نما",("length","height","openings")),("screed","کف‌سازی",("length","width","thickness","count")),("ceiling","سقف کاذب",("length","width","count"))],
 }
+ITEM_DOMAINS={"footing_concrete":"advanced","steel":"advanced"}
 FIELDS={"length":"طول","width":"عرض","height":"ارتفاع","depth":"عمق","thickness":"ضخامت","perimeter":"محیط","count":"تعداد","unit_weight":"وزن واحد (kg/m)","openings":"کسر بازشو (m²)","waste":"ضریب پرت","layers":"تعداد لایه","diameter":"قطر","excavation":"حجم خاکبرداری","deductions":"کسرها"}
 
 def build_aec_workspace(service,catalog,*,title,description,domain,key,status_callback=None):
@@ -57,7 +58,8 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
         else: params["price_code"]=None
         try:
             p=service.open_project(pid); source_id=f"manual:{key}:{code}:{len(p.get('takeoffs',[]))+1}"
-            row=service.add_takeoff(pid,domain,code,source_id=source_id,**params); q=row["quantities"][0]
+            effective_domain=ITEM_DOMAINS.get(code,domain)
+            row=service.add_takeoff(pid,effective_domain,code,source_id=source_id,**params); q=row["quantities"][0]
             result.setText(f"🟢 ثبت شد | {labels[code]} | {q['amount']:,.4f} {q['unit']} | فرمول: {q['formula']}"); refresh()
             if status_callback: status_callback(f"متره {title} ثبت شد")
         except Exception as exc: QMessageBox.critical(root,"خطای متره",str(exc))
