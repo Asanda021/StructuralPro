@@ -17,6 +17,7 @@ from core.drawings.pdf_engine import PDFDrawingEngine
 from core.drawings.takeoff_session import DrawingTakeoffSession
 from core.drawings.viewer_model import DrawingViewerModel
 from core.drawings.viewport_tools import ViewportRect
+from core.drawings.region_takeoff import rectangle_to_points
 
 
 class TakeoffCanvas(QGraphicsView):
@@ -33,6 +34,7 @@ class TakeoffCanvas(QGraphicsView):
         self._selection_origin = None
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
         self._region_overlay = None
+        self._selected_region_rect = None
         self.on_tool_status = None
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
@@ -58,6 +60,7 @@ class TakeoffCanvas(QGraphicsView):
     def _set_region_highlight(self, rect: QRectF):
         """Keep the selected drawing region highlighted in scene coordinates."""
         self.clear_region_selection()
+        self._selected_region_rect = QRectF(rect)
         pen = QPen(QColor(190, 70, 0), 0)
         brush = QBrush(QColor(255, 190, 0, 58))
         self._region_overlay = self.scene.addRect(rect, pen, brush)
@@ -69,6 +72,7 @@ class TakeoffCanvas(QGraphicsView):
         if self._region_overlay is not None:
             self.scene.removeItem(self._region_overlay)
             self._region_overlay = None
+        self._selected_region_rect = None
 
     def cancel_interaction(self, reset_tool: bool = True, announce: bool = True):
         self._selection_origin = None
@@ -262,6 +266,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.zoom_window = QPushButton("Zoom Window")
         self.select_region = QPushButton("انتخاب ناحیه")
         self.cancel_selection = QPushButton("لغو انتخاب/هایلایت")
+        self.region_to_takeoff = QPushButton("ثبت ناحیه در متره")
         self.source_label = QLabel("منبع: —")
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
@@ -270,7 +275,7 @@ class GraphicalTakeoffDialog(QDialog):
         for x in [
             self.open_pdf, self.prev, self.next, self.page_no,
             self.zoom_out, self.zoom_in, self.fit, self.zoom_window,
-            self.select_region, self.cancel_selection, self.undo, self.redo,
+            self.select_region, self.cancel_selection, self.region_to_takeoff, self.undo, self.redo,
             self.delete, self.finish
         ]:
             header.addWidget(x)
@@ -315,6 +320,7 @@ class GraphicalTakeoffDialog(QDialog):
             lambda: self._activate_view_tool("region_select", "مستطیل ناحیه موردنظر را با ماوس بکش؛ Esc یا کلیک راست لغو می‌کند.")
         )
         self.cancel_selection.clicked.connect(lambda: self.canvas.cancel_interaction())
+        self.region_to_takeoff.clicked.connect(self.register_selected_region)
         self.finish.clicked.connect(self.canvas.finish)
         self.undo.clicked.connect(self.undo_session)
         self.redo.clicked.connect(self.redo_session)
@@ -434,6 +440,37 @@ class GraphicalTakeoffDialog(QDialog):
                 self.canvas.scene.sceneRect(),
                 Qt.AspectRatioMode.KeepAspectRatio
             )
+
+    def register_selected_region(self):
+        """Convert the highlighted rectangle into a traceable area takeoff item."""
+        rect = self.canvas._selected_region_rect
+        if rect is None or not rect.isValid() or rect.width() <= 0 or rect.height() <= 0:
+            QMessageBox.information(self, "ثبت ناحیه", "ابتدا با «انتخاب ناحیه» یا «Zoom Window» یک ناحیه معتبر مشخص کنید.")
+            return
+        if self.session.calibration is None:
+            QMessageBox.warning(self, "کالیبراسیون لازم است", "برای تبدیل پیکسل به مترمربع، ابتدا مقیاس همین نقشه را کالیبره کنید.")
+            return
+        label, ok = QInputDialog.getText(self, "شرح متره ناحیه", "شرح آیتم (مثلاً کف اتاق ۱۰۱):", text="متره سطحی از ناحیه انتخاب‌شده")
+        if not ok or not label.strip():
+            return
+        code, ok = QInputDialog.getText(self, "کد BOQ (اختیاری)", "کد ردیف فهرست‌بها / BOQ:")
+        if not ok:
+            return
+        try:
+            points = rectangle_to_points(rect.left(), rect.top(), rect.right(), rect.bottom())
+            source = (f"region:page={self.page}:left={rect.left():.6f}:top={rect.top():.6f}:"
+                      f"right={rect.right():.6f}:bottom={rect.bottom():.6f}")
+            item = self.session.add_area(
+                [Point(x, y) for x, y in points], page=self.page, label=label.strip(),
+                takeoff_code=code.strip(), source=source,
+            )
+            self.redraw_current_page()
+            self.refresh()
+            self.status.setText(
+                f"🟢 ناحیه به متره ثبت شد | {item.id} | {item.quantity:.4f} m² | صفحه {item.page} | کد BOQ: {item.takeoff_code or '—'}"
+            )
+        except Exception as exc:
+            QMessageBox.warning(self, "ثبت ناحیه", str(exc))
 
     def apply_tool(self):
         mapping = {
