@@ -22,6 +22,7 @@ def main()->int:
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
         from core.pricing.catalog import PriceCatalog
+        from core.pricing.import_service import PricebookImportService
         from core.ai.project_assistant import ProjectAssistant
         from core.reports.quality import prepare_rows
         from core.reports.project_report import build_report
@@ -62,6 +63,7 @@ def main()->int:
     app.setStyleSheet(APP_STYLESHEET)
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
+    pricebook_importer=PricebookImportService(catalog)
     bundle_dir=Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
     packaged=packaged_edition(bundle_dir, fail_closed=False)
     current_edition=packaged.value if packaged else "pro"
@@ -86,7 +88,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات","راهنما"]
+    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
@@ -127,6 +129,10 @@ def main()->int:
     def do_calc():
         try:
             params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"discipline":discipline.currentData() or "building","price_code":price_code.text().strip() or None}
+            if price_code.text().strip():
+                resolved=catalog.resolve(price_code.text().strip(), year=int(pyear.text()) if 'pyear' in locals() and pyear.text().strip() else None)
+                if resolved.get("status") == "ok":
+                    params["unit_price"]=resolved["unit_price"]
             row=service.add_takeoff(qpid.text().strip(),"building",item.currentText(),**params)
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
@@ -213,30 +219,55 @@ def main()->int:
     graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
-    # Pricing — Canva-aligned operational workspace
-    p,v=page("فهرست‌بها","مدیریت سال، جستجو و کنترل سریع ردیف‌های فهرست‌بها")
-    ptools=QFrame(); ptools.setObjectName("DashboardCard"); pform=QHBoxLayout(ptools); pform.setContentsMargins(12,10,12,10)
-    pyear=QLineEdit(); pyear.setPlaceholderText("مثلاً ۱۴۰۵ یا 2026")
-    pquery=QLineEdit(); pquery.setPlaceholderText("کد، شرح یا فصل را جستجو کنید")
-    load=QPushButton("بارگذاری CSV"); load.setObjectName("SecondaryAction"); search=QPushButton("جستجو"); search.setObjectName("PrimaryAction")
-    pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(QLabel("جستجو")); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(search); v.addWidget(ptools)
-    ptitle=QLabel("ردیف‌های فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
-    ptable=QTableWidget(0,6); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
-    def load_prices():
-        path=QFileDialog.getOpenFileName(w,"CSV فهرست‌بها","","CSV (*.csv)")[0]
-        if not path:return
-        try:
-            text=Path(path).read_text(encoding="utf-8-sig"); n=catalog.import_csv(text,replace_year=True); pquery.setText(""); search_prices(); status.setText(f"🟢 {n} ردیف فهرست‌بها بارگذاری شد")
-        except Exception as e: QMessageBox.critical(w,"خطای فهرست‌بها",str(e))
-    load.clicked.connect(load_prices)
+    # Pricing — professional pricebook workspace with real user-file import.
+    p,v=page("فهرست‌بها","📥 فایل فهرست‌بهای خودت را وارد کن، کنترل کن، جستجو کن و همان کدها را در متره و BOQ استفاده کن.")
+    ptools=QFrame(); ptools.setObjectName("DashboardSection"); pform=QHBoxLayout(ptools); pform.setContentsMargins(14,12,14,12); pform.setSpacing(10)
+    pyear=QLineEdit(); pyear.setPlaceholderText("سال؛ اگر داخل فایل نیست وارد کن")
+    pquery=QLineEdit(); pquery.setPlaceholderText("🔎 کد، شرح، فصل یا واحد")
+    load=QPushButton("📥 ورود Excel / CSV"); load.setObjectName("PrimaryAction")
+    export_prices=QPushButton("⬇️ خروجی CSV"); export_prices.setObjectName("SecondaryAction")
+    search=QPushButton("🔎 جستجو"); search.setObjectName("SecondaryAction")
+    pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(export_prices); pform.addWidget(search); v.addWidget(ptools)
+    import_status=QLabel("🟡 هنوز فهرست‌بهایی وارد نشده است. فایل XLSX/XLSM/CSV خودت را انتخاب کن."); import_status.setObjectName("DashboardNotice"); import_status.setWordWrap(True); v.addWidget(import_status)
+    ptitle=QLabel("📚 کتابخانه فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
+    ptable=QTableWidget(0,7); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل","رشته"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
     def search_prices():
         try: year=int(pyear.text()) if pyear.text().strip() else None
         except ValueError: year=None
-        rows=catalog.search(pquery.text(),year=year,limit=100); ptable.setRowCount(0)
+        rows=catalog.search(pquery.text(),year=year,limit=250); ptable.setRowCount(0)
         for i,x in enumerate(rows):
             ptable.insertRow(i)
-            for j,val in enumerate([x.year,x.code,x.description,x.unit,x.unit_price,x.chapter]): ptable.setItem(i,j,QTableWidgetItem(str(val)))
+            for j,val in enumerate([x.year,x.code,x.description,x.unit,f"{x.unit_price:,.2f}",x.chapter,x.group]): ptable.setItem(i,j,QTableWidgetItem(str(val)))
+        import_status.setText(f"🟢 {len(rows)} ردیف نمایش داده شد | آماده استفاده در متره/BOQ")
+    def load_prices():
+        path=QFileDialog.getOpenFileName(w,"ورود فهرست‌بها","","Excel (*.xlsx *.xlsm);;CSV (*.csv);;همه فایل‌ها (*)")[0]
+        if not path:return
+        try:
+            selected_year=int(pyear.text()) if pyear.text().strip() else 0
+            info=pricebook_importer.inspect(path,year=selected_year or 0,discipline="building",source_id="user-import")
+            if not info["valid"]:
+                raise ValueError("؛ ".join(info["errors"][:5]))
+            receipt=pricebook_importer.import_file(path,year=selected_year or 0,discipline="building",source_id="user-import",replace_year=True)
+            pyear.setText(str(receipt.year if receipt.year else selected_year))
+            pquery.setText("")
+            search_prices()
+            verification="منبع کاربر" if not receipt.verified_source else "منبع رسمیِ ثبت‌شده"
+            import_status.setText(f"🟢 ورود موفق | {receipt.rows:,} ردیف | {receipt.format.upper()} | {verification} | SHA-256: {receipt.sha256[:12]}…")
+            status.setText(f"🟢 فهرست‌بها آماده استفاده است | {receipt.rows:,} ردیف")
+        except Exception as e:
+            QMessageBox.critical(w,"خطای ورود فهرست‌بها",str(e))
+            import_status.setText("🔴 ورود انجام نشد؛ فایل تغییر داده نشد.")
+    def export_prices_csv():
+        path=QFileDialog.getSaveFileName(w,"خروجی فهرست‌بها","pricebook.csv","CSV (*.csv)")[0]
+        if not path:return
+        try:
+            year=int(pyear.text()) if pyear.text().strip() else None
+            Path(path).write_text(catalog.export_csv(year),encoding="utf-8-sig")
+            status.setText("🟢 خروجی فهرست‌بها ذخیره شد")
+        except Exception as e: QMessageBox.critical(w,"خطای خروجی",str(e))
+    load.clicked.connect(load_prices)
     search.clicked.connect(search_prices)
+    export_prices.clicked.connect(export_prices_csv)
     pages.addWidget(p); idx_prices=pages.count()-1
 
     # BOQ — commercial estimate workspace
