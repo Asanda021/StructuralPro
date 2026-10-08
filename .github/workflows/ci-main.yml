@@ -44,6 +44,8 @@ jobs:
       - name: Dedicated phase tests
         run: python -m pytest -q tests/test_p221_p230_drawing_measurement_integrity.py
 
+      - name: Product workflow acceptance gates 1-4
+        run: python -m pytest -q tests/test_product_workflow_acceptance.py
+
       - name: Run full test suite
         run: python -m pytest -q
-

@@ -18,6 +18,7 @@ from core.commercial.finance_depth import FinancePaymentControl, PaymentRecord, 
 from core.drawings.model_registry import ModelRegistry, ModelSource, ModelObject
 from core.performance.project_performance import paginate, project_performance_snapshot
 from core.recovery.recovery import export_project, import_project
+from core.aec.disciplines import takeoff_domain
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -216,7 +217,7 @@ class StructuralProApp:
         source_id=str(params.pop("source_id","")).strip()
         if source_id and any(str(t.get("source_id","")).strip()==source_id for t in p.get("takeoffs",[])):
             raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source_id}")
-        result=self.takeoff.calculate(domain,item,**params)
+        result=self.takeoff.calculate(takeoff_domain(domain),item,**params)
         row={"id":f"{len(p['takeoffs'])+1}","member_code":str(params.get("member_code",item)),
              "source_id":source_id,
              "description":item,"quantities":[{"code":item,"title":item,"unit":result.unit,"amount":result.quantity,
