@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
+import os
 import subprocess
 import tempfile
 from typing import Sequence
@@ -68,8 +69,9 @@ class ExternalDWGConverterProvider:
             str(target_dir),
             self.config.output_version,
             "DXF",
-            "1" if self.config.audit else "0",
             "1" if self.config.recursive else "0",
+            "1" if self.config.audit else "0",
+            "*.DWG",
         )
 
     def convert(self, source: str | Path) -> Path:
@@ -116,7 +118,9 @@ class ExternalDWGConverterProvider:
             # Validate the generated artifact with the existing real DXF engine
             # before exposing it to the takeoff pipeline.
             read_dxf(candidates[0])
-            verified = Path(tempfile.mkstemp(prefix="structuralpro-dwg-", suffix=".dxf")[1])
+            fd, verified_name = tempfile.mkstemp(prefix="structuralpro-dwg-", suffix=".dxf")
+            os.close(fd)
+            verified = Path(verified_name)
             verified.write_bytes(candidates[0].read_bytes())
             return verified
 
