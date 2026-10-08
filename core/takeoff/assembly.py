@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import ceil
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
@@ -102,7 +102,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         blocks = area / ((bw + joint) * (bh + joint))
         block_waste = _optional(p, "block_waste_factor")
         blocks_final = ceil(_waste(blocks, block_waste))
-        mortar_volume = max(0.0, volume - blocks_final * bw * bh * bt)
+        # Procurement waste must not change the geometric built-wall volume.
+        mortar_volume = max(0.0, volume - blocks * bw * bh * bt)
         mortar_waste = _optional(p, "mortar_waste_factor")
         mortar_final = _waste(mortar_volume, mortar_waste)
         total_parts = mortar_ratio_c + mortar_ratio_s
@@ -164,8 +165,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
             components.append(AssemblyComponent("reinforcement_mesh", "مش/آرماتور شبکه‌ای", "kg",
                                                 "A×وزن واحد مش", area * mesh_weight))
             used.append("mesh_unit_weight")
-        else:
-            missing.append("mesh_unit_weight")
+        # Reinforcement is drawing/specification dependent; never invent it.
         return AssemblyResult(
             "joist_foam_roof_assembly" if "foam" in k or "یونولیت" in k else "joist_block_roof_assembly",
             "سقف تیرچه یونولیت" if "foam" in k or "یونولیت" in k else "سقف تیرچه‌بلوک",
