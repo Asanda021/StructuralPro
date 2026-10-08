@@ -43,7 +43,7 @@ def test_joist_foam_assembly_is_one_operation_with_independent_components():
     assert [c.code for c in r.components] == [
         "concrete", "joist", "foam", "reinforcement_mesh"
     ]
-    assert round(r.components[0].quantity, 6) == 10.8
+    assert round(r.components[0].quantity, 6) == 11.0
     assert r.components[1].quantity == 25
     assert r.components[2].quantity == 960
     assert r.components[3].quantity == 300
@@ -84,3 +84,16 @@ def test_block_waste_does_not_change_built_mortar_volume():
     b = calculate_assembly("block_wall", **base, block_waste_factor=.10)
     assert a.components[2].quantity == b.components[2].quantity
     assert b.components[1].quantity >= a.components[1].quantity
+
+
+def test_joist_count_can_be_explicitly_overridden_for_real_layout():
+    r = calculate_assembly(
+        "joist_foam_roof_assembly",
+        length=10, width=12, count=1,
+        topping_thickness=.05, joist_spacing=.5,
+        joist_width=.10, joist_depth=.20, joist_count=24,
+        foam_length=.50, foam_width=.25, foam_height=.20,
+    )
+    assert r.complete
+    assert r.components[1].quantity == 24
+    assert round(r.components[0].quantity, 6) == 10.8
