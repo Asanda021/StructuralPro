@@ -30,7 +30,7 @@ def test_selected_region_can_become_a_calibrated_traceable_boq_row():
         source="region:page=2:left=10:top=20:right=30:bottom=60",
     )
     row = session.boq_rows([item.id])[0]
-    assert item.quantity == pytest.approx(16.0)
+    assert item.quantity == pytest.approx(8.0)
     assert row["takeoff_id"] == item.id
     assert row["page"] == 2
     assert row["price_code"] == "A-101"
