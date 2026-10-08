@@ -913,7 +913,12 @@ def main()->int:
     w.show()
     logger.info("StructuralPro UI initialized")
     if os.getenv("STRUCTURALPRO_SMOKE") == "1":
-        QTimer.singleShot(1000, app.quit)
+        # CI smoke must validate full desktop construction without relying on
+        # platform-specific event-loop shutdown semantics.
+        app.processEvents()
+        app.quit()
+        logger.info("StructuralPro smoke initialization completed")
+        return 0
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
     return result
