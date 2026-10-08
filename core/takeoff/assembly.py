@@ -79,7 +79,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # and mortar joint/mix are specification inputs, not fixed coefficients.
     if k in {"block_wall", "masonry_block_wall", "دیوار_بلوک"}:
         L, H, t = _n(p, "length"), _n(p, "height"), _n(p, "thickness")
-        openings = _n(p.get("openings", 0), "openings")
+        openings = _n({"openings": p.get("openings", 0)}, "openings")
         area = max(0.0, L * H - openings)
         volume = area * t
         bw = _optional(p, "block_length")
@@ -126,7 +126,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # reinforcement is only calculated when its specification is supplied.
     if k in {"joist_foam_roof_assembly", "joist_block_roof_assembly", "سقف_تیرچه_یونولیت"}:
         L, W = _n(p, "length"), _n(p, "width")
-        count = _n(p.get("count", 1), "count", 1)
+        count = _n({"count": p.get("count", 1)}, "count", 1)
         area = L * W * count
         topping = _n(p, "topping_thickness")
         spacing = _n(p, "joist_spacing", 1e-12)
