@@ -156,14 +156,17 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         foam_total = foam_count
         mesh_weight = _optional(p, "mesh_unit_weight")
         components = [
-            AssemblyComponent("concrete", "بتن", "m³", "A×t رویه+(A/s)×b×h", concrete),
-            AssemblyComponent("joist", "تیرچه", "عدد", "ceil(W/s)×تعداد", float(joists)),
+            AssemblyComponent("concrete", "بتن", "m³", "A×t رویه+تعداد تیرچه×L×b×h", concrete),
+            AssemblyComponent("joist", "تیرچه", "عدد", "(ceil(W/s)+1)×تعداد", float(joists),
+                              warning="تعداد تیرچه از عرض و فاصله مشتق شده؛ آرایش واقعی لبه‌ها و دهانه‌ها در صورت تفاوت نیازمند joist_count صریح است."),
             AssemblyComponent("foam", "بلوک یونولیت", "عدد", "ceil(A/(Lf×Wf))", float(foam_total),
                               warning=f"حجم اسمی هر بلوک {foam_per:g} m³"),
         ]
         missing = []
         used = ["length", "width", "count", "topping_thickness", "joist_spacing",
                 "joist_width", "joist_depth", "foam_length", "foam_width", "foam_height"]
+        if "joist_count" in p and p["joist_count"] not in (None, ""):
+            used.append("joist_count")
         if mesh_weight is not None:
             components.append(AssemblyComponent("reinforcement_mesh", "مش/آرماتور شبکه‌ای", "kg",
                                                 "A×وزن واحد مش", area * mesh_weight))
