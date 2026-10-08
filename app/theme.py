@@ -10,10 +10,23 @@ QScrollBar::handle:vertical:hover { background: #8fa8c0; }
 QScrollBar:horizontal { background: #eef3f8; height: 10px; margin: 2px; border-radius: 5px; }
 QScrollBar::handle:horizontal { background: #aebfd2; min-width: 28px; border-radius: 5px; }
 QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
+#TopShell { background: #10233f; border-bottom: 1px solid #0b1b30; }
 #NavigationPanel { background: #10233f; border-left: 1px solid #d6deea; }
 #NavGroupLabel { color: #8fa9c7; font-size: 8.5pt; font-weight: 700; padding: 10px 14px 2px; }
 #NavigationPanel QToolTip { background: #0d1b2f; color: #ffffff; }
-#BrandTitle { color: white; font-size: 22pt; font-weight: 800; padding: 8px 12px 4px; }
+#BrandTitle { color: white; font-size: 20pt; font-weight: 800; padding: 2px 4px; }
+#EditionBadge { color: #dbe7f7; background: #1b385f; border: 1px solid #315a82; border-radius: 14px; padding: 5px 12px; font-weight: 700; }
+#ShellStatus { color: #dbe7f7; padding: 4px 8px; }
+#MainNavigationTabs { background: transparent; min-height: 48px; }
+#MainNavigationTabs::pane { border: 0; }
+#MainNavigationTabs::tab { color: #dbe7f7; background: transparent; border: 0; border-bottom: 3px solid transparent; padding: 11px 14px; min-height: 24px; font-weight: 600; }
+#MainNavigationTabs::tab:hover { background: #1b385f; color: white; }
+#MainNavigationTabs::tab:selected { background: #245a91; color: white; border-bottom: 3px solid #78b7e8; font-weight: 800; }
+#DashboardSection { background: white; border: 1px solid #dce4ef; border-radius: 12px; }
+#DashboardAction { background: #f7fafc; border: 1px solid #cbd8e6; border-radius: 9px; color: #173b5f; font-weight: 700; }
+#DashboardAction:hover { background: #e7f1fa; border-color: #7fa8c8; }
+#DashboardSummary { background: #f7fafc; border: 1px solid #dce4ef; border-radius: 8px; padding: 12px; }
+#DashboardNotice { background: #eef5fb; border: 1px solid #d2e1ee; border-radius: 8px; padding: 10px; color: #294c6b; }
 #NavigationPanel QLabel { color: #dbe7f7; }
 #NavButton { color: #dbe7f7; background: transparent; border: 0; border-radius: 8px; padding: 10px 14px; text-align: right; }
 #NavButton:hover { background: #1b385f; }
