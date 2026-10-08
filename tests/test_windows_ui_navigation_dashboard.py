@@ -75,3 +75,11 @@ def test_main_navigation_has_controlled_glass_styling():
     assert "#MainNavigationTabs::tab:hover { background: rgba(120,183,232,70);" in THEME
     assert "#MainNavigationTabs::tab:selected { background: rgba(36,90,145,205);" in THEME
     assert "#CommandRibbon { background: rgba(247,249,252,235);" in THEME
+
+
+def test_collaboration_workspace_is_integrated_into_primary_navigation():
+    assert "🤝 همکاری" in MAIN
+    assert "CollaborationWorkspace" in MAIN
+    assert "idx_collaboration" in MAIN
+    assert 'add_command("➕ افزودن عضو", add_collaborator, True)' in MAIN
+    assert "این صفحه از هسته همکاری موجود استفاده می‌کند" in MAIN
