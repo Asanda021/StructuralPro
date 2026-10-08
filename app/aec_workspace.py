@@ -1,7 +1,9 @@
 """Functional AEC takeoff workspaces: concrete/steel/architecture and real roof quantity rules."""
 from __future__ import annotations
+from core.takeoff.assembly import calculate_assembly
+
 from PySide6.QtWidgets import (
-    QComboBox,QDoubleSpinBox,QFormLayout,QGroupBox,QLabel,QLineEdit,QMessageBox,
+    QCheckBox,QComboBox,QDoubleSpinBox,QFormLayout,QGroupBox,QLabel,QLineEdit,QMessageBox,
     QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout,QWidget,QHeaderView
 )
 
@@ -34,7 +36,7 @@ ITEMS={
 ("kromit_roof","سقف تیرچه کرومیت — وزن تیرچه",("joist_length","joist_unit_weight","joist_count","count")),
 ("steel_truss_roof","سقف خرپایی فولادی — وزن فولاد",("steel_length","unit_weight","count")),
 ("steel_sandwich_roof","سقف ساندویچ‌پنل روی سازه فولادی — مساحت پنل",("length","width","count"))],
-"masonry":[("wall","دیوار بنایی",("length","height","openings"))],
+"masonry":[("wall","دیوار بنایی",("length","height","openings")),("block_wall","دیوار بلوکی — Assembly",("length","height","thickness","openings","block_length","block_height","block_thickness","joint_thickness","cement_parts","sand_parts","block_waste_factor","mortar_waste_factor"))],
 "mechanical":[("pipe","لوله",("length","count")),("duct","کانال",("length","count")),("duct_area","سطح کانال",("width","height","length")),("insulation","عایق لوله",("diameter","length")),("equipment","تجهیزات",("count",)),("valve","شیر / اتصال",("count",))],
 "electrical":[("cable","کابل / سیم",("length","count")),("conduit","لوله برق",("length","count")),("panel","تابلو",("count",)),("light","روشنایی",("count",)),("socket","پریز",("count",)),("earthing","ارت",("length",)),("cable_tray","سینی کابل",("length","count"))],
 "civil":[("excavation","خاکبرداری",("length","width","depth")),("backfill","خاکریزی",("excavation","deductions")),("paving","بتن محوطه",("length","width","thickness")),("asphalt","آسفالت",("length","width","thickness")),("curb","جدول",("length","count")),("drainage","زهکشی",("length",)),("fence_wall","دیوارکشی",("length","height"))],
@@ -51,10 +53,13 @@ FIELDS={
 "rib_width":"عرض تیرچه وافل","rib_depth":"عمق مؤثر تیرچه وافل","void_length":"طول فضای خالی",
 "void_width":"عرض فضای خالی","void_height":"ارتفاع فضای خالی","sheet_weight":"وزن ورق (kg/m²)",
 "joist_length":"طول تیرچه","joist_unit_weight":"وزن واحد تیرچه (kg/m)","joist_count":"تعداد تیرچه",
-"steel_length":"طول کل فولاد",
+"steel_length":"طول کل فولاد","block_length":"طول بلوک","block_height":"ارتفاع بلوک","block_thickness":"ضخامت بلوک",
+"joint_thickness":"ضخامت بند ملات","cement_parts":"سهم سیمان در ملات","sand_parts":"سهم ماسه در ملات",
+"block_waste_factor":"پرت تأمین بلوک","mortar_waste_factor":"پرت تأمین ملات","foam_length":"طول بلوک یونولیت",
+"foam_width":"عرض بلوک یونولیت","foam_height":"ارتفاع بلوک یونولیت","mesh_unit_weight":"وزن واحد مش (kg/m²)",
 }
 
-ITEM_DOMAINS={"footing_concrete":"advanced","steel":"advanced","steel_roof_deck_area":"advanced",
+ITEM_DOMAINS={"block_wall":"building","footing_concrete":"advanced","steel":"advanced","steel_roof_deck_area":"advanced",
 "steel_roof_deck_weight":"advanced","steel_roof_composite_concrete":"building",
 "steel_roof_composite_deck":"advanced","kromit_roof":"advanced","steel_truss_roof":"advanced"}
 
@@ -77,8 +82,11 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     note.setObjectName("DashboardNotice"); note.setWordWrap(True); outer.addWidget(note)
     result=QLabel("نتیجه پس از محاسبه در پروژه و BOQ ثبت می‌شود."); result.setWordWrap(True); outer.addWidget(result)
     table=QTableWidget(0,8); table.setHorizontalHeaderLabels(["شناسه","آیتم","مقدار","واحد","فرمول","کد فهرست‌بها","منبع","هشدار"]); table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); outer.addWidget(table,1)
+    ASSEMBLY_CODES={"block_wall","joist_foam_roof","joist_block_roof"}
     def update_fields():
         active=set(specs[item.currentData()])
+        if assembly_mode.isChecked() and item.currentData() in ASSEMBLY_CODES:
+            active.update({"foam_length","foam_width","foam_height","mesh_unit_weight"})
         for n,w in fields.items():
             w.setEnabled(n in active)
             if n not in active: w.setValue(0)
@@ -109,12 +117,26 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
         else: params["price_code"]=None
         try:
             p=service.open_project(pid); source_id=f"manual:{key}:{code}:{len(p.get('takeoffs',[]))+1}"
-            effective_domain=ITEM_DOMAINS.get(code,domain)
-            row=service.add_takeoff(pid,effective_domain,code,source_id=source_id,description=labels[code],**params)
-            q=row["quantities"][0]
-            result.setText(f"🟢 ثبت شد | {labels[code]} | {q['amount']:,.4f} {q['unit']} | فرمول: {q['formula']}")
+            if assembly_mode.isChecked() and code in ASSEMBLY_CODES:
+                ar=calculate_assembly(code, **params)
+                if not ar.complete:
+                    QMessageBox.warning(root,"Assembly ناقص", "برای متره مرکب این مشخصات لازم است:\n" + "\n".join(ar.missing_inputs))
+                    return
+                saved=[]
+                for component in ar.components:
+                    row=service.add_takeoff(pid,domain,component.code,source_id=source_id,
+                                            description=component.title,amount=component.quantity,unit=component.unit,
+                                            formula=component.formula,warning=component.warning or "",assembly_code=ar.code,
+                                            price_code=params.get("price_code"),unit_price=params.get("unit_price"),inputs_used=ar.inputs_used)
+                    saved.append(row["quantities"][0])
+                result.setText(f"🟢 Assembly ثبت شد | {ar.title} | {len(saved)} جزء مستقل")
+            else:
+                effective_domain=ITEM_DOMAINS.get(code,domain)
+                row=service.add_takeoff(pid,effective_domain,code,source_id=source_id,description=labels[code],**params)
+                q=row["quantities"][0]
+                result.setText(f"🟢 ثبت شد | {labels[code]} | {q['amount']:,.4f} {q['unit']} | فرمول: {q['formula']}")
             refresh()
             if status_callback: status_callback(f"متره {title} ثبت شد")
         except Exception as exc: QMessageBox.critical(root,"خطای متره",str(exc))
-    item.currentIndexChanged.connect(update_fields); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
+    item.currentIndexChanged.connect(update_fields); assembly_mode.toggled.connect(update_fields); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
     return root
