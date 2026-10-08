@@ -15,13 +15,14 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QFrame
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame
         )
         from PySide6.QtCore import Qt, QTimer
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
         from core.pricing.catalog import PriceCatalog
+        from core.pricing.import_service import PricebookImportService
         from core.ai.project_assistant import ProjectAssistant
         from core.reports.quality import prepare_rows
         from core.reports.project_report import build_report
@@ -62,18 +63,30 @@ def main()->int:
     app.setStyleSheet(APP_STYLESHEET)
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
+    pricebook_importer=PricebookImportService(catalog)
+    pricebook_store=Path.home()/".structuralpro"/"pricebook_user.csv"
+    if pricebook_store.exists():
+        try:
+            catalog.import_csv(pricebook_store.read_text(encoding="utf-8-sig"), replace_year=False)
+        except Exception as exc:
+            logger.warning("User pricebook cache could not be loaded: %s", exc)
     bundle_dir=Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
     packaged=packaged_edition(bundle_dir, fail_closed=False)
     current_edition=packaged.value if packaged else "pro"
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
-    root=QWidget(); layout=QHBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0); nav_widget=QWidget(); nav_widget.setObjectName("NavigationPanel"); nav=QVBoxLayout(nav_widget); nav.setContentsMargins(12,16,12,16); nav.setSpacing(6); pages=QStackedWidget()
-    title=QLabel("StructuralPro")
-    title.setObjectName("BrandTitle")
-    nav.addWidget(title)
-    status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند")
-    nav.addWidget(status)
+    # Professional desktop shell: top-level navigation is a horizontal tab bar.
+    # The old right-side navigation made the application hierarchy difficult to scan.
+    root=QWidget(); layout=QVBoxLayout(root); layout.setContentsMargins(0,0,0,0); layout.setSpacing(0)
+    header=QFrame(); header.setObjectName("TopShell"); hv=QVBoxLayout(header); hv.setContentsMargins(18,12,18,8); hv.setSpacing(8)
+    header_row=QHBoxLayout(); header_row.setSpacing(14)
+    title=QLabel("StructuralPro"); title.setObjectName("BrandTitle"); header_row.addWidget(title)
+    edition_label=QLabel(f"نسخه {current_edition}"); edition_label.setObjectName("EditionBadge"); header_row.addWidget(edition_label)
+    header_row.addStretch()
+    status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند"); status.setObjectName("ShellStatus"); header_row.addWidget(status)
+    hv.addLayout(header_row)
+    pages=QStackedWidget()
 
     def page(name,desc):
         p=QWidget(); p.setObjectName("ContentPage"); v=QVBoxLayout(p); v.setContentsMargins(26,22,26,22); v.setSpacing(14)
@@ -81,17 +94,10 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    buttons=[]
-    sections=["داشبورد","پروژه‌ها","متره سریع","متره از نقشه","فهرست‌بها","برآورد و BOQ","صورت‌وضعیت","گزارشات","اسناد پروژه","ابزارهای حرفه‌ای","کنترل کیفیت","هوش مصنوعی آفلاین","تنظیمات","راهنما"]
-    group_by_item={item: group for group, items in navigation_groups() for item in items}
-    current_group=None
-    for name in sections:
-        group=group_by_item.get(name)
-        if group and group != current_group:
-            group_label=QLabel(group); group_label.setObjectName("NavGroupLabel"); nav.addWidget(group_label); current_group=group
-        b=QPushButton(name); b.setObjectName("NavButton"); b.setCheckable(True); b.setAutoExclusive(False); b.setMinimumHeight(44); b.setToolTip(name); b.setAccessibleName(name); buttons.append(b); nav.addWidget(b)
+    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
+    # Navigation tabs are created after all pages exist so their indices are deterministic.
 
-    # Dashboard — Canva-aligned commercial shell with real project data
+    # Dashboard — functional project overview with real project data
     dashboard_page=DashboardPage(service,catalog,lambda i: pages.setCurrentIndex(i))
     pages.addWidget(dashboard_page); idx_dash=pages.count()-1
 
@@ -129,7 +135,11 @@ def main()->int:
     def do_calc():
         try:
             params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"discipline":discipline.currentData() or "building","price_code":price_code.text().strip() or None}
-            row=service.add_takeoff(qpid.text().strip(),"building",item.currentText(),**params)
+            if price_code.text().strip():
+                resolved=catalog.resolve(price_code.text().strip(), year=int(pyear.text()) if 'pyear' in locals() and pyear.text().strip() else None)
+                if resolved.get("status") == "ok":
+                    params["unit_price"]=resolved["unit_price"]
+            row=service.add_takeoff(qpid.text().strip(),discipline.currentData() or "building",item.currentText(),**params)
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
     calc.clicked.connect(do_calc)
@@ -215,30 +225,57 @@ def main()->int:
     graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
-    # Pricing — Canva-aligned operational workspace
-    p,v=page("فهرست‌بها","مدیریت سال، جستجو و کنترل سریع ردیف‌های فهرست‌بها")
-    ptools=QFrame(); ptools.setObjectName("DashboardCard"); pform=QHBoxLayout(ptools); pform.setContentsMargins(12,10,12,10)
-    pyear=QLineEdit(); pyear.setPlaceholderText("مثلاً ۱۴۰۵ یا 2026")
-    pquery=QLineEdit(); pquery.setPlaceholderText("کد، شرح یا فصل را جستجو کنید")
-    load=QPushButton("بارگذاری CSV"); load.setObjectName("SecondaryAction"); search=QPushButton("جستجو"); search.setObjectName("PrimaryAction")
-    pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(QLabel("جستجو")); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(search); v.addWidget(ptools)
-    ptitle=QLabel("ردیف‌های فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
-    ptable=QTableWidget(0,6); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
-    def load_prices():
-        path=QFileDialog.getOpenFileName(w,"CSV فهرست‌بها","","CSV (*.csv)")[0]
-        if not path:return
-        try:
-            text=Path(path).read_text(encoding="utf-8-sig"); n=catalog.import_csv(text,replace_year=True); pquery.setText(""); search_prices(); status.setText(f"🟢 {n} ردیف فهرست‌بها بارگذاری شد")
-        except Exception as e: QMessageBox.critical(w,"خطای فهرست‌بها",str(e))
-    load.clicked.connect(load_prices)
+    # Pricing — professional pricebook workspace with real user-file import.
+    p,v=page("فهرست‌بها","📥 فایل فهرست‌بهای خودت را وارد کن، کنترل کن، جستجو کن و همان کدها را در متره و BOQ استفاده کن.")
+    ptools=QFrame(); ptools.setObjectName("DashboardSection"); pform=QHBoxLayout(ptools); pform.setContentsMargins(14,12,14,12); pform.setSpacing(10)
+    pyear=QLineEdit(); pyear.setPlaceholderText("سال؛ اگر داخل فایل نیست وارد کن")
+    pquery=QLineEdit(); pquery.setPlaceholderText("🔎 کد، شرح، فصل یا واحد")
+    load=QPushButton("📥 ورود Excel / CSV"); load.setObjectName("PrimaryAction")
+    export_prices=QPushButton("⬇️ خروجی CSV"); export_prices.setObjectName("SecondaryAction")
+    search=QPushButton("🔎 جستجو"); search.setObjectName("SecondaryAction")
+    pform.addWidget(QLabel("سال")); pform.addWidget(pyear,1); pform.addWidget(pquery,3); pform.addWidget(load); pform.addWidget(export_prices); pform.addWidget(search); v.addWidget(ptools)
+    import_status=QLabel("🟡 هنوز فهرست‌بهایی وارد نشده است. فایل XLSX/XLSM/CSV خودت را انتخاب کن."); import_status.setObjectName("DashboardNotice"); import_status.setWordWrap(True); v.addWidget(import_status)
+    ptitle=QLabel("📚 کتابخانه فهرست‌بهای پروژه"); ptitle.setObjectName("SectionTitle"); v.addWidget(ptitle)
+    ptable=QTableWidget(0,7); ptable.setAlternatingRowColors(True); ptable.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); ptable.setHorizontalHeaderLabels(["سال","کد","شرح","واحد","بهای واحد","فصل","رشته"]); ptable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); v.addWidget(ptable,1)
     def search_prices():
         try: year=int(pyear.text()) if pyear.text().strip() else None
         except ValueError: year=None
-        rows=catalog.search(pquery.text(),year=year,limit=100); ptable.setRowCount(0)
+        rows=catalog.search(pquery.text(),year=year,limit=250); ptable.setRowCount(0)
         for i,x in enumerate(rows):
             ptable.insertRow(i)
-            for j,val in enumerate([x.year,x.code,x.description,x.unit,x.unit_price,x.chapter]): ptable.setItem(i,j,QTableWidgetItem(str(val)))
+            for j,val in enumerate([x.year,x.code,x.description,x.unit,f"{x.unit_price:,.2f}",x.chapter,x.group]): ptable.setItem(i,j,QTableWidgetItem(str(val)))
+        import_status.setText(f"🟢 {len(rows)} ردیف نمایش داده شد | آماده استفاده در متره/BOQ")
+    def load_prices():
+        path=QFileDialog.getOpenFileName(w,"ورود فهرست‌بها","","Excel (*.xlsx *.xlsm);;CSV (*.csv);;همه فایل‌ها (*)")[0]
+        if not path:return
+        try:
+            selected_year=int(pyear.text()) if pyear.text().strip() else 0
+            info=pricebook_importer.inspect(path,year=selected_year or 0,discipline="building",source_id="user-import")
+            if not info["valid"]:
+                raise ValueError("؛ ".join(info["errors"][:5]))
+            receipt=pricebook_importer.import_file(path,year=selected_year or 0,discipline="building",source_id="user-import",replace_year=True)
+            pricebook_store.parent.mkdir(parents=True, exist_ok=True)
+            pricebook_store.write_text(catalog.export_csv(receipt.year or selected_year or None), encoding="utf-8-sig")
+            pyear.setText(str(receipt.year if receipt.year else selected_year))
+            pquery.setText("")
+            search_prices()
+            verification="منبع کاربر" if not receipt.verified_source else "منبع رسمیِ ثبت‌شده"
+            import_status.setText(f"🟢 ورود موفق | {receipt.rows:,} ردیف | {receipt.format.upper()} | {verification} | SHA-256: {receipt.sha256[:12]}…")
+            status.setText(f"🟢 فهرست‌بها آماده استفاده است | {receipt.rows:,} ردیف")
+        except Exception as e:
+            QMessageBox.critical(w,"خطای ورود فهرست‌بها",str(e))
+            import_status.setText("🔴 ورود انجام نشد؛ فایل تغییر داده نشد.")
+    def export_prices_csv():
+        path=QFileDialog.getSaveFileName(w,"خروجی فهرست‌بها","pricebook.csv","CSV (*.csv)")[0]
+        if not path:return
+        try:
+            year=int(pyear.text()) if pyear.text().strip() else None
+            Path(path).write_text(catalog.export_csv(year),encoding="utf-8-sig")
+            status.setText("🟢 خروجی فهرست‌بها ذخیره شد")
+        except Exception as e: QMessageBox.critical(w,"خطای خروجی",str(e))
+    load.clicked.connect(load_prices)
     search.clicked.connect(search_prices)
+    export_prices.clicked.connect(export_prices_csv)
     pages.addWidget(p); idx_prices=pages.count()-1
 
     # BOQ — commercial estimate workspace
@@ -580,13 +617,105 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # navigation — single active item, keyboard-friendly focus and deterministic status text.
-    for b,i in zip(buttons,range(pages.count())):
-        b.clicked.connect(lambda checked=False,i=i: pages.setCurrentIndex(i))
-        b.clicked.connect(lambda checked=False,btn=b: [x.setChecked(x is btn) for x in buttons])
-    buttons[0].setChecked(True)
-    nav.addStretch()
-    layout.addWidget(nav_widget,1); layout.addWidget(pages,4); w.setCentralWidget(root)
+    # Top-level navigation: horizontal tabs + contextual command ribbon.
+    nav_tabs=QTabBar()
+    nav_tabs.setObjectName("MainNavigationTabs")
+    nav_tabs.setExpanding(False)
+    nav_tabs.setDrawBase(False)
+    nav_tabs.setUsesScrollButtons(True)
+    nav_tabs.setElideMode(Qt.TextElideMode.ElideNone)
+    for name in sections:
+        nav_tabs.addTab(name)
+
+    command_bar=QFrame()
+    command_bar.setObjectName("CommandRibbon")
+    command_layout=QHBoxLayout(command_bar)
+    command_layout.setContentsMargins(12,7,12,7)
+    command_layout.setSpacing(7)
+    command_buttons=[]
+    def clear_command_bar():
+        while command_layout.count():
+            item_widget=command_layout.takeAt(0).widget()
+            if item_widget:
+                item_widget.deleteLater()
+        command_buttons.clear()
+    def add_command(label, callback, primary=False):
+        button=QPushButton(label)
+        button.setObjectName("RibbonPrimary" if primary else "RibbonAction")
+        button.clicked.connect(callback)
+        command_layout.addWidget(button)
+        command_buttons.append(button)
+    def refresh_command_ribbon(index):
+        clear_command_bar()
+        command_layout.addStretch()
+        if index == idx_dash:
+            add_command("📁 پروژه‌ها", lambda: pages.setCurrentIndex(idx_projects))
+            add_command("📐 متره", lambda: pages.setCurrentIndex(idx_quick), True)
+            add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("🧾 صورت‌وضعیت", lambda: pages.setCurrentIndex(idx_statement))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_projects:
+            add_command("➕ ایجاد پروژه", create.click, True)
+            add_command("📂 بازکردن پروژه", openb.click)
+            add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
+        elif index == idx_quick:
+            add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
+            add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
+            add_command("💰 انتخاب فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_drawing:
+            add_command("📄 انتخاب/بررسی نقشه", browse.click, True)
+            add_command("📐 متره گرافیکی", graphical.click)
+            add_command("✅ تأیید و ثبت", confirm.click)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_prices:
+            add_command("📥 ورود Excel/CSV", load_prices, True)
+            add_command("🔎 جستجو", search_prices)
+            add_command("⬇️ خروجی CSV", export_prices_csv)
+            add_command("📋 استفاده در برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_boq:
+            add_command("🔄 بازسازی برآورد", show_boq, True)
+            add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("🧾 صورت‌وضعیت", lambda: pages.setCurrentIndex(idx_statement))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_statement:
+            add_command("🧮 محاسبه دوره", statement_shortcut, True)
+            add_command("💾 ذخیره دوره", save_statement_period)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_reports:
+            add_command("📊 گزارش پروژه", make_report, True)
+            add_command("💰 گزارش هزینه", make_cost_report)
+        elif index == idx_tools:
+            add_command("🛠 ابزارهای حرفه‌ای", lambda: pages.setCurrentIndex(idx_tools), True)
+            add_command("✓ کنترل کیفیت", lambda: pages.setCurrentIndex(idx_quality))
+            add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
+        elif index == idx_ai:
+            if current_edition != "light":
+                add_command("🤖 بازبینی پروژه", review, True)
+            if current_edition in ("pro","enterprise"):
+                add_command("🖼️ AI Takeoff", run_ai_image)
+        elif index == idx_docs:
+            add_command("📎 افزودن سند", add_doc, True)
+            add_command("🗺 نقشه‌ها", lambda: pages.setCurrentIndex(idx_drawing))
+        elif index == idx_quality:
+            add_command("🔎 اجرای کنترل کیفیت", qc_refresh.click, True)
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_settings:
+            add_command("⚙ تنظیمات", lambda: pages.setCurrentIndex(idx_settings), True)
+        elif index == idx_help:
+            add_command("❔ راهنما", lambda: pages.setCurrentIndex(idx_help), True)
+            add_command("📐 آموزش متره", lambda: pages.setCurrentIndex(idx_drawing))
+        command_layout.addStretch()
+    nav_tabs.currentChanged.connect(pages.setCurrentIndex)
+    nav_tabs.currentChanged.connect(refresh_command_ribbon)
+    pages.currentChanged.connect(lambda i: nav_tabs.setCurrentIndex(i) if 0 <= i < nav_tabs.count() else None)
+    hv.addWidget(nav_tabs)
+    hv.addWidget(command_bar)
+    layout.addWidget(header)
+    layout.addWidget(pages,1)
+    w.setCentralWidget(root)
     w.setStatusBar(QStatusBar()); w.statusBar().showMessage("StructuralPro آماده است — هسته آفلاین")
 
     QShortcut(QKeySequence("Ctrl+N"), w).activated.connect(lambda: (pages.setCurrentIndex(idx_projects), pname.setFocus()))

@@ -26,7 +26,7 @@ def test_optional_drawing_dependencies_are_explicit():
 def test_optional_drawing_backends_fail_with_actionable_messages():
     dwg = (ROOT / "core" / "drawings" / "dwg_takeoff.py").read_text(encoding="utf-8")
     bim = (ROOT / "core" / "drawings" / "bim_quantities.py").read_text(encoding="utf-8")
-    assert "Install ezdxf for DXF/DWG extraction" in dwg
+    assert "کتابخانه ezdxf برای تحلیل DXF نصب نیست" in dwg
     assert "Install ifcopenshell for local IFC parsing" in bim
 
 def test_canonical_version_is_semver():
