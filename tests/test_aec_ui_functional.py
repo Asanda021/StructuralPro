@@ -95,3 +95,17 @@ def test_desktop_navigation_is_planswift_style_and_real():
     assert 'pages.setCurrentIndex(target)' in MAIN
     assert '📐 متره واقعی' in MAIN
     assert '📥 ورود Excel/CSV/PDF' in MAIN
+
+
+def test_validated_assemblies_are_available_from_real_aec_workspace():
+    assert "calculate_assembly" in WORKSPACE
+    assert '("block_wall","دیوار بلوکی — Assembly"' in WORKSPACE
+    assert 'assembly_mode=QCheckBox("متره به‌صورت Assembly (عملیات → اجزای مستقل)")' in WORKSPACE
+    assert 'if assembly_mode.isChecked() and code in ASSEMBLY_CODES:' in WORKSPACE
+    assert 'assembly_code=ar.code' in WORKSPACE
+
+
+def test_assembly_ui_never_saves_partial_components():
+    assert 'if not ar.complete:' in WORKSPACE
+    assert 'join(ar.missing_inputs)' in WORKSPACE
+    assert 'return' in WORKSPACE
