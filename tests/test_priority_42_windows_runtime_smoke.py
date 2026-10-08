@@ -9,6 +9,7 @@ def test_app_has_ci_runtime_smoke_exit_path():
     assert "STRUCTURALPRO_SMOKE" in source
     assert "app.processEvents()" in source
     assert "app.quit()" in source
+    assert "w.close()" in source
     assert "return 0" in source
 
 
