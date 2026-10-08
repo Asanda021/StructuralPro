@@ -4,7 +4,7 @@ This gate intentionally composes existing services; it does not introduce a
 new application module or duplicate business logic.
 """
 
-from core.aec.disciplines import all_disciplines
+from core.aec.disciplines import all_disciplines, takeoff_domain
 from core.platform.application import StructuralProApp
 from core.pricing.catalog import PriceCatalog, PriceItem
 from core.takeoff.estimate import build_estimate
@@ -88,17 +88,16 @@ def test_product_workflow_acceptance_has_full_aec_discipline_registry():
     keys = {d.key for d in all_disciplines()}
     required = {
         "architecture",
-        "structural",
-        "concrete",
-        "steel",
+        "structural_concrete",
+        "structural_steel",
         "masonry",
         "timber",
         "composite",
         "mechanical",
         "electrical",
-        "plumbing",
         "renovation",
         "historic",
+        "site_external",
     }
     assert required <= keys
 
