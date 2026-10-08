@@ -6,7 +6,7 @@ WORKSPACE = Path("app/aec_workspace.py").read_text(encoding="utf-8")
 
 def test_aec_navigation_has_separate_real_workspaces():
     required = [
-        "🏠 معماری", "🏗 سازه بتن", "🏭 سازه فولاد", "🧱 بنایی",
+        "🏠 معماری", "🏗 سازه بتن", "🏭 سازه فولاد", "🏠 انواع سقف", "🧱 بنایی",
         "❄ تأسیسات مکانیکی", "⚡ تأسیسات برقی",
         "🌳 محوطه و عملیات بیرونی", "♻ بازسازی و مرمت",
     ]
@@ -51,3 +51,22 @@ def test_report_layout_is_persisted_in_project():
 
 def test_removed_static_capability_claim():
     assert 'tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است.")' not in MAIN
+
+
+def test_real_structural_and_roof_systems_are_explicit_and_calculable():
+    for label in [
+        "سیستم باربر: قاب خمشی بتن‌آرمه", "سیستم باربر: دیوار برشی",
+        "سقف: تیرچه‌بلوک", "سقف: وافل", "سقف: یوبوت", "سقف: کوبیاکس",
+        "سیستم باربر: قاب خمشی فولادی", "سقف: عرشه فولادی",
+    ]:
+        assert label in WORKSPACE
+    assert '"roof_area","مساحت سیستم سقف"' in WORKSPACE
+    assert '"shear_wall","دیوار برشی بتنی"' in WORKSPACE
+    assert '"tie_beam","شناژ / کلاف بتنی"' in WORKSPACE
+
+
+def test_structural_system_metadata_is_persisted():
+    app = Path("core/platform/application.py").read_text(encoding="utf-8")
+    assert 'description=str(params.pop("description","")).strip()' in app
+    assert 'system=str(params.pop("system","")).strip() or None' in app
+    assert '"system":system' in app
