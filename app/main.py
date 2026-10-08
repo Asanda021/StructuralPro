@@ -656,8 +656,8 @@ def main()->int:
             add_command("🧾 صورت‌وضعیت", lambda: pages.setCurrentIndex(idx_statement))
             add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
         elif index == idx_projects:
-            add_command("➕ پروژه جدید", lambda: (pname.setFocus(), pages.setCurrentIndex(idx_projects)), True)
-            add_command("📂 بازکردن پروژه", lambda: (plist.setFocus(), pages.setCurrentIndex(idx_projects)))
+            add_command("➕ ایجاد پروژه", create.click, True)
+            add_command("📂 بازکردن پروژه", openb.click)
             add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
         elif index == idx_quick:
             add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
@@ -665,7 +665,7 @@ def main()->int:
             add_command("💰 انتخاب فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
             add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_drawing:
-            add_command("📄 PDF/CAD/BIM", lambda: pages.setCurrentIndex(idx_drawing), True)
+            add_command("📄 انتخاب/بررسی نقشه", browse.click, True)
             add_command("📐 متره گرافیکی", graphical.click)
             add_command("✅ تأیید و ثبت", confirm.click)
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
@@ -692,7 +692,8 @@ def main()->int:
             add_command("✓ کنترل کیفیت", lambda: pages.setCurrentIndex(idx_quality))
             add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
         elif index == idx_ai:
-            add_command("🤖 بازبینی پروژه", review, True)
+            if current_edition != "light":
+                add_command("🤖 بازبینی پروژه", review, True)
             if current_edition in ("pro","enterprise"):
                 add_command("🖼️ AI Takeoff", run_ai_image)
         elif index == idx_docs:
