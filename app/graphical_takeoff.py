@@ -300,7 +300,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.select_region.clicked.connect(
             lambda: self._activate_view_tool("region_select", "مستطیل ناحیه موردنظر را با ماوس بکش؛ Esc یا کلیک راست لغو می‌کند.")
         )
-        self.cancel_selection.clicked.connect(self.canvas.cancel_interaction)
+        self.cancel_selection.clicked.connect(lambda: self.canvas.cancel_interaction())
         self.finish.clicked.connect(self.canvas.finish)
         self.undo.clicked.connect(self.undo_session)
         self.redo.clicked.connect(self.redo_session)
@@ -349,6 +349,7 @@ class GraphicalTakeoffDialog(QDialog):
             self.page_no.blockSignals(False)
 
             self.canvas.scene.clear()
+            self.canvas._region_overlay = None
             self.canvas.points = []
             if self.viewer.kind == "pdf":
                 data = self.engine.render(self.page, 150)
@@ -492,6 +493,7 @@ class GraphicalTakeoffDialog(QDialog):
         if not self.viewer.path:
             return
         self.canvas.scene.clear()
+        self.canvas._region_overlay = None
         if self.viewer.kind == "pdf":
             data = self.engine.render(self.page, 150)
             pix = QPixmap()
