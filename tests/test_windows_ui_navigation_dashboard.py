@@ -52,6 +52,8 @@ def test_contextual_command_ribbon_reuses_existing_workflows():
     assert "RibbonPrimary" in MAIN
     assert "refresh_command_ribbon" in MAIN
     assert 'add_command("📥 ورود Excel/CSV", load_prices, True)' in MAIN
+    assert 'add_command("➕ ایجاد پروژه", create.click, True)' in MAIN
+    assert 'add_command("📄 انتخاب/بررسی نقشه", browse.click, True)' in MAIN
     assert 'add_command("🔄 بازسازی برآورد", show_boq, True)' in MAIN
     assert 'add_command("🧮 محاسبه دوره", statement_shortcut, True)' in MAIN
 
