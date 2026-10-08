@@ -32,16 +32,16 @@ def calculate_advanced_item(item: str, **p: Any) -> AdvancedQuantity:
         q=_n(p["perimeter"],"perimeter")*_n(p["height"],"height")*_n(p.get("count",1),"count")
         return AdvancedQuantity("فونداسیون","قالب فونداسیون",q,"m2","محیط×ارتفاع×تعداد")
     if k in {"steel_roof_deck_area"}:
-        q=_n(p["length"],"length")*_n(p["width"],"width")*_n(p.get("count",1),"count")
+        q=_n(p["length"],"length", minimum=1e-12)*_n(p["width"],"width", minimum=1e-12)*_n(p.get("count",1),"count")
         return AdvancedQuantity("سقف فولادی","مساحت عرشه فولادی",q,"m2","L×W×تعداد")
     if k in {"steel_roof_deck_weight","steel_roof_composite_deck"}:
-        q=_n(p["length"],"length")*_n(p["width"],"width")*_n(p["sheet_weight"],"sheet_weight")*_n(p.get("count",1),"count")
+        q=_n(p["length"],"length", minimum=1e-12)*_n(p["width"],"width", minimum=1e-12)*_n(p["sheet_weight"],"sheet_weight", minimum=1e-12)*_n(p.get("count",1),"count")
         return AdvancedQuantity("سقف فولادی","وزن ورق عرشه",q,"kg","L×W×kg/m²×تعداد")
     if k in {"kromit_roof"}:
-        q=_n(p["joist_length"],"joist_length")*_n(p["joist_unit_weight"],"joist_unit_weight")*_n(p["joist_count"],"joist_count")*_n(p.get("count",1),"count")
+        q=_n(p["joist_length"],"joist_length", minimum=1e-12)*_n(p["joist_unit_weight"],"joist_unit_weight", minimum=1e-12)*_n(p["joist_count"],"joist_count", minimum=1e-12)*_n(p.get("count",1),"count")
         return AdvancedQuantity("سقف فولادی","وزن تیرچه کرومیت",q,"kg","طول تیرچه×وزن واحد×تعداد تیرچه×تعداد سقف")
     if k in {"steel_truss_roof"}:
-        q=_n(p["steel_length"],"steel_length")*_n(p["unit_weight"],"unit_weight")*_n(p.get("count",1),"count")
+        q=_n(p["steel_length"],"steel_length", minimum=1e-12)*_n(p["unit_weight"],"unit_weight", minimum=1e-12)*_n(p.get("count",1),"count")
         return AdvancedQuantity("سقف فولادی","وزن فولاد خرپا",q,"kg","طول کل فولاد×وزن واحد×تعداد")
     if k in {"steel_sandwich_roof"}:
         q=_n(p["length"],"length")*_n(p["width"],"width")*_n(p.get("count",1),"count")
