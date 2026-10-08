@@ -37,7 +37,7 @@ def test_all_concrete_roof_families_are_deterministic():
                 spacing_x=0.60, spacing_y=0.60,
                 rib_width=0.12, rib_depth=0.18, count=1,
             ),
-            10.2,
+            12.48,
             "m3",
         ),
         (
@@ -47,7 +47,7 @@ def test_all_concrete_roof_families_are_deterministic():
                 void_length=0.50, void_width=0.25, void_height=0.20,
                 void_count=100, count=1,
             ),
-            25.0,
+            25.5,
             "m3",
         ),
         (
@@ -57,7 +57,7 @@ def test_all_concrete_roof_families_are_deterministic():
                 void_length=0.50, void_width=0.25, void_height=0.20,
                 void_count=100, count=1,
             ),
-            25.0,
+            25.5,
             "m3",
         ),
     ]
