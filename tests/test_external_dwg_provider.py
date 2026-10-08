@@ -47,6 +47,7 @@ def test_dwg_provider_command_is_explicit() -> None:
         "C:/output",
         "ACAD2018",
         "DXF",
-        "1",
         "0",
+        "1",
+        "*.DWG",
     )
