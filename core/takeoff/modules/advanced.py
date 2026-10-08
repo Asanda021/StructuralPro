@@ -31,7 +31,7 @@ def calculate_advanced_item(item: str, **p: Any) -> AdvancedQuantity:
     if k in {"footing_formwork","قالب_فونداسیون"}:
         q=_n(p["perimeter"],"perimeter")*_n(p["height"],"height")*_n(p.get("count",1),"count")
         return AdvancedQuantity("فونداسیون","قالب فونداسیون",q,"m2","محیط×ارتفاع×تعداد")
-    if k in {"steel","steel_weight","اسکلت_فلزی"}:
+    if k in {"steel","steel_roof","steel_weight","اسکلت_فلزی"}:
         q=_n(p["length"],"length")*_n(p["unit_weight"],"unit_weight")*_n(p.get("count",1),"count")
         return AdvancedQuantity("اسکلت فلزی","وزن فولاد",q,"kg","L×وزن واحد×تعداد")
     if k in {"screed","کف_سازی"}:
