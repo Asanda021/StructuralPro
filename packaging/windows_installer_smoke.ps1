@@ -31,12 +31,31 @@ if ($installedVersion -ne $ExpectedVersion) {
 
 $env:STRUCTURALPRO_SMOKE = "1"
 $env:QT_QPA_PLATFORM = "offscreen"
-$appProcess = Start-Process -FilePath $exe -Wait -PassThru
-$exitCode = $appProcess.ExitCode
-Remove-Item Env:STRUCTURALPRO_SMOKE -ErrorAction SilentlyContinue
-Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+$logDir = Join-Path $env:RUNNER_TEMP "StructuralPro-Installer-Smoke-Logs"
+if (Test-Path $logDir) { Remove-Item $logDir -Recurse -Force }
+New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+$env:STRUCTURALPRO_LOG_DIR = $logDir
+try {
+    $appProcess = Start-Process -FilePath $exe -Wait -PassThru
+    $exitCode = $appProcess.ExitCode
+}
+finally {
+    Remove-Item Env:STRUCTURALPRO_SMOKE -ErrorAction SilentlyContinue
+    Remove-Item Env:QT_QPA_PLATFORM -ErrorAction SilentlyContinue
+    Remove-Item Env:STRUCTURALPRO_LOG_DIR -ErrorAction SilentlyContinue
+}
 
-if ($exitCode -ne 0) { throw "Installed application smoke exited with code $exitCode" }
+if ($exitCode -ne 0) {
+    $appLog = Join-Path $logDir "structuralpro.log"
+    if (Test-Path $appLog) {
+        Write-Host "---- StructuralPro application log before process failure ----"
+        Get-Content $appLog
+        Write-Host "---- End StructuralPro application log ----"
+    } else {
+        Write-Host "No application log was created at $appLog"
+    }
+    throw "Installed application smoke exited with code $exitCode"
+}
 
 $uninstaller = Join-Path $installDir "unins000.exe"
 if (Test-Path $uninstaller) {
