@@ -68,7 +68,7 @@ def parse_manual_entry(text: str) -> ManualEntry:
     params = _extract_named(normalized)
     # Compact column syntax: «12 ستون 50x50 ارتفاع 3» (cm is detected from the text).
     if code == "column":
-        dims = re.search(r"(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)", normalized)
+        dims = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:cm)?\s*x\s*(\d+(?:[.,]\d+)?)\s*(?:cm)?", normalized)
         nums = [float(x) for x in re.findall(r"\d+(?:[.,]\d+)?", normalized)]
         if dims:
             factor = 100 if ("cm" in normalized.lower() or "سانت" in raw) else 1
