@@ -64,6 +64,12 @@ def main()->int:
     service=StructuralProApp(Path.home()/".structuralpro")
     catalog=PriceCatalog()
     pricebook_importer=PricebookImportService(catalog)
+    pricebook_store=Path.home()/".structuralpro"/"pricebook_user.csv"
+    if pricebook_store.exists():
+        try:
+            catalog.import_csv(pricebook_store.read_text(encoding="utf-8-sig"), replace_year=False)
+        except Exception as exc:
+            logger.warning("User pricebook cache could not be loaded: %s", exc)
     bundle_dir=Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
     packaged=packaged_edition(bundle_dir, fail_closed=False)
     current_edition=packaged.value if packaged else "pro"
@@ -133,7 +139,7 @@ def main()->int:
                 resolved=catalog.resolve(price_code.text().strip(), year=int(pyear.text()) if 'pyear' in locals() and pyear.text().strip() else None)
                 if resolved.get("status") == "ok":
                     params["unit_price"]=resolved["unit_price"]
-            row=service.add_takeoff(qpid.text().strip(),"building",item.currentText(),**params)
+            row=service.add_takeoff(qpid.text().strip(),discipline.currentData() or "building",item.currentText(),**params)
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
     calc.clicked.connect(do_calc)
@@ -248,6 +254,8 @@ def main()->int:
             if not info["valid"]:
                 raise ValueError("؛ ".join(info["errors"][:5]))
             receipt=pricebook_importer.import_file(path,year=selected_year or 0,discipline="building",source_id="user-import",replace_year=True)
+            pricebook_store.parent.mkdir(parents=True, exist_ok=True)
+            pricebook_store.write_text(catalog.export_csv(receipt.year or selected_year or None), encoding="utf-8-sig")
             pyear.setText(str(receipt.year if receipt.year else selected_year))
             pquery.setText("")
             search_prices()
@@ -609,7 +617,7 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # Top-level navigation: a real horizontal tab bar with one active tab.
+    # Top-level navigation: horizontal tabs + contextual command ribbon.
     nav_tabs=QTabBar()
     nav_tabs.setObjectName("MainNavigationTabs")
     nav_tabs.setExpanding(False)
@@ -618,9 +626,92 @@ def main()->int:
     nav_tabs.setElideMode(Qt.TextElideMode.ElideNone)
     for name in sections:
         nav_tabs.addTab(name)
+
+    command_bar=QFrame()
+    command_bar.setObjectName("CommandRibbon")
+    command_layout=QHBoxLayout(command_bar)
+    command_layout.setContentsMargins(12,7,12,7)
+    command_layout.setSpacing(7)
+    command_buttons=[]
+    def clear_command_bar():
+        while command_layout.count():
+            item_widget=command_layout.takeAt(0).widget()
+            if item_widget:
+                item_widget.deleteLater()
+        command_buttons.clear()
+    def add_command(label, callback, primary=False):
+        button=QPushButton(label)
+        button.setObjectName("RibbonPrimary" if primary else "RibbonAction")
+        button.clicked.connect(callback)
+        command_layout.addWidget(button)
+        command_buttons.append(button)
+    def refresh_command_ribbon(index):
+        clear_command_bar()
+        command_layout.addStretch()
+        if index == idx_dash:
+            add_command("📁 پروژه‌ها", lambda: pages.setCurrentIndex(idx_projects))
+            add_command("📐 متره", lambda: pages.setCurrentIndex(idx_quick), True)
+            add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("🧾 صورت‌وضعیت", lambda: pages.setCurrentIndex(idx_statement))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_projects:
+            add_command("➕ پروژه جدید", lambda: (pname.setFocus(), pages.setCurrentIndex(idx_projects)), True)
+            add_command("📂 بازکردن پروژه", lambda: (plist.setFocus(), pages.setCurrentIndex(idx_projects)))
+            add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
+        elif index == idx_quick:
+            add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
+            add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
+            add_command("💰 انتخاب فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_drawing:
+            add_command("📄 PDF/CAD/BIM", lambda: pages.setCurrentIndex(idx_drawing), True)
+            add_command("📐 متره گرافیکی", graphical.click)
+            add_command("✅ تأیید و ثبت", confirm.click)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_prices:
+            add_command("📥 ورود Excel/CSV", load_prices, True)
+            add_command("🔎 جستجو", search_prices)
+            add_command("⬇️ خروجی CSV", export_prices_csv)
+            add_command("📋 استفاده در برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_boq:
+            add_command("🔄 بازسازی برآورد", show_boq, True)
+            add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
+            add_command("🧾 صورت‌وضعیت", lambda: pages.setCurrentIndex(idx_statement))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_statement:
+            add_command("🧮 محاسبه دوره", statement_shortcut, True)
+            add_command("💾 ذخیره دوره", save_statement_period)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_reports:
+            add_command("📊 گزارش پروژه", make_report, True)
+            add_command("💰 گزارش هزینه", make_cost_report)
+        elif index == idx_tools:
+            add_command("🛠 ابزارهای حرفه‌ای", lambda: pages.setCurrentIndex(idx_tools), True)
+            add_command("✓ کنترل کیفیت", lambda: pages.setCurrentIndex(idx_quality))
+            add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
+        elif index == idx_ai:
+            add_command("🤖 بازبینی پروژه", review, True)
+            if current_edition in ("pro","enterprise"):
+                add_command("🖼️ AI Takeoff", run_ai_image)
+        elif index == idx_docs:
+            add_command("📎 افزودن سند", add_doc, True)
+            add_command("🗺 نقشه‌ها", lambda: pages.setCurrentIndex(idx_drawing))
+        elif index == idx_quality:
+            add_command("🔎 اجرای کنترل کیفیت", qc_refresh.click, True)
+            add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
+        elif index == idx_settings:
+            add_command("⚙ تنظیمات", lambda: pages.setCurrentIndex(idx_settings), True)
+        elif index == idx_help:
+            add_command("❔ راهنما", lambda: pages.setCurrentIndex(idx_help), True)
+            add_command("📐 آموزش متره", lambda: pages.setCurrentIndex(idx_drawing))
+        command_layout.addStretch()
     nav_tabs.currentChanged.connect(pages.setCurrentIndex)
+    nav_tabs.currentChanged.connect(refresh_command_ribbon)
     pages.currentChanged.connect(lambda i: nav_tabs.setCurrentIndex(i) if 0 <= i < nav_tabs.count() else None)
     hv.addWidget(nav_tabs)
+    hv.addWidget(command_bar)
     layout.addWidget(header)
     layout.addWidget(pages,1)
     w.setCentralWidget(root)
