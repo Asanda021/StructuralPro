@@ -1,6 +1,7 @@
 """Functional AEC takeoff workspaces: concrete/steel/architecture and real roof quantity rules."""
 from __future__ import annotations
 from core.takeoff.assembly import calculate_assembly
+from core.takeoff.manual_input import parse_manual_batch
 
 from PySide6.QtWidgets import (
     QCheckBox,QComboBox,QDoubleSpinBox,QFormLayout,QGroupBox,QLabel,QLineEdit,QMessageBox,
@@ -67,6 +68,15 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     root=QWidget(); root.setObjectName("AECWorkspace"); outer=QVBoxLayout(root); outer.setSpacing(14)
     h=QLabel(title); h.setObjectName("PageTitle"); d=QLabel(description); d.setObjectName("PageDescription"); d.setWordWrap(True)
     outer.addWidget(h); outer.addWidget(d)
+    quick=QGroupBox("⚡ متره سریع دستی — بدون فرم‌های طولانی")
+    quick_layout=QVBoxLayout(quick)
+    quick_input=QLineEdit()
+    quick_input.setPlaceholderText("مثال: 12 ستون 50x50 ارتفاع 3")
+    quick_apply=QPushButton("اعمال ورودی سریع")
+    quick_hint=QLabel("ورودی فشرده را وارد کنید؛ فقط اطلاعات ناموجود را در فرم پایین تکمیل کنید.")
+    quick_hint.setWordWrap(True)
+    quick_layout.addWidget(quick_input); quick_layout.addWidget(quick_apply); quick_layout.addWidget(quick_hint)
+    outer.addWidget(quick)
     box=QGroupBox("ریزمتره و محاسبه واقعی"); grid=QFormLayout(box)
     project=QLineEdit(); project.setPlaceholderText("شناسه پروژه موجود")
     item=QComboBox(); price=QLineEdit(); price.setPlaceholderText("اختیاری؛ کد فهرست‌بهای واردشده توسط کاربر")
@@ -140,5 +150,20 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             refresh()
             if status_callback: status_callback(f"متره {title} ثبت شد")
         except Exception as exc: QMessageBox.critical(root,"خطای متره",str(exc))
-    item.currentIndexChanged.connect(update_fields); assembly_mode.toggled.connect(update_fields); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
+    def apply_quick():
+        try:
+            entries=parse_manual_batch(quick_input.text())
+            first=entries[0]
+            idx=item.findData(first.code)
+            if idx < 0: raise ValueError("این عملیات در Workspace فعلی وجود ندارد.")
+            item.setCurrentIndex(idx)
+            for name,value in first.params.items():
+                if name in fields:
+                    fields[name].setValue(value)
+            missing=", ".join(first.missing)
+            quick_hint.setText("🟢 ورودی سریع اعمال شد" + (f" | موارد لازم: {missing}" if missing else " | کامل و آماده محاسبه"))
+        except Exception as exc:
+            quick_hint.setText("🟡 " + str(exc))
+    quick_apply.clicked.connect(apply_quick)
+    item.currentIndexChanged.connect(update_fields); assembly_mode.toggled.connect(assembly_mode.toggled); calc.clicked.connect(calculate); project.editingFinished.connect(refresh); update_fields()
     return root
