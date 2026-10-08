@@ -51,6 +51,12 @@ QTableWidget { background: white; border: 1px solid #d6dfeb; border-radius: 8px;
 QHeaderView::section { background: #e9eff7; color: #253957; padding: 9px 8px; border: 0; border-bottom: 1px solid #d4deea; font-weight: 700; }
 QStatusBar { background: #10233f; color: #e7f0fb; }
 QToolTip { background: #172b47; color: white; border: 0; padding: 6px; }
+#WorkspaceHero { background: #ffffff; border: 1px solid #d7e2ee; border-radius: 14px; padding: 8px; }
+#AECWorkspace QGroupBox { margin-top: 8px; padding: 18px 14px 12px; font-weight: 700; color: #17345b; }
+#AECWorkspace QGroupBox::title { subcontrol-origin: margin; right: 14px; padding: 0 7px; background: #ffffff; }
+#AECWorkspace QDoubleSpinBox:disabled { background: #f2f5f8; color: #9aa7b7; }
+#AECWorkspace QTableWidget { min-height: 240px; }
+#AECWorkspace QPushButton#PrimaryAction { min-height: 42px; border-radius: 9px; }
 QTabBar::tab { background: #e8eef6; padding: 9px 16px; border: 1px solid #d1dbe8; }
 QTabBar::tab:selected { background: white; font-weight: 700; }
 #CommandRibbon { background: rgba(247,249,252,235); border-top: 1px solid rgba(217,224,234,210); border-bottom: 1px solid rgba(217,224,234,210); border-radius: 0 0 10px 10px; }
