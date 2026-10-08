@@ -370,6 +370,7 @@ class GraphicalTakeoffDialog(QDialog):
 
             self.canvas.scene.clear()
             self.canvas._region_overlay = None
+            self.canvas._selected_region_rect = None
             self.canvas.points = []
             if self.viewer.kind == "pdf":
                 data = self.engine.render(self.page, 150)
@@ -547,6 +548,7 @@ class GraphicalTakeoffDialog(QDialog):
             return
         self.canvas.scene.clear()
         self.canvas._region_overlay = None
+        self.canvas._selected_region_rect = None
         if self.viewer.kind == "pdf":
             data = self.engine.render(self.page, 150)
             pix = QPixmap()
