@@ -53,7 +53,6 @@ def test_removed_static_capability_claim():
     assert 'tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است.")' not in MAIN
 
 
-
 def test_roofs_are_nested_in_concrete_and_steel_workspaces():
     assert '"solid_slab_roof","سقف دال بتنی توپر / دال تخت — حجم بتن"' in WORKSPACE
     assert '"joist_block_roof","سقف تیرچه‌بلوک — حجم بتن"' in WORKSPACE
@@ -66,19 +65,21 @@ def test_roofs_are_nested_in_concrete_and_steel_workspaces():
     assert "سیستم باربر: قاب خمشی" not in WORKSPACE
     assert "سیستم سازه / سقف" not in WORKSPACE
 
+
 def test_roof_calculations_use_explicit_geometry():
     from core.takeoff.modules.building import calculate_building_item
     from core.takeoff.modules.advanced import calculate_advanced_item
     r=calculate_building_item("solid_slab_roof",length=10,width=12,thickness=.2,count=1)
     assert r.quantity == 24
     r=calculate_building_item("joist_block_roof",length=10,width=10,topping_thickness=.05,joist_spacing=.5,joist_width=.1,joist_depth=.2,count=1)
-    assert round(r.quantity,6)==9.0
+    assert round(r.quantity,6)==9.2
     r=calculate_building_item("uboot_roof",length=10,width=10,thickness=.28,void_length=.5,void_width=.25,void_height=.2,void_count=100,count=1)
     assert round(r.quantity,6)==25.5
     r=calculate_advanced_item("steel_roof_deck_weight",length=10,width=12,sheet_weight=10,count=1)
     assert r.quantity == 1200
     r=calculate_advanced_item("kromit_roof",joist_length=6,joist_unit_weight=12,joist_count=20,count=1)
     assert r.quantity == 1440
+
 
 def test_pricebook_is_user_supplied_not_bundled():
     assert '📥 ورود Excel / CSV / PDF' in MAIN

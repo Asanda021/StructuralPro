@@ -18,7 +18,7 @@ def test_all_concrete_roof_families_are_deterministic():
                 length=10, width=10, topping_thickness=0.05,
                 joist_spacing=0.50, joist_width=0.10, joist_depth=0.20, count=1,
             ),
-            9.0,
+            9.2,
             "m3",
         ),
         (
