@@ -59,4 +59,4 @@ QTabBar::tab:selected { background: white; font-weight: 700; }
 #CommandRibbon QPushButton#RibbonAction:hover { background: #eef4fb; }
 #CommandRibbon QPushButton#RibbonPrimary { background: #e9f2ff; border: 1px solid #8fb7e8; }
 #CommandRibbon QPushButton#RibbonPrimary:hover { background: #dcecff; }
-}
+"""
