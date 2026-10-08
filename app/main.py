@@ -398,7 +398,6 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
     sheets=SheetRegistry(); markups=MarkupStore()
     smv.addWidget(QLabel("پشتیبانی چندنقشه و Markup در هسته پروژه فعال است."))
     tools.addTab(sm,"جستجو و نقشه")
-    tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است."),"گزارش و Excel")
     qa=QWidget(); qav=QVBoxLayout(qa)
     qav.addWidget(QLabel("کنترل یکپارچگی ۱۰ سطح اصلی محصول"))
     qstatus=QTextEdit(); qstatus.setReadOnly(True); qav.addWidget(qstatus)
@@ -480,14 +479,34 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
     stsave.clicked.connect(save_statement_period)
     pages.addWidget(p); idx_statement=pages.count()-1
 
-    # Project documents
-    p,v=page("اسناد پروژه","مرکز ثبت و پیگیری نقشه‌ها، فایل‌های قراردادی و خروجی‌های پروژه")
-    docpath=QLineEdit(); docadd=QPushButton("افزودن مسیر سند"); doclist=QListWidget()
-    v.addWidget(docpath); v.addWidget(docadd); v.addWidget(doclist)
+    # Project documents — persisted with the selected project.
+    p,v=page("اسناد پروژه","ثبت مسیر فایل‌های واقعی پروژه در داده همان پروژه؛ نه یک لیست موقت.")
+    doc_project=QLineEdit(); doc_project.setPlaceholderText("شناسه پروژه")
+    docpath=QLineEdit(); docpath.setPlaceholderText("مسیر فایل سند")
+    docbrowse=QPushButton("انتخاب فایل"); docadd=QPushButton("ثبت سند"); doclist=QListWidget()
+    v.addWidget(doc_project); v.addWidget(docpath); v.addWidget(docbrowse); v.addWidget(docadd); v.addWidget(doclist)
+    def refresh_docs():
+        doclist.clear()
+        project=service.open_project(doc_project.text().strip()) if doc_project.text().strip() else None
+        for doc in (project or {}).get("documents",[]):
+            doclist.addItem(f'{doc.get("name","")} | {doc.get("path","")}')
     def add_doc():
-        path=docpath.text().strip()
-        if path: doclist.addItem(path); docpath.clear()
-    docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
+        project_id=doc_project.text().strip(); path=docpath.text().strip()
+        if not project_id or not path:
+            QMessageBox.warning(w,"اسناد","شناسه پروژه و مسیر فایل الزامی است."); return
+        project=service.open_project(project_id)
+        if not project: QMessageBox.warning(w,"اسناد","پروژه پیدا نشد."); return
+        docs=list(project.get("documents",[]))
+        if any(str(x.get("path","")) == path for x in docs):
+            QMessageBox.warning(w,"اسناد","این سند قبلاً ثبت شده است."); return
+        docs.append({"id":len(docs)+1,"name":Path(path).name,"path":path})
+        project["documents"]=docs
+        service.store.save(project_id,project)
+        docpath.clear(); refresh_docs()
+    docbrowse.clicked.connect(lambda: docpath.setText(QFileDialog.getOpenFileName(w,"انتخاب سند پروژه")[0]))
+    docadd.clicked.connect(add_doc)
+    doc_project.editingFinished.connect(refresh_docs)
+    pages.addWidget(p); idx_docs=pages.count()-1
 
     # Quality control — live, project-scoped checks instead of static green claims.
     p,v=page("کنترل کیفیت","اجرای کنترل‌های واقعی روی پروژه انتخاب‌شده و نمایش نتیجه قابل پیگیری")
@@ -521,12 +540,12 @@ sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","�
     qc_refresh.clicked.connect(refresh_quality)
     pages.addWidget(p); idx_quality=pages.count()-1
 
-    # Settings
-    p,v=page("تنظیمات","تنظیمات ظاهری، زبان، واحدها و مسیر ذخیره‌سازی محلی")
-    lang=QComboBox(); lang.addItems(["فارسی (RTL)","English (LTR)"])
-    unit=QComboBox(); unit.addItems(["متر / مترمربع / مترمکعب","سانتی‌متر / میلی‌متر"])
-    v.addWidget(QLabel("زبان رابط")); v.addWidget(lang); v.addWidget(QLabel("واحد پیش‌فرض")); v.addWidget(unit)
+    # Settings — expose only controls that actually affect the application.
+    p,v=page("تنظیمات","تنظیمات فعال نرم‌افزار؛ کنترل نمایشیِ بدون اثر در این صفحه وجود ندارد.")
+    v.addWidget(QLabel("زبان رابط فعلی: فارسی (RTL)"))
+    v.addWidget(QLabel("واحد محاسبات متره: m / m² / m³ / kg / عدد"))
     v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
+    v.addWidget(QLabel("تغییر واحد تا زمان پیاده‌سازی تبدیل کامل مهندسی، عمداً در رابط ارائه نشده است."))
     pages.addWidget(p); idx_settings=pages.count()-1
 
     # Help — Persian user guide integrated with the shared offline help catalog.
