@@ -36,11 +36,19 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
         q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness", minimum=1e-12)*_n(p.get("count",1),"count")
         return QuantityResult("سقف بتن‌آرمه",item,q,"m3","L×W×t×تعداد")
     if k in {"joist_block_roof","joist_foam_roof"}:
-        area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
+        L=_n(p["length"],"length")
+        W=_n(p["width"],"width")
+        count=_n(p.get("count",1),"count")
+        area=L*W*count
         topping=area*_n(p["topping_thickness"],"topping_thickness", minimum=1e-12)
-        ribs=(area/_n(p["joist_spacing"],"joist_spacing", minimum=1e-12))*_n(p["joist_width"],"joist_width", minimum=1e-12)*_n(p["joist_depth"],"joist_depth", minimum=1e-12)
+        spacing=_n(p["joist_spacing"],"joist_spacing", minimum=1e-12)
+        joist_width=_n(p["joist_width"],"joist_width", minimum=1e-12)
+        joist_depth=_n(p["joist_depth"],"joist_depth", minimum=1e-12)
+        import math
+        joist_count=_n(p.get("joist_count", math.ceil(W/spacing)+1),"joist_count", minimum=1e-12)
+        ribs=joist_count*L*joist_width*joist_depth*count
         q=topping+ribs
-        return QuantityResult("سقف سبک بتنی",item,q,"m3","A×t رویه + (A/s)×b تیرچه×h مؤثر",("تیرها و کلاف‌های مستقل باید جداگانه متره شوند.",))
+        return QuantityResult("سقف سبک بتنی",item,q,"m3","A×t رویه + تعداد تیرچه×L×b×h",("تعداد تیرچه از عرض/فاصله به‌صورت شفاف مشتق شده؛ کلاف‌ها، تیرهای مرزی و بازشوها جداگانه متره شوند.",))
     if k in {"hollow_core_roof","دال_مجوف"}:
         area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
         gross=area*_n(p["thickness"],"thickness", minimum=1e-12)
@@ -68,7 +76,10 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
     if k in {"shear_wall","shear_wall_concrete","دیوار_برشی"}:
         q=_n(p["length"],"length")*_n(p["thickness"],"thickness")*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","دیوار برشی بتنی",q,"m3","L×t×H×تعداد")
     if k in {"stair_concrete","stair","پله_بتنی"}:
-        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("سازه","حجم مدل پایه پله بتنی",q,"m3","L×W×t×تعداد")
+        if "sloped_length" not in p or "waist_thickness" not in p:
+            raise ValueError("stair_concrete requires sloped_length and waist_thickness; horizontal box volume is not a valid stair takeoff")
+        q=_n(p["sloped_length"],"sloped_length")*_n(p["width"],"width")*_n(p["waist_thickness"],"waist_thickness", minimum=1e-12)*_n(p.get("count",1),"count")
+        return QuantityResult("سازه","حجم دال شیب‌دار پله بتنی",q,"m3","Lشیب×عرض×ضخامت‌دال×تعداد",("حجم پله‌های مثلثی/رایزرها، پاگردها و کسر بازشوها باید با اجزای هندسی مستقل متره شوند.",))
     if k in {"roof_area","roof","سقف"}:
         q=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count"); return QuantityResult("سقف","مساحت سیستم سقف",q,"m2","L×W×تعداد")
     if k in {"column","column_concrete","بتن_ستون"}:
