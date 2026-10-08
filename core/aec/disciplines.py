@@ -58,6 +58,8 @@ def takeoff_domain(key: str) -> str:
     normalized = str(key or "").strip().casefold()
     if not normalized:
         return "building"
+    if normalized in {"building", "mechanical", "electrical", "civil", "advanced"}:
+        return normalized
     try:
         return _TAKEOFF_DOMAINS[normalized]
     except KeyError as exc:
