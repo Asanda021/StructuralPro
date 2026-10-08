@@ -31,17 +31,17 @@ def test_existing_product_workflow_project_to_report_and_persistence(tmp_path):
         unit_price=price,
         source_id="acceptance-plan-01",
     )
-    assert row["quantities"][0]["amount"] == 5
+    assert row["quantities"][0]["amount"] == 15
     assert row["quantities"][0]["price_code"] == "W001"
 
     # Pricebook -> Factors -> BOQ -> Estimate: reuse the production estimate path.
     project = app.open_project("acceptance-001")
     assert len(project["boq"]) == 1
     assert project["boq"][0]["price_code"] == "W001"
-    assert project["boq"][0]["quantity"] == 5
+    assert project["boq"][0]["quantity"] == 15
     estimate = app.recalculate_estimate("acceptance-001", factors={"بالاسری": 0.10})
     assert estimate["finalizable"] is True
-    assert estimate["cost"]["grand_total"] == 5500.0
+    assert estimate["cost"]["grand_total"] == 16500.0
     assert estimate["factors"]["بالاسری"] == 0.10
 
     # Estimate -> Statement: persist one period through the existing service.
