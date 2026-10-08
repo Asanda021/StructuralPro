@@ -57,8 +57,8 @@ def test_joist_foam_does_not_invent_reinforcement_specification():
         joist_width=.10, joist_depth=.20,
         foam_length=.50, foam_width=.25, foam_height=.20,
     )
-    assert not r.complete
-    assert r.missing_inputs == ("mesh_unit_weight",)
+    assert r.complete
+    assert r.missing_inputs == ()
     assert not any(c.code == "reinforcement_mesh" for c in r.components)
 
 
@@ -73,3 +73,14 @@ def test_assembly_keeps_components_independently_auditable():
     )
     for c in r.components:
         assert c.code and c.title and c.unit and c.formula
+
+
+def test_block_waste_does_not_change_built_mortar_volume():
+    base = dict(length=10, height=3, thickness=.20, openings=0,
+        block_length=.40, block_height=.20, block_thickness=.20,
+        joint_thickness=.01, cement_parts=1, sand_parts=4,
+        mortar_waste_factor=0)
+    a = calculate_assembly("block_wall", **base, block_waste_factor=0)
+    b = calculate_assembly("block_wall", **base, block_waste_factor=.10)
+    assert a.components[2].quantity == b.components[2].quantity
+    assert b.components[1].quantity >= a.components[1].quantity
