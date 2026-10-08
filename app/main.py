@@ -45,6 +45,7 @@ def main()->int:
         from core.commercial.progress import build_progress
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
+        from app.aec_workspace import build_aec_workspace
         from app.theme import APP_STYLESHEET
         from core.ui.ux import DEFAULT_ACTIONS, navigation_groups, quick_status
         from core.help.content import topics as help_topics, search as search_help_topics
@@ -95,7 +96,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["⌂ داشبورد","📁 پروژه‌ها","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","🧾 صورت‌وضعیت","📊 گزارشات","📎 اسناد پروژه","🤝 همکاری","🛠 ابزارهای حرفه‌ای","✓ کنترل کیفیت","🤖 هوش مصنوعی آفلاین","⚙ تنظیمات","❔ راهنما"]
+    sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
@@ -124,6 +125,31 @@ def main()->int:
         pout.setText(f'پروژه باز شد: {project.get("name","")}')
     openb.clicked.connect(open_selected)
     pages.addWidget(p); idx_projects=pages.count()-1
+
+    # Real AEC discipline workspaces: each area is separate and wired to the production takeoff service.
+    discipline_specs=[
+        ("architecture","🏠 معماری","متره معماری و نازک‌کاری","building"),
+        ("structural_concrete","🏗 سازه بتن","متره اعضای بتن‌آرمه، قالب و آرماتور","building"),
+        ("structural_steel","🏭 سازه فولاد","متره اعضای فولادی بر اساس طول، وزن واحد و تعداد","advanced"),
+        ("masonry","🧱 بنایی","متره دیوارهای بنایی و سطوح خالص با کسر بازشو","building"),
+        ("mechanical","❄ تأسیسات مکانیکی","متره لوله، کانال، عایق، تجهیزات و اتصالات","mechanical"),
+        ("electrical","⚡ تأسیسات برقی","متره کابل، لوله برق، تابلو، روشنایی، پریز و ارت","electrical"),
+        ("civil","🌳 محوطه و عملیات بیرونی","متره خاکبرداری، خاکریزی، بتن، آسفالت، جدول و زهکشی","civil"),
+        ("renovation","♻ بازسازی و مرمت","متره تخریب، مرمت نما، کف‌سازی و سقف کاذب","advanced"),
+    ]
+    discipline_pages={}
+    for key,title_fa,description_fa,domain in discipline_specs:
+        wp=build_aec_workspace(service,catalog,title=title_fa,description=description_fa,domain=domain,key=key,
+                               status_callback=lambda message: status.setText("🟢 "+message))
+        pages.addWidget(wp); discipline_pages[key]=pages.count()-1
+    idx_architecture=discipline_pages["architecture"]
+    idx_structural_concrete=discipline_pages["structural_concrete"]
+    idx_structural_steel=discipline_pages["structural_steel"]
+    idx_masonry=discipline_pages["masonry"]
+    idx_mechanical=discipline_pages["mechanical"]
+    idx_electrical=discipline_pages["electrical"]
+    idx_civil=discipline_pages["civil"]
+    idx_renovation=discipline_pages["renovation"]
 
     # Quick takeoff
     p,v=page("متره سریع","ورود سریع مقادیر با فرم استاندارد")
@@ -399,7 +425,6 @@ def main()->int:
     sheets=SheetRegistry(); markups=MarkupStore()
     smv.addWidget(QLabel("پشتیبانی چندنقشه و Markup در هسته پروژه فعال است."))
     tools.addTab(sm,"جستجو و نقشه")
-    tools.addTab(QLabel("گزارش‌ساز قابل تنظیم، Excel Bridge و Undo/Redo در هسته فعال است."),"گزارش و Excel")
     qa=QWidget(); qav=QVBoxLayout(qa)
     qav.addWidget(QLabel("کنترل یکپارچگی ۱۰ سطح اصلی محصول"))
     qstatus=QTextEdit(); qstatus.setReadOnly(True); qav.addWidget(qstatus)
@@ -481,14 +506,34 @@ def main()->int:
     stsave.clicked.connect(save_statement_period)
     pages.addWidget(p); idx_statement=pages.count()-1
 
-    # Project documents
-    p,v=page("اسناد پروژه","مرکز ثبت و پیگیری نقشه‌ها، فایل‌های قراردادی و خروجی‌های پروژه")
-    docpath=QLineEdit(); docadd=QPushButton("افزودن مسیر سند"); doclist=QListWidget()
-    v.addWidget(docpath); v.addWidget(docadd); v.addWidget(doclist)
+    # Project documents — persisted with the selected project.
+    p,v=page("اسناد پروژه","ثبت مسیر فایل‌های واقعی پروژه در داده همان پروژه؛ نه یک لیست موقت.")
+    doc_project=QLineEdit(); doc_project.setPlaceholderText("شناسه پروژه")
+    docpath=QLineEdit(); docpath.setPlaceholderText("مسیر فایل سند")
+    docbrowse=QPushButton("انتخاب فایل"); docadd=QPushButton("ثبت سند"); doclist=QListWidget()
+    v.addWidget(doc_project); v.addWidget(docpath); v.addWidget(docbrowse); v.addWidget(docadd); v.addWidget(doclist)
+    def refresh_docs():
+        doclist.clear()
+        project=service.open_project(doc_project.text().strip()) if doc_project.text().strip() else None
+        for doc in (project or {}).get("documents",[]):
+            doclist.addItem(f'{doc.get("name","")} | {doc.get("path","")}')
     def add_doc():
-        path=docpath.text().strip()
-        if path: doclist.addItem(path); docpath.clear()
-    docadd.clicked.connect(add_doc); pages.addWidget(p); idx_docs=pages.count()-1
+        project_id=doc_project.text().strip(); path=docpath.text().strip()
+        if not project_id or not path:
+            QMessageBox.warning(w,"اسناد","شناسه پروژه و مسیر فایل الزامی است."); return
+        project=service.open_project(project_id)
+        if not project: QMessageBox.warning(w,"اسناد","پروژه پیدا نشد."); return
+        docs=list(project.get("documents",[]))
+        if any(str(x.get("path","")) == path for x in docs):
+            QMessageBox.warning(w,"اسناد","این سند قبلاً ثبت شده است."); return
+        docs.append({"id":len(docs)+1,"name":Path(path).name,"path":path})
+        project["documents"]=docs
+        service.store.save(project_id,project)
+        docpath.clear(); refresh_docs()
+    docbrowse.clicked.connect(lambda: docpath.setText(QFileDialog.getOpenFileName(w,"انتخاب سند پروژه")[0]))
+    docadd.clicked.connect(add_doc)
+    doc_project.editingFinished.connect(refresh_docs)
+    pages.addWidget(p); idx_docs=pages.count()-1
 
     # Collaboration workspace — uses the existing provider-neutral collaboration core.
     p,v=page("همکاری پروژه","مدیریت اعضا، تخصیص کار، نظرها و بازبینی‌های پروژه در همان هسته همکاری موجود؛ بدون ایجاد منطق موازی.")
@@ -587,12 +632,12 @@ def main()->int:
     qc_refresh.clicked.connect(refresh_quality)
     pages.addWidget(p); idx_quality=pages.count()-1
 
-    # Settings
-    p,v=page("تنظیمات","تنظیمات ظاهری، زبان، واحدها و مسیر ذخیره‌سازی محلی")
-    lang=QComboBox(); lang.addItems(["فارسی (RTL)","English (LTR)"])
-    unit=QComboBox(); unit.addItems(["متر / مترمربع / مترمکعب","سانتی‌متر / میلی‌متر"])
-    v.addWidget(QLabel("زبان رابط")); v.addWidget(lang); v.addWidget(QLabel("واحد پیش‌فرض")); v.addWidget(unit)
+    # Settings — expose only controls that actually affect the application.
+    p,v=page("تنظیمات","تنظیمات فعال نرم‌افزار؛ کنترل نمایشیِ بدون اثر در این صفحه وجود ندارد.")
+    v.addWidget(QLabel("زبان رابط فعلی: فارسی (RTL)"))
+    v.addWidget(QLabel("واحد محاسبات متره: m / m² / m³ / kg / عدد"))
     v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
+    v.addWidget(QLabel("تغییر واحد تا زمان پیاده‌سازی تبدیل کامل مهندسی، عمداً در رابط ارائه نشده است."))
     pages.addWidget(p); idx_settings=pages.count()-1
 
     # Help — Persian user guide integrated with the shared offline help catalog.
@@ -669,8 +714,16 @@ def main()->int:
     rdstatus=QLabel("RTL فعال | صفحه‌بندی و جمع گروهی آماده"); rdv.addWidget(rdstatus)
     rdb=QPushButton("اعمال چیدمان گزارش"); rdv.addWidget(rdb)
     def apply_layout():
+        project_id=rpid.text().strip()
+        if not project_id:
+            rdstatus.setText("🔴 ابتدا شناسه پروژه را در گزارشات وارد کنید."); return
+        project=service.open_project(project_id)
+        if not project:
+            rdstatus.setText("🔴 پروژه پیدا نشد."); return
         layout=ReportLayout(columns=[x.strip() for x in rdcols.text().split(",") if x.strip()],group_by=rdgroup.text().strip())
-        rdstatus.setText(f"چیدمان ذخیره شد: {len(layout.columns)} ستون | گروه‌بندی: {layout.group_by or 'ندارد'} | RTL: {layout.rtl}")
+        project["_report_layout"]={"columns":layout.columns,"group_by":layout.group_by,"rtl":layout.rtl}
+        service.store.save(project_id,project)
+        rdstatus.setText(f"🟢 چیدمان گزارش برای پروژه ذخیره شد: {len(layout.columns)} ستون | گروه‌بندی: {layout.group_by or 'ندارد'} | RTL: {layout.rtl}")
     rdb.clicked.connect(apply_layout); tools.addTab(rd,"طراحی گزارش")
 
     # Commercial progress and backup are available from the same desktop surface.
@@ -725,6 +778,31 @@ def main()->int:
             add_command("➕ ایجاد پروژه", create.click, True)
             add_command("📂 بازکردن پروژه", openb.click)
             add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
+        elif index == idx_architecture:
+            add_command("🏠 معماری", lambda: pages.setCurrentIndex(idx_architecture), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+            add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
+        elif index == idx_structural_concrete:
+            add_command("🏗 سازه بتن", lambda: pages.setCurrentIndex(idx_structural_concrete), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_structural_steel:
+            add_command("🏭 سازه فولاد", lambda: pages.setCurrentIndex(idx_structural_steel), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_masonry:
+            add_command("🧱 بنایی", lambda: pages.setCurrentIndex(idx_masonry), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_mechanical:
+            add_command("❄ تأسیسات مکانیکی", lambda: pages.setCurrentIndex(idx_mechanical), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_electrical:
+            add_command("⚡ تأسیسات برقی", lambda: pages.setCurrentIndex(idx_electrical), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_civil:
+            add_command("🌳 محوطه", lambda: pages.setCurrentIndex(idx_civil), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
+        elif index == idx_renovation:
+            add_command("♻ بازسازی و مرمت", lambda: pages.setCurrentIndex(idx_renovation), True)
+            add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_quick:
             add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
