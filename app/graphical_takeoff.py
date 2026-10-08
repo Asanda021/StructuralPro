@@ -3,19 +3,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QPointF, QByteArray
+from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QRectF, QByteArray
 from PySide6.QtGui import QPen, QBrush, QPixmap, QPolygonF
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox,
     QLabel, QGraphicsView, QGraphicsScene, QDialog, QTableWidget,
     QTableWidgetItem, QSpinBox, QFileDialog, QMessageBox, QFrame,
-    QDoubleSpinBox, QInputDialog, QHeaderView
+    QDoubleSpinBox, QInputDialog, QHeaderView, QRubberBand
 )
 
 from core.drawings.graphical_takeoff import Point
 from core.drawings.pdf_engine import PDFDrawingEngine
 from core.drawings.takeoff_session import DrawingTakeoffSession
 from core.drawings.viewer_model import DrawingViewerModel
+from core.drawings.viewport_tools import ViewportRect
 
 
 class TakeoffCanvas(QGraphicsView):
@@ -28,12 +29,45 @@ class TakeoffCanvas(QGraphicsView):
         self.setScene(self.scene)
         self.points: list[Point] = []
         self.mode = "length"
+        self._selection_origin = None
+        self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
+        self._region_overlay = None
+        self.on_tool_status = None
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_mode(self, mode: str):
+        self.cancel_interaction(reset_tool=False, announce=False)
         self.mode = mode
         self.points = []
+        if mode in {"zoom_window", "region_select"}:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.setCursor(Qt.CursorShape.CrossCursor)
+        else:
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.unsetCursor()
+
+    def _announce_tool(self, message: str):
+        if self.on_tool_status:
+            self.on_tool_status(message)
+
+    def clear_region_selection(self):
+        if self._region_overlay is not None:
+            self.scene.removeItem(self._region_overlay)
+            self._region_overlay = None
+
+    def cancel_interaction(self, reset_tool: bool = True, announce: bool = True):
+        self._selection_origin = None
+        self._rubber_band.hide()
+        self.points = []
+        self.clear_region_selection()
+        if reset_tool and self.mode in {"zoom_window", "region_select"}:
+            self.mode = "length"
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.unsetCursor()
+        if announce:
+            self._announce_tool("عملیات انتخاب لغو شد؛ نمای نقشه تغییر نکرد.")
 
     def wheelEvent(self, event):
         self.scale_view(1.15 if event.angleDelta().y() > 0 else 1 / 1.15)
@@ -42,8 +76,17 @@ class TakeoffCanvas(QGraphicsView):
         self.scale(factor, factor)
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.RightButton and self.mode in {"zoom_window", "region_select"}:
+            self.cancel_interaction()
+            return
         if event.button() != Qt.MouseButton.LeftButton:
             return super().mousePressEvent(event)
+        if self.mode in {"zoom_window", "region_select"}:
+            self._selection_origin = event.position().toPoint()
+            self._rubber_band.setGeometry(QRect(self._selection_origin, self._selection_origin))
+            self._rubber_band.show()
+            self.setFocus()
+            return
         p = self.mapToScene(event.position().toPoint())
         page = self.session.current_page
 
@@ -68,6 +111,49 @@ class TakeoffCanvas(QGraphicsView):
             self.scene.addLine(
                 a.x, a.y, b.x, b.y, QPen(Qt.GlobalColor.blue, 2)
             )
+
+    def mouseMoveEvent(self, event):
+        if self._selection_origin is not None:
+            self._rubber_band.setGeometry(
+                QRect(self._selection_origin, event.position().toPoint()).normalized()
+            )
+            return
+        return super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self._selection_origin is not None:
+            viewport_rect = QRect(self._selection_origin, event.position().toPoint()).normalized()
+            self._selection_origin = None
+            self._rubber_band.hide()
+            top_left = self.mapToScene(viewport_rect.topLeft())
+            bottom_right = self.mapToScene(viewport_rect.bottomRight())
+            bounds = self.scene.sceneRect()
+            selected = ViewportRect.from_points(
+                top_left.x(), top_left.y(), bottom_right.x(), bottom_right.y()
+            ).clamped(ViewportRect(bounds.left(), bounds.top(), bounds.right(), bounds.bottom()))
+            if not selected.is_usable():
+                self._announce_tool("ناحیه خیلی کوچک است؛ مستطیل بزرگ‌تری انتخاب کن یا لغو کن.")
+                return
+            scene_rect = QRectF(selected.left, selected.top, selected.width, selected.height)
+            if self.mode == "zoom_window":
+                self.fitInView(scene_rect, Qt.AspectRatioMode.KeepAspectRatio)
+                self._announce_tool("بزرگ‌نمایی ناحیه انجام شد؛ برای بازگشت «نمایش کامل» را بزن.")
+            else:
+                self.clear_region_selection()
+                pen = QPen(Qt.GlobalColor.darkGreen, 2, Qt.PenStyle.DashLine)
+                self._region_overlay = self.scene.addRect(scene_rect, pen)
+                self._announce_tool(
+                    f"ناحیه انتخاب شد | عرض: {selected.width:.2f} | ارتفاع: {selected.height:.2f} واحد صحنه"
+                )
+            return
+        return super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.cancel_interaction()
+            event.accept()
+            return
+        return super().keyPressEvent(event)
 
     def _commit_count(self):
         try:
@@ -159,6 +245,9 @@ class GraphicalTakeoffDialog(QDialog):
         self.zoom_out = QPushButton("−")
         self.zoom_in = QPushButton("+")
         self.fit = QPushButton("نمایش کامل")
+        self.zoom_window = QPushButton("Zoom Window")
+        self.select_region = QPushButton("انتخاب ناحیه")
+        self.cancel_selection = QPushButton("لغو انتخاب")
         self.source_label = QLabel("منبع: —")
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
@@ -166,7 +255,8 @@ class GraphicalTakeoffDialog(QDialog):
         self.delete = QPushButton("حذف انتخاب")
         for x in [
             self.open_pdf, self.prev, self.next, self.page_no,
-            self.zoom_out, self.zoom_in, self.fit, self.undo, self.redo,
+            self.zoom_out, self.zoom_in, self.fit, self.zoom_window,
+            self.select_region, self.cancel_selection, self.undo, self.redo,
             self.delete, self.finish
         ]:
             header.addWidget(x)
@@ -193,6 +283,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.status = QLabel("برای شروع، نقشه را باز کنید و مقیاس را کالیبره کنید.")
         self.status.setWordWrap(True)
         root.addWidget(self.status)
+        self.canvas.on_tool_status = self.status.setText
 
         self.mode.currentTextChanged.connect(self.apply_tool)
         self.calibrate.clicked.connect(self.calibrate_scale)
@@ -203,6 +294,13 @@ class GraphicalTakeoffDialog(QDialog):
         self.zoom_in.clicked.connect(lambda: self.canvas.scale_view(1.25))
         self.zoom_out.clicked.connect(lambda: self.canvas.scale_view(0.8))
         self.fit.clicked.connect(self.reset_zoom)
+        self.zoom_window.clicked.connect(
+            lambda: self._activate_view_tool("zoom_window", "مستطیل ناحیه بزرگ‌نمایی را با ماوس بکش؛ Esc یا کلیک راست لغو می‌کند.")
+        )
+        self.select_region.clicked.connect(
+            lambda: self._activate_view_tool("region_select", "مستطیل ناحیه موردنظر را با ماوس بکش؛ Esc یا کلیک راست لغو می‌کند.")
+        )
+        self.cancel_selection.clicked.connect(self.canvas.cancel_interaction)
         self.finish.clicked.connect(self.canvas.finish)
         self.undo.clicked.connect(self.undo_session)
         self.redo.clicked.connect(self.redo_session)
@@ -308,7 +406,13 @@ class GraphicalTakeoffDialog(QDialog):
         self.canvas.setSceneRect(0,0,max_x-min_x,max_y-min_y)
         self.status.setText(f"🟢 CAD نمایش داده شد | {len(doc.entities)} المان | لایه‌ها: {len(doc.layers)} | واحد: {doc.units}")
 
+    def _activate_view_tool(self, mode: str, instruction: str):
+        self.canvas.set_mode(mode)
+        self.status.setText(instruction)
+
     def reset_zoom(self):
+        self.canvas.cancel_interaction(reset_tool=False, announce=False)
+        self.canvas.clear_region_selection()
         self.canvas.resetTransform()
         if self.canvas.scene.sceneRect().isValid():
             self.canvas.fitInView(
