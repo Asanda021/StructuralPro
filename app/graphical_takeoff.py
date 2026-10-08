@@ -29,6 +29,7 @@ class TakeoffCanvas(QGraphicsView):
         self.setScene(self.scene)
         self.points: list[Point] = []
         self.mode = "length"
+        self._previous_mode = "length"
         self._selection_origin = None
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
         self._region_overlay = None
@@ -38,6 +39,8 @@ class TakeoffCanvas(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_mode(self, mode: str):
+        if mode in {"zoom_window", "region_select"} and self.mode not in {"zoom_window", "region_select"}:
+            self._previous_mode = self.mode
         self.cancel_interaction(reset_tool=False, announce=False)
         self.mode = mode
         self.points = []
@@ -63,7 +66,7 @@ class TakeoffCanvas(QGraphicsView):
         self.points = []
         self.clear_region_selection()
         if reset_tool and self.mode in {"zoom_window", "region_select"}:
-            self.mode = "length"
+            self.mode = self._previous_mode
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             self.unsetCursor()
         if announce:
@@ -412,7 +415,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.status.setText(instruction)
 
     def reset_zoom(self):
-        self.canvas.cancel_interaction(reset_tool=False, announce=False)
+        self.canvas.cancel_interaction(reset_tool=True, announce=False)
         self.canvas.clear_region_selection()
         self.canvas.resetTransform()
         if self.canvas.scene.sceneRect().isValid():
