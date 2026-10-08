@@ -24,5 +24,5 @@ def test_viewport_rect_clamps_to_scene_bounds():
 
 
 def test_viewport_rect_rejects_negative_minimum_size():
-    with pytest.raises(AssertionError):
-        assert ViewportRect(0, 0, 10, 10).is_usable(-1)
+    with pytest.raises(ValueError):
+        ViewportRect(0, 0, 10, 10).is_usable(-1)
