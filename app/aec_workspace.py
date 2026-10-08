@@ -71,7 +71,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     quick=QGroupBox("⚡ متره سریع دستی — بدون فرم‌های طولانی")
     quick_layout=QVBoxLayout(quick)
     quick_input=QLineEdit()
-    quick_input.setPlaceholderText("مثال: 12 ستون 50x50 ارتفاع 3")
+    quick_input.setPlaceholderText("مثال: 12 ستون 50cmx50cm ارتفاع 3m")
     quick_apply=QPushButton("اعمال ورودی سریع")
     quick_hint=QLabel("ورودی فشرده را وارد کنید؛ فقط اطلاعات ناموجود را در فرم پایین تکمیل کنید.")
     quick_hint.setWordWrap(True)
