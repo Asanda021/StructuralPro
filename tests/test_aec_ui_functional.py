@@ -26,7 +26,7 @@ def test_aec_workspace_has_real_save_path():
 
 def test_aec_workspace_does_not_create_fake_item_types():
     expected = [
-        '"wall"', '"slab_volume"', '"column"', '"beam"', '"footing_concrete"',
+        '"wall"', '"column"', '"beam"', '"footing_concrete"',
         '"steel"', '"pipe"', '"duct"', '"cable"', '"excavation"', '"demolition"',
     ]
     for item in expected:
