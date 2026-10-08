@@ -12,12 +12,20 @@ from core.reports.quality import prepare_rows, summary
 
 
 def _fake_converter(tmp_path):
+    helper = tmp_path / "fake_dwg_converter.py"
+    helper.write_text(
+        "import pathlib, sys\n"
+        "src, dst = map(pathlib.Path, sys.argv[1:3])\n"
+        "data = src.read_bytes()\n"
+        "dst.write_bytes(data[6:] if data.startswith(b'AC10') else data)\n",
+        encoding="utf-8",
+    )
     if os.name == "nt":
         exe = tmp_path / "dwg2dxf.cmd"
-        exe.write_text('@echo off\r\ncopy /Y "%~1" "%~2" >nul\r\n', encoding="utf-8")
+        exe.write_text(f'@echo off\r\npython "{helper}" "%~1" "%~2"\r\n', encoding="utf-8")
     else:
         exe = tmp_path / "dwg2dxf"
-        exe.write_text('#!/bin/sh\ncp "$1" "$2"\n', encoding="utf-8")
+        exe.write_text(f'#!/bin/sh\nexec python3 "{helper}" "$1" "$2"\n', encoding="utf-8")
         exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
     return exe
 
@@ -58,7 +66,7 @@ def test_five_core_areas_end_to_end(tmp_path, monkeypatch):
 
     exe = _fake_converter(tmp_path)
     source = tmp_path / "plan.dwg"
-    source.write_text(_dxf(), encoding="utf-8")
+    source.write_bytes(b"AC1032" + _dxf().encode("utf-8"))
     monkeypatch.setenv("STRUCTURALPRO_DWG_CONVERTER", str(exe))
     converted = OfflineDWGConverter(str(exe)).convert(source, tmp_path / "out")
     assert converted.output.exists()
