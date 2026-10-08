@@ -1,36 +1,31 @@
 # DWG Production Provider
 
-StructuralPro uses a provider-neutral DWG boundary:
+StructuralPro now uses a real CAD library behind a small Windows bridge:
 
-**DWG → authorized external converter → DXF → ezdxf → extraction/takeoff**
+DWG -> ACadSharp DwgReader -> CadDocument -> DxfWriter -> verified DXF -> ezdxf -> extraction/takeoff
 
-The desktop application does **not** bundle an unlicensed native DWG parser.
+## Why ACadSharp
 
-## Configuring a provider
+ACadSharp is MIT-licensed and documents DWG reading for AC1014, AC1015, AC1018, AC1021, AC1024, AC1027 and AC1032. StructuralPro uses its reader and writer through a dedicated .NET 8 bridge.
 
-Configure an installed, authorized command-line DWG converter through the `ExternalDWGConverterProvider`:
+This replaces the previous ODA File Converter boundary. No ODA executable is required and no converter is downloaded at runtime.
 
-- executable path/name
-- target output version (default `ACAD2018`)
-- audit flag (default enabled)
-- recursive flag (default disabled)
-- conversion timeout
+## Production deployment
 
-The adapter invokes the converter explicitly, requires exactly one generated DXF artifact, validates that artifact with the existing real `ezdxf` parser, and only then exposes the document to the CAD/takeoff pipeline.
+The Windows release publishes the bridge project for win-x64 and ships StructuralPro.DwgBridge.exe with the application.
 
-Missing executable, conversion failure, timeout, zero/multiple output files, or invalid generated DXF all fail closed.
+The Python side can also be pointed at an explicitly installed bridge with STRUCTURALPRO_DWG_BRIDGE.
 
-## ODA File Converter
+If the bridge is missing, conversion fails closed. There is no fallback to guessed scale, guessed geometry, or an unrelated converter.
 
-ODA publishes a free ODA File Converter application for DWG/DXF conversion and documents a command-line interface. ODA states that non-members may use its free example applications for **non-commercial applications only**. Therefore StructuralPro must not silently bundle or redistribute ODA File Converter as a commercial product without the required ODA rights.
+## Integrity rules
 
-For commercial distribution, use an appropriately licensed provider and record its license, version, checksum and redistribution rights in the release evidence inventory.
+- Only .dwg input is accepted.
+- ACadSharp must exit successfully.
+- A non-empty DXF artifact must be produced.
+- The generated DXF is parsed by the existing real ezdxf engine before it enters the takeoff pipeline.
+- Bridge errors, timeouts, missing output, or invalid DXF fail closed.
 
-## Security / integrity
+## Verification
 
-The converter is treated as an external evidence provider. StructuralPro does not infer engineering quantities from the DWG bytes. Geometry is consumed only after conversion and validation by the existing DXF parser.
-
-See:
-- `core/cad/external_dwg_provider_v1.py`
-- `core/cad/provider_registry_v1.py`
-- `core/cad/ezdxf_provider_v1.py`
+The dedicated Windows smoke test builds the bridge and exercises real ACadSharp reads on representative DWG files from AC1014 through AC1032, then parses every produced DXF with ezdxf.
