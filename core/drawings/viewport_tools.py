@@ -31,7 +31,9 @@ class ViewportRect:
 
     def is_usable(self, min_size: float = 8.0) -> bool:
         """Reject click-sized drags and invalid rectangles without changing view."""
-        return min_size >= 0 and self.width >= min_size and self.height >= min_size
+        if min_size < 0:
+            raise ValueError("min_size cannot be negative")
+        return self.width >= min_size and self.height >= min_size
 
     def clamped(self, bounds: "ViewportRect") -> "ViewportRect":
         """Return the intersection with bounds; empty intersections have zero area."""
