@@ -66,3 +66,12 @@ def test_user_pricebook_is_persisted_locally():
 
 def test_quick_takeoff_preserves_selected_discipline():
     assert 'service.add_takeoff(qpid.text().strip(),discipline.currentData() or "building"' in MAIN
+
+
+def test_main_navigation_has_controlled_glass_styling():
+    assert "#MainNavigationTabs { background: rgba(16,35,63,178);" in THEME
+    assert "border: 1px solid rgba(214,226,240,85);" in THEME
+    assert "background: rgba(255,255,255,18);" in THEME
+    assert "#MainNavigationTabs::tab:hover { background: rgba(120,183,232,70);" in THEME
+    assert "#MainNavigationTabs::tab:selected { background: rgba(36,90,145,205);" in THEME
+    assert "#CommandRibbon { background: rgba(247,249,252,235);" in THEME
