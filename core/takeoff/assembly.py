@@ -132,8 +132,11 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         spacing = _n(p, "joist_spacing", 1e-12)
         jw = _n(p, "joist_width")
         jd = _n(p, "joist_depth")
-        joists = ceil((W / spacing) + 1e-12) * count
-        concrete = area * topping + (area / spacing) * jw * jd
+        joist_count = _optional(p, "joist_count")
+        if joist_count is None:
+            joist_count = ceil(W / spacing) + 1
+        joists = joist_count * count
+        concrete = area * topping + joists * L * jw * jd
         foam_l = _optional(p, "foam_length")
         foam_w = _optional(p, "foam_width")
         foam_h = _optional(p, "foam_height")
@@ -141,11 +144,11 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
             return AssemblyResult(
                 k, "سقف تیرچه یونولیت" if "foam" in k or "یونولیت" in k else "سقف تیرچه‌بلوک", (
                     AssemblyComponent("concrete", "بتن", "m³",
-                                      "A×t رویه+(A/s)×b×h", concrete),
-                    AssemblyComponent("joist", "تیرچه", "عدد", "ceil(W/s)×تعداد", float(joists)),
+                                      "A×t رویه+تعداد تیرچه×L×b×h", concrete),
+                    AssemblyComponent("joist", "تیرچه", "عدد", "(ceil(W/s)+1)×تعداد", float(joists), warning="تعداد تیرچه از عرض و فاصله محاسبه شده؛ آرایش واقعی دهانه/لبه‌ها در صورت تفاوت باید با joist_count صریح وارد شود."),
                 ),
                 ("length", "width", "count", "topping_thickness", "joist_spacing",
-                 "joist_width", "joist_depth"),
+                 "joist_width", "joist_depth", "joist_count"),
                 ("foam_length", "foam_width", "foam_height"),
             )
         foam_per = foam_l * foam_w * foam_h
