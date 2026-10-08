@@ -84,3 +84,14 @@ def test_pricebook_is_user_supplied_not_bundled():
     assert '📥 ورود Excel / CSV / PDF' in MAIN
     assert 'PDF (*.pdf)' in MAIN
     assert 'فهرست‌بهای واردشده توسط کاربر' in WORKSPACE
+
+
+def test_desktop_navigation_is_planswift_style_and_real():
+    assert "QTreeWidget" in MAIN
+    assert 'nav_tree.setObjectName("PlanSwiftNavigation")' in MAIN
+    assert 'nav_group("متره و Takeoff"' in MAIN
+    assert 'nav_group("برآورد و تجاری"' in MAIN
+    assert 'item.data(0,Qt.ItemDataRole.UserRole)' in MAIN
+    assert 'pages.setCurrentIndex(target)' in MAIN
+    assert '📐 متره واقعی' in MAIN
+    assert '📥 ورود Excel/CSV/PDF' in MAIN
