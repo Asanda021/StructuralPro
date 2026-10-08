@@ -33,7 +33,15 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
     if k in {"slab","slab_area","floor","کف"}:
         q=_rect_area(p["length"],p["width"]); return QuantityResult("ابنیه","سطح سقف/کف",q,"m2","L×W")
     if k in {"slab_volume","concrete_slab","بتن_سقف"}:
-        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t")
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t×تعداد")
+    if k in {"tie_beam","tie_beam_concrete","شناژ"}:
+        q=_rect_area(p["width"],p["depth"])*_n(p["length"],"length")*_n(p.get("count",1),"count"); return QuantityResult("سازه","شناژ / کلاف بتنی",q,"m3","b×h×L×تعداد")
+    if k in {"shear_wall","shear_wall_concrete","دیوار_برشی"}:
+        q=_n(p["length"],"length")*_n(p["thickness"],"thickness")*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","دیوار برشی بتنی",q,"m3","L×t×H×تعداد")
+    if k in {"stair_concrete","stair","پله_بتنی"}:
+        q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("سازه","حجم مدل پایه پله بتنی",q,"m3","L×W×t×تعداد")
+    if k in {"roof_area","roof","سقف"}:
+        q=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count"); return QuantityResult("سقف","مساحت سیستم سقف",q,"m2","L×W×تعداد")
     if k in {"column","column_concrete","بتن_ستون"}:
         q=_rect_area(p["width"],p["depth"])*_n(p["height"],"height")*_n(p.get("count",1),"count"); return QuantityResult("سازه","بتن ستون",q,"m3","b×h×H×تعداد")
     if k in {"beam","beam_concrete","بتن_تیر"}:
