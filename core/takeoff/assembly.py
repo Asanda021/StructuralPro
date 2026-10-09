@@ -93,7 +93,9 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     if k in {"block_wall", "masonry_block_wall", "دیوار_بلوک"}:
         L, H, t = _n(p, "length", 1e-12), _n(p, "height", 1e-12), _n(p, "thickness", 1e-12)
         openings = _n({"openings": p.get("openings", 0)}, "openings")
-        if openings > L * H:\n            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دیوار بیشتر باشد")\n        area = L * H - openings
+        if openings > L * H:
+            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دیوار بیشتر باشد")
+        area = L * H - openings
         volume = area * t
         bw = _optional(p, "block_length")
         bh = _optional(p, "block_height")
@@ -111,7 +113,9 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
                     ("cement_parts", mortar_ratio_c), ("sand_parts", mortar_ratio_s),
                 ) if v is None),
             )
-        if min(bw, bh, bt, joint) <= 0:\n            raise ValueError("ابعاد بلوک و ضخامت بند باید مثبت باشند")\n        block_nominal = (bw + joint) * (bh + joint) * bt
+        if min(bw, bh, bt, joint) <= 0:
+            raise ValueError("ابعاد بلوک و ضخامت بند باید مثبت باشند")
+        block_nominal = (bw + joint) * (bh + joint) * bt
         blocks = area / ((bw + joint) * (bh + joint))
         block_waste = _optional(p, "block_waste_factor")
         blocks_final = ceil(_waste(blocks, block_waste))
@@ -155,7 +159,9 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         foam_l = _optional(p, "foam_length")
         foam_w = _optional(p, "foam_width")
         foam_h = _optional(p, "foam_height")
-        if any(v is not None and v <= 0 for v in (foam_l, foam_w, foam_h)):\n            raise ValueError("ابعاد یونولیت باید مثبت باشند")\n        if None in (foam_l, foam_w, foam_h):
+        if any(v is not None and v <= 0 for v in (foam_l, foam_w, foam_h)):
+            raise ValueError("ابعاد یونولیت باید مثبت باشند")
+        if None in (foam_l, foam_w, foam_h):
             return AssemblyResult(
                 k, "سقف تیرچه یونولیت" if "foam" in k or "یونولیت" in k else "سقف تیرچه‌بلوک", (
                     AssemblyComponent("concrete", "بتن", "m³",
