@@ -46,7 +46,7 @@ def test_unit_and_category_are_exact():
 
 def test_duplicate_ids_and_rates_fail():
     with pytest.raises(ValueError):
-        build_estimate((line(), line("C02", line_id="L2")), (rate(),), scenario="base")
+        build_estimate((line(), line("C02")), (rate(),), scenario="base")
     with pytest.raises(ValueError):
         build_estimate((line(),), (rate(), rate()), scenario="base")
 
