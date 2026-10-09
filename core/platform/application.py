@@ -284,15 +284,18 @@ class StructuralProApp:
                 raise RuntimeError("نشست نقشه تغییر کرده یا وجود ندارد؛ نسخه را دوباره بخوانید")
             revision = 1
             committed = []
+            ai_committed = []
         else:
             current_revision = int(previous.get("revision", 1))
             if expected_revision is None or int(expected_revision) != current_revision:
                 raise RuntimeError(f"تعارض نسخه نشست نقشه؛ نسخه فعلی {current_revision} است")
             revision = current_revision + 1
             committed = list(previous.get("committed_item_ids", []))
+            ai_committed = list(previous.get("ai_committed_item_ids", []))
         sessions[sid] = {
             "id": sid, "revision": revision, "drawing_source": str(payload.get("drawing_source", "")),
             "session": deepcopy(payload), "committed_item_ids": committed,
+            "ai_committed_item_ids": ai_committed,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         self.store.save(pid, project, expected_digest=digest)
@@ -335,8 +338,9 @@ class StructuralProApp:
             raise RuntimeError(f"تعارض نسخه نشست نقشه؛ نسخه فعلی {current_revision} است")
         selected = list(dict.fromkeys(str(x) for x in selected_item_ids))
         already = set(record.get("committed_item_ids", []))
-        if already.intersection(selected):
-            raise ValueError("برخی متره‌های انتخاب‌شده قبلاً وارد BOQ شده‌اند؛ انتقال تکراری رد شد")
+        ai_already = set(record.get("ai_committed_item_ids", []))
+        if already.intersection(selected) or ai_already.intersection(selected):
+            raise ValueError("برخی متره‌های انتخاب‌شده قبلاً از مسیر دستی یا هوشمند وارد BOQ شده‌اند؛ انتقال تکراری رد شد")
         rows = session_to_boq_rows(record.get("session", {}), session_id=sid, selected_item_ids=selected)
         existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
         duplicate_sources = [row["source_id"] for row in rows if row["source_id"] in existing_sources]
@@ -375,6 +379,7 @@ class StructuralProApp:
                 })
         project["boq"] = build_boq(boq_inputs)
         record["committed_item_ids"] = sorted(already.union(selected))
+        record["ai_committed_item_ids"] = sorted(ai_already)
         record["revision"] = current_revision + 1
         record["updated_at"] = datetime.now(timezone.utc).isoformat()
         self.store.save(pid, project, expected_digest=digest)
