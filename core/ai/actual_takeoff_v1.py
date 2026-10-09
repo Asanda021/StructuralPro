@@ -61,12 +61,14 @@ def _manifest_fingerprint(
     candidates: tuple[dict[str, Any], ...],
     groups: tuple[dict[str, Any], ...],
     issues: tuple[str, ...],
+    *,
+    approved: bool = False,
 ) -> str:
     payload = {
         "schema": "structuralpro-actual-ai-takeoff-v1",
         "source_fingerprint": source_fingerprint,
         "status": status,
-        "approved": False,
+        "approved": approved,
         "candidates": candidates,
         "groups": groups,
         "issues": issues,
@@ -171,6 +173,7 @@ def validate_actual_ai_takeoff(manifest: ActualAITakeoffManifest) -> tuple[bool,
         manifest.candidates,
         manifest.groups,
         manifest.issues,
+        approved=manifest.approved,
     )
     if expected != manifest.fingerprint:
         errors.append("manifest fingerprint mismatch")
