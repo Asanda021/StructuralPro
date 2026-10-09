@@ -134,8 +134,21 @@ class OfflineDWGConverter:
                     f"{detail or 'خطای نامشخص مبدل'}"
                 )
 
-        if not target.exists() or target.stat().st_size == 0:
+        if not target.is_file() or target.stat().st_size == 0:
             raise DWGConversionError(
                 "مبدل اجرا شد اما فایل DXF خروجی تولید نشد؛ فایل DWG یا تنظیمات مبدل را بررسی کنید."
             )
+
+        # A file on disk is not proof of a valid conversion. Parse it with the
+        # real DXF reader used by the takeoff pipeline before returning it.
+        try:
+            import ezdxf
+            converted_doc = ezdxf.readfile(str(target))
+            list(converted_doc.modelspace())
+        except Exception as exc:
+            target.unlink(missing_ok=True)
+            raise DWGConversionError(
+                "مبدل فایل DXF قابل‌خواندن تولید نکرد؛ خروجی نامعتبر است و برای متره پذیرفته نشد."
+            ) from exc
+
         return ConverterResult(src, target, str(self.executable))
