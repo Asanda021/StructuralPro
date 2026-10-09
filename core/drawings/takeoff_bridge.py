@@ -30,10 +30,19 @@ def validate_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 issues.append(f"نوع متره {item.id} پشتیبانی نمی‌شود")
             elif item.unit != _KIND_UNITS[item.kind]:
                 issues.append(f"واحد متره {item.id} با نوع آن سازگار نیست")
-            if not item.source_ref.strip():
-                issues.append(f"مرجع صفحه/ناحیه برای متره {item.id} ثبت نشده است")
+            expected_ref = f"{session.drawing_source}#page={item.page}&takeoff={item.id}"
+            if not item.source_ref.strip() or item.source_ref != expected_ref:
+                issues.append(f"مرجع صفحه/ناحیه برای متره {item.id} با منبع ذخیره‌شده مطابقت ندارد")
             if item.kind in {"length", "area"} and not item.formula.strip():
                 issues.append(f"فرمول اندازه‌گیری متره {item.id} ثبت نشده است")
+            if item.kind == "length" and len(item.geometry) < 2:
+                issues.append(f"هندسه متره طول {item.id} ناقص است")
+            if item.kind == "area" and len(item.geometry) < 3:
+                issues.append(f"هندسه متره مساحت {item.id} ناقص است")
+            for point in item.geometry:
+                if len(point) != 2 or any(not math.isfinite(float(value)) for value in point):
+                    issues.append(f"مختصات هندسه متره {item.id} نامعتبر است")
+                    break
             if item.kind == "count" and (item.quantity <= 0 or not float(item.quantity).is_integer()):
                 issues.append(f"تعداد متره {item.id} باید عدد صحیح مثبت باشد")
     except Exception as exc:
