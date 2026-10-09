@@ -145,7 +145,7 @@ class ManualTakeoffDialog(QDialog):
                 clean = " ".join(x for x in cells if x)
             lines.append(clean)
         self.entry_text.setPlainText("\\n".join(lines))
-        self.status.setText(f"{len(lines)} ردیف از کلیپ‌بورد آماده بررسی است؛ قبل از محاسبه، قالب هر ردیف را کنترل کن.")
+        self.status.setText(f"{len(lines)} ردیف آماده بررسی است. هر ردیف باید متن کامل و معتبر متره باشد؛ سلول‌های عددی پراکنده از Excel به‌صورت خودکار تفسیر نمی‌شوند.")
 
     def _selected_record(self):
         row = self.table.currentRow()
