@@ -41,6 +41,8 @@ class PDFDrawingEngine:
         doc = None
         try:
             doc = fitz.open(str(self.path))
+            if not getattr(doc, "is_pdf", False):
+                raise ValueError("فایل انتخاب‌شده یک PDF معتبر نیست.")
             if getattr(doc, "needs_pass", False):
                 raise RuntimeError("این PDF رمزگذاری شده است؛ ابتدا نسخه قابل‌خواندن را با مجوز لازم باز کن.")
             if len(doc) < 1:
