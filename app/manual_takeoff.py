@@ -56,7 +56,8 @@ class ManualTakeoffDialog(QDialog):
         self.setWindowTitle("متره دستی حرفه‌ای — پروژه‌محور")
         self.resize(1080, 720)
         self.project_id = QLineEdit(project_id)
-        self.floor_id = QLineEdit("طبقه همکف")
+        self.floor_id = QLineEdit("")
+        self.floor_id.setPlaceholderText("طبقه یا تراز را صریح وارد کن")
         self.element_label = QLineEdit()
         self.entry_text = QTextEdit()
         self.entry_text.setPlaceholderText(
@@ -121,6 +122,7 @@ class ManualTakeoffDialog(QDialog):
         self.load_saved_button.clicked.connect(self.edit_saved_selected)
         self.revise_saved_button.clicked.connect(self.apply_saved_revision)
         self.close_button.clicked.connect(self.accept)
+        self.project_id.editingFinished.connect(self.refresh_saved_rows)
         self.refresh_saved_rows()
 
     def _audit(self, event: str, details: dict | None = None):
@@ -233,7 +235,7 @@ class ManualTakeoffDialog(QDialog):
         self._editing_persisted = record
         self.entry_text.setPlainText(source_text)
         self.element_label.setText(str(record.get("description", label)))
-        self.floor_id.setText(str(record.get("system", "") or "طبقه همکف"))
+        self.floor_id.setText(str(record.get("system", "") or ""))
         self.status.setText(
             f"ردیف {source_id} از نسخه {record.get('revision', 1)} برای اصلاح بارگذاری شد. "
             "مقادیر را تغییر بده و «ثبت نسخه اصلاح‌شده» را بزن؛ نسخه قبلی در تاریخچه باقی می‌ماند."
