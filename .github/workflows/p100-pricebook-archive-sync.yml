@@ -1,5 +1,5 @@
 # P100 production sync is an explicit/manual data-import workflow.
-# It is intentionally not a PR/main CI gate because it depends on external archive availability.
+# It is intentionally manual-only because it depends on external archive availability; PRs must not fail on transient archive/network issues.
 name: P100 Pricebook Archive Sync
 
 on:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   sync:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
