@@ -1,8 +1,6 @@
 """Project-linked Persian manual takeoff dialog for StructuralPro."""
 from __future__ import annotations
 
-from uuid import uuid4
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
@@ -167,7 +165,7 @@ class ManualTakeoffDialog(QDialog):
                     domain,
                     item,
                     description=record.element_label,
-                    source_id=f"manual-workbench:{uuid4().hex}",
+                    source_id=f"manual-workbench:{record.project_id}:{record.record_id}",
                     system=record.floor_id,
                     **dict(record.params),
                 )
