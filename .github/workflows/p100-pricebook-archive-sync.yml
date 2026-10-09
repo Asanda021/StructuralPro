@@ -4,6 +4,12 @@ name: P100 Pricebook Archive Sync
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/p100-pricebook-archive-sync.yml"
+  push:
+    paths:
+      - ".github/workflows/p100-pricebook-archive-sync.yml"
 
 permissions:
   contents: write
@@ -14,6 +20,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-config:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate sync script syntax without network access
+        run: python -m py_compile scripts/sync_pricebooks_24.py
   sync:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
