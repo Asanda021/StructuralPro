@@ -16,7 +16,7 @@ _CODE_TO_ENGINE = {
     "shear_wall": ("building", "shear_wall"), "solid_slab_roof": ("building", "solid_slab_roof"),
     "joist_block_roof": ("building", "joist_block_roof"), "joist_foam_roof": ("building", "joist_foam_roof"),
     "stair_concrete": ("building", "stair_concrete"), "wall": ("building", "wall"),
-    "excavation": ("civil", "excavation"), "rebar": ("building", "rebar"), "steel": ("building", "steel"),
+    "excavation": ("civil", "excavation"), "rebar": ("building", "rebar"), "steel": ("advanced", "steel"),
 }
 
 @dataclass(frozen=True)
