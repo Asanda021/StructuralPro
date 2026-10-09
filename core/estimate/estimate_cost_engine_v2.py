@@ -6,7 +6,7 @@ contingency, currency conversion or invented rate is applied.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from decimal import Decimal
 from hashlib import sha256
 import json
@@ -78,13 +78,19 @@ def build_estimate(
     *,
     scenario: str,
 ) -> EstimateResult:
-    """Price explicit accepted quantity lines against exact unit/category rates."""
+    """Price accepted quantity lines against exact unit/category rates.
+
+    Currency compatibility is evaluated only against rates actually used by
+    BOQ lines. Unused catalog rates do not change the currency of an estimate.
+    """
     _text(scenario)
     boq = tuple(lines)
     price = tuple(rates)
+    if not boq:
+        raise ValueError("at least one estimate line is required")
+
     seen_lines: set[str] = set()
     rate_by_key: dict[tuple[str, str, str], CostRate] = {}
-    currencies: set[str] = set()
 
     for line in boq:
         line.validate()
@@ -98,26 +104,27 @@ def build_estimate(
         if key in rate_by_key:
             raise ValueError(f"duplicate rate key: {key}")
         rate_by_key[key] = rate
-        currencies.add(rate.currency)
 
-    breakdown = {category: Decimal("0") for category in sorted(_COST_TYPES)}
-    result_lines: list[dict[str, object]] = []
-
+    used_rates: list[CostRate] = []
     for line in boq:
         rate = rate_by_key.get((line.item_code, line.category, line.unit))
         if rate is None:
             raise LookupError(
                 f"no supplied rate for {line.item_code}/{line.category}/{line.unit}"
             )
+        used_rates.append(rate)
 
+    currencies = {rate.currency for rate in used_rates}
     if len(currencies) != 1:
         raise ValueError("exactly one currency is required for an estimate")
-
     currency = next(iter(currencies))
 
-    for line in boq:
-        rate = rate_by_key[(line.item_code, line.category, line.unit)]
+    breakdown = {category: Decimal("0") for category in sorted(_COST_TYPES)}
+    result_lines: list[dict[str, object]] = []
+    for line, rate in zip(boq, used_rates):
         amount = line.quantity * rate.rate
+        if not amount.is_finite():
+            raise ValueError(f"estimate amount is not finite for line: {line.line_id}")
         result_lines.append({
             "line_id": line.line_id,
             "item_code": line.item_code,
@@ -134,8 +141,12 @@ def build_estimate(
             "rate_provenance_ref": rate.provenance_ref,
         })
         breakdown[line.category] += amount
+        if not breakdown[line.category].is_finite():
+            raise ValueError(f"estimate category total is not finite: {line.category}")
 
     grand_total = sum(breakdown.values(), Decimal("0"))
+    if not grand_total.is_finite():
+        raise ValueError("estimate grand total is not finite")
     fingerprint = _fingerprint(scenario, currency, result_lines, breakdown)
     return EstimateResult(
         scenario=scenario,
