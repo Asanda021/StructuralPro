@@ -268,7 +268,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.zoom_out = QPushButton("−")
         self.zoom_in = QPushButton("+")
         self.fit = QPushButton("نمایش کامل")
-        self.zoom_window = QPushButton("Zoom Window")
+        self.zoom_window = QPushButton("بزرگ‌نمایی ناحیه")
         self.select_region = QPushButton("انتخاب ناحیه")
         self.cancel_selection = QPushButton("لغو انتخاب/هایلایت")
         self.region_to_takeoff = QPushButton("ثبت ناحیه در متره")
