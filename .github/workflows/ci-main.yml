@@ -46,6 +46,9 @@ jobs:
       - name: Phase 1-4 quantity input and geometry integrity
         run: python -m pytest -q tests/test_phase1_4_geometry_input_hardening.py tests/test_graphical_workflow.py tests/test_manual_takeoff_input.py tests/test_manual_takeoff_workbench.py tests/test_drawing_viewer_model.py tests/test_region_takeoff.py
 
+      - name: Phase 5 real CAD import and conversion integrity
+        run: python -m pytest -q tests/test_phase1_5_import_hardening.py tests/test_drawing_viewer_model.py tests/test_ezdxf_provider_v1.py tests/test_external_dwg_provider.py tests/test_p57_dwg_dxf_validation.py tests/test_p541_p550_native_dwg_dxf_production_boundary.py
+
       - name: Dedicated phase tests
         run: python -m pytest -q tests/test_p211_p220_bim_quantity_integrity.py
 
