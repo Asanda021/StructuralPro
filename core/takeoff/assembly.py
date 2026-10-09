@@ -93,8 +93,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     if k in {"block_wall", "masonry_block_wall", "دیوار_بلوک"}:
         L, H, t = _n(p, "length", 1e-12), _n(p, "height", 1e-12), _n(p, "thickness", 1e-12)
         openings = _n(p, "openings")
-        if openings > L * H:
-            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دیوار بیشتر باشد")
+        if openings >= L * H:
+            raise ValueError("مساحت بازشوها باید از مساحت ناخالص دیوار کمتر باشد")
         area = L * H - openings
         volume = area * t
         bw = _optional(p, "block_length")
@@ -115,6 +115,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
             )
         if min(bw, bh, bt, joint) <= 0:
             raise ValueError("ابعاد بلوک و ضخامت بند باید مثبت باشند")
+        if mortar_ratio_c + mortar_ratio_s <= 0:
+            raise ValueError("جمع نسبت‌های سیمان و ماسه باید مثبت باشد")
         block_nominal = (bw + joint) * (bh + joint) * bt
         blocks = area / ((bw + joint) * (bh + joint))
         block_waste = _optional(p, "block_waste_factor")
@@ -233,7 +235,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         rebar_rate = _optional(p, "rebar_kg_per_m3")
         if rebar_rate is not None:
             components.append(AssemblyComponent("reinforcement", "وزن آرماتور بر اساس مشخصات ورودی", "kg",
-                                                "حجم بتن×وزن آرماتور واردشده بر m³", total * rebar_rate,
+                                                "حجم هندسی بتن×وزن آرماتور واردشده بر m³", gross * rebar_rate,
                                                 warning="این نرخ باید از نقشه/مشخصات معتبر وارد شود؛ نرخ پیش‌فرض وجود ندارد."))
             used.append("rebar_kg_per_m3")
         return AssemblyResult("concrete_beam", "تیر بتنی", tuple(components), tuple(used))
@@ -243,8 +245,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         count = _count(p, "count")
         openings = _n(p, "openings")
         gross_area = count * length * width
-        if openings > gross_area:
-            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دال بیشتر باشد")
+        if openings >= gross_area:
+            raise ValueError("مساحت بازشوها باید از مساحت ناخالص دال کمتر باشد")
         net_area = gross_area - openings
         gross_volume = net_area * thickness
         waste = _optional(p, "waste_factor")
@@ -289,8 +291,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         count = _count(p, "count")
         openings = _n(p, "openings")
         gross_area = count * length * width
-        if openings > gross_area:
-            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص کف بیشتر باشد")
+        if openings >= gross_area:
+            raise ValueError("مساحت بازشوها باید از مساحت ناخالص کف کمتر باشد")
         net_area = gross_area - openings
         components = [AssemblyComponent("finish_area", "مساحت خالص کف‌سازی", "m²",
                                         "تعداد×طول×عرض−مساحت بازشوها", net_area)]
