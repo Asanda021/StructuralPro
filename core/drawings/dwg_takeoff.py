@@ -91,8 +91,8 @@ class DWGTakeoffEngine:
                     data["end"] = _xy(e.dxf.end)
                     data["length"] = math.dist(data["start"], data["end"])
                 elif typ in {"LWPOLYLINE", "POLYLINE"}:
-                    pts = [p[:2] for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [v.dxf.location for v in e.vertices()]
-                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "closed", False)))
+                    pts = [_xy(p) for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [_xy(v.dxf.location) for v in e.vertices]
+                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "is_closed", getattr(e, "closed", False))))
                     data["points"] = pts
                 elif typ == "CIRCLE":
                     r = float(e.dxf.radius)
@@ -154,11 +154,35 @@ class DWGTakeoffEngine:
         if p.suffix.lower() != ".dwg":
             raise ValueError("فرمت فایل باید DWG یا DXF باشد.")
 
+        # Prefer the bundled/authorized ACadSharp bridge used by the Windows
+        # product. Use a separately installed offline converter only when that
+        # bridge is genuinely unavailable; conversion failures from an available
+        # bridge must remain visible rather than silently switching backends.
+        from core.cad.external_dwg_provider_v1 import ACadSharpDWGProvider
+        provider = ACadSharpDWGProvider()
+        if provider.available:
+            converted = provider.convert(p)
+            try:
+                doc = self._read_dxf(converted)
+            finally:
+                converted.unlink(missing_ok=True)
+            doc.source = str(p)
+            doc.format = "DWG→DXF (ACadSharp)"
+            return doc
+
         from core.drawings.dwg_converter import OfflineDWGConverter
-        converted = OfflineDWGConverter().convert(p).output
-        doc = self._read_dxf(converted)
+        result = OfflineDWGConverter().convert(p)
+        try:
+            doc = self._read_dxf(result.output)
+        finally:
+            result.output.unlink(missing_ok=True)
+            if result.output.parent.name.startswith("structuralpro_dwg_"):
+                try:
+                    result.output.parent.rmdir()
+                except OSError:
+                    pass
         doc.source = str(p)
-        doc.format = "DWG→DXF"
+        doc.format = "DWG→DXF (offline converter)"
         return doc
 
     def summarize(self, doc: DWGDocument) -> dict[str, Any]:
@@ -178,28 +202,43 @@ class DWGTakeoffEngine:
         }
 
     def layer_takeoff(self, doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+        """Create review-required layer summaries; never treat raw/unknown units as metres."""
         out = []
         for layer, rule in rules.items():
             ents = [e for e in doc.entities if e.layer == layer]
             if not ents:
                 continue
-            metric = rule.get("metric", "count")
-            values = [float(e.data.get(metric, 1) or 0) for e in ents]
-            if any(not math.isfinite(v) or v < 0 for v in values):
-                raise ValueError(f"Invalid CAD quantity on layer: {layer}")
+            metric = str(rule.get("metric", "count")).strip().lower()
+            if metric not in {"count", "length", "area"}:
+                raise ValueError(f"متریک CAD پشتیبانی نمی‌شود: {metric}")
+            if metric in {"length", "area"} and cad_unit_factor(doc.units) is None:
+                raise ValueError(
+                    f"واحد نقشه CAD برای لایه {layer} نامشخص است؛ پیش از برداشت طول/مساحت، واحد یا کالیبراسیون معتبر تعیین شود."
+                )
+            values = []
+            for entity in ents:
+                raw = entity.data.get(metric, 1 if metric == "count" else None)
+                if raw is None:
+                    raise ValueError(f"هندسه لازم برای متریک {metric} در لایه {layer} وجود ندارد.")
+                value = float(raw)
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError(f"مقدار CAD نامعتبر در لایه: {layer}")
+                values.append(value)
             qty = sum(values)
+            default_unit = {"count": "عدد", "length": "m", "area": "m²"}[metric]
             out.append({
                 "layer": layer,
                 "count": len(ents),
                 "quantity": qty,
-                "description": rule.get("description", layer),
-                "unit": rule.get("unit", "عدد" if metric == "count" else "m"),
+                "description": str(rule.get("description", layer)),
+                "unit": str(rule.get("unit", default_unit)),
                 "price_code": rule.get("price_code"),
                 "source": f"dwg-layer:{layer}",
-                "needs_confirmation": False,
+                "needs_confirmation": True,
+                "unit_basis": doc.units,
+                "metric": metric,
             })
         return out
-
 
 def infer_takeoff_from_layers(doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return DWGTakeoffEngine().layer_takeoff(doc, rules)

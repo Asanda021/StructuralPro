@@ -1,128 +1,131 @@
-"""Fail-closed adapter from DrawingTakeoffSession to reviewable takeoff rows.
+"""Validated bridge from graphical drawing sessions to persistent takeoff/BOQ rows.
 
-This adapter does not write to project storage. The application must persist the
-returned rows through its owning project service to preserve BOQ/estimate links,
-revisions, and audit events.
+The bridge is intentionally deterministic: it never invents scale, quantities, or
+price data. Callers must validate the session and explicitly select rows to commit.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable
 
-
-@dataclass(frozen=True)
-class DrawingTakeoffRow:
-    source_id: str
-    source_ref: str
-    page: int
-    kind: str
-    quantity: float
-    unit: str
-    description: str
-    formula: str
-    takeoff_code: str = ""
-    status: str = "needs_review"
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "source_id": self.source_id,
-            "source_ref": self.source_ref,
-            "page": self.page,
-            "kind": self.kind,
-            "quantity": self.quantity,
-            "unit": self.unit,
-            "description": self.description,
-            "formula": self.formula,
-            "takeoff_code": self.takeoff_code,
-            "status": self.status,
-        }
+from core.drawings.takeoff_session import DrawingTakeoffSession
 
 
 _KIND_UNITS = {"length": "m", "area": "m2", "count": "عدد"}
 
 
-def prepare_drawing_takeoff_rows(items: Iterable[Any], *, drawing_source: str) -> tuple[DrawingTakeoffRow, ...]:
-    """Validate session measurements without inventing values or BOQ codes."""
-    source = str(drawing_source or "").strip()
-    if not source:
-        raise ValueError("شناسه/مسیر نقشه برای ردیابی متره الزامی است")
-    rows: list[DrawingTakeoffRow] = []
-    seen: set[str] = set()
-    for item in items:
-        get = item.get if isinstance(item, Mapping) else lambda key, default=None: getattr(item, key, default)
-        item_id = str(get("id", "") or "").strip()
-        item_source = str(get("source", "") or "").strip()
-        source_ref = str(get("source_ref", "") or "").strip()
-        kind = str(get("kind", "") or "").strip().casefold()
-        if not item_id or not source_ref:
-            raise ValueError("هر ردیف نقشه باید شناسه و ارجاع منبع داشته باشد")
-        identity = item_source or source_ref
-        if identity in seen:
-            raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {identity}")
-        seen.add(identity)
-        if kind not in _KIND_UNITS:
-            raise ValueError(f"نوع متره نقشه پشتیبانی نمی‌شود: {kind or 'نامشخص'}")
-        try:
-            quantity = float(get("quantity", get("value", None)))
-            page = int(get("page", 0))
-        except (TypeError, ValueError):
-            raise ValueError("مقدار و شماره صفحه متره باید معتبر باشند")
-        if not math.isfinite(quantity) or quantity <= 0:
-            raise ValueError("مقدار متره باید مثبت و متناهی باشد")
-        if page < 1:
-            raise ValueError("شماره صفحه نقشه باید مثبت باشد")
-        formula = str(get("formula", "") or "").strip()
-        if not formula:
-            raise ValueError("فرمول/مبنای محاسبه برای ردیابی متره الزامی است")
-        # Session-generated refs include the source plus page and item identity.
-        expected_prefix = f"{source}#page={page}&takeoff={item_id}"
-        if source_ref != expected_prefix and not source_ref.startswith(expected_prefix + "&"):
-            raise ValueError("ارجاع ردیف با شناسه نقشه/صفحه/متره همخوانی ندارد")
-        label = str(get("label", "") or "").strip()
-        takeoff_code = str(get("takeoff_code", "") or "").strip()
-        rows.append(DrawingTakeoffRow(
-            source_id=f"drawing:{source}:page:{page}:{item_id}",
-            source_ref=source_ref,
-            page=page,
-            kind=kind,
-            quantity=quantity,
-            unit=_KIND_UNITS[kind],
-            description=label or f"متره {kind} از نقشه — نیازمند بازبینی کاربر",
-            formula=formula,
-            takeoff_code=takeoff_code,
-        ))
-    return tuple(rows)
+def validate_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate a serialized session and return a compact, user-readable report."""
+    issues: list[str] = []
+    if not isinstance(payload, dict):
+        return {"valid": False, "issues": ["داده نشست متره باید یک شیء معتبر باشد"]}
+    try:
+        session = DrawingTakeoffSession.from_dict(payload)
+        report = session.validate()
+        issues.extend(report.get("issues", []))
+        if not str(session.drawing_source).strip():
+            issues.append("مسیر/شناسه منبع نقشه ثبت نشده است")
+        for item in session.items:
+            if item.kind not in _KIND_UNITS:
+                issues.append(f"نوع متره {item.id} پشتیبانی نمی‌شود")
+            elif item.unit != _KIND_UNITS[item.kind]:
+                issues.append(f"واحد متره {item.id} با نوع آن سازگار نیست")
+            expected_ref = f"{session.drawing_source}#page={item.page}&takeoff={item.id}"
+            if not item.source_ref.strip() or item.source_ref != expected_ref:
+                issues.append(f"مرجع صفحه/ناحیه برای متره {item.id} با منبع ذخیره‌شده مطابقت ندارد")
+            if item.kind in {"length", "area"} and not item.formula.strip():
+                issues.append(f"فرمول اندازه‌گیری متره {item.id} ثبت نشده است")
+            if item.kind == "length" and len(item.geometry) < 2:
+                issues.append(f"هندسه متره طول {item.id} ناقص است")
+            if item.kind == "area" and len(item.geometry) < 3:
+                issues.append(f"هندسه متره مساحت {item.id} ناقص است")
+            for point in item.geometry:
+                if len(point) != 2 or any(not math.isfinite(float(value)) for value in point):
+                    issues.append(f"مختصات هندسه متره {item.id} نامعتبر است")
+                    break
+            if item.kind == "count" and (item.quantity <= 0 or not float(item.quantity).is_integer()):
+                issues.append(f"تعداد متره {item.id} باید عدد صحیح مثبت باشد")
+    except Exception as exc:
+        issues.append(f"نشست متره قابل بازیابی/اعتبارسنجی نیست: {exc}")
+    return {"valid": not issues, "issues": list(dict.fromkeys(issues))}
 
 
-def prepare_session_takeoff(session: Any) -> tuple[DrawingTakeoffRow, ...]:
-    """Adapt an actual DrawingTakeoffSession while enforcing per-page calibration."""
-    source = str(getattr(session, "drawing_source", "") or "").strip()
-    if not source:
-        raise ValueError("جلسه متره به نقشه منبع متصل نیست")
-    items = tuple(getattr(session, "items", ()))
-    calibrations = getattr(session, "calibrations", {})
-    for item in items:
-        if str(getattr(item, "kind", "")).casefold() in {"length", "area"}:
-            if int(getattr(item, "page", 0)) not in calibrations:
-                raise ValueError(f"کالیبراسیون صریح صفحه {getattr(item, 'page', '?')} یافت نشد")
-    return prepare_drawing_takeoff_rows(items, drawing_source=source)
+def session_to_boq_rows(
+    payload: dict[str, Any],
+    *,
+    session_id: str,
+    selected_item_ids: Iterable[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert only explicitly selected, validated drawing items into BOQ inputs."""
+    report = validate_session_payload(payload)
+    if not report["valid"]:
+        raise ValueError("نشست نقشه معتبر نیست: " + "؛ ".join(report["issues"]))
+    session = DrawingTakeoffSession.from_dict(payload)
+    sid = str(session_id or "").strip()
+    if not sid:
+        raise ValueError("شناسه پایدار نشست نقشه الزامی است")
+    selected = None if selected_item_ids is None else {str(x) for x in selected_item_ids}
+    if selected is not None and not selected:
+        raise ValueError("برای انتقال به BOQ باید دست‌کم یک متره صریحاً انتخاب شود")
+    known = {item.id for item in session.items}
+    if selected is not None:
+        unknown = selected - known
+        if unknown:
+            raise ValueError("شناسه متره در نشست وجود ندارد: " + "، ".join(sorted(unknown)))
+    rows: list[dict[str, Any]] = []
+    for item in session.items:
+        if selected is not None and item.id not in selected:
+            continue
+        if item.quantity <= 0:
+            raise ValueError(f"مقدار متره {item.id} باید برای ورود به BOQ مثبت باشد")
+        rows.append({
+            "takeoff_id": item.id,
+            "source_id": f"drawing:{sid}:{item.id}",
+            "source": item.source_ref,
+            "source_type": "drawing_takeoff",
+            "drawing_source": session.drawing_source,
+            "page": item.page,
+            "kind": item.kind,
+            "description": item.label.strip() or item.takeoff_code.strip() or item.kind,
+            "quantity": float(item.quantity),
+            "unit": item.unit,
+            "item_code": item.takeoff_code.strip() or f"DRAW-{item.kind.upper()}",
+            "price_code": item.takeoff_code.strip() or None,
+            "unit_price": None,
+            "formula": item.formula,
+            "geometry": [list(point) for point in item.geometry],
+            "confidence": float(item.confidence),
+            "needs_confirmation": False,
+        })
+    if not rows:
+        raise ValueError("هیچ متره‌ای برای انتقال به BOQ انتخاب نشده است")
+    return rows
 
 
-def build_takeoff_export_payload(session: Any) -> dict[str, Any]:
-    """Build a versioned JSON interchange payload for the application's BOQ import path."""
-    rows = prepare_session_takeoff(session)
+def build_takeoff_export_payload(session: DrawingTakeoffSession) -> dict[str, Any]:
+    """Export a review handoff through the same validator used by project storage."""
+    source = str(session.drawing_source).strip()
+    validated = session_to_boq_rows(
+        session.to_dict(), session_id=source,
+        selected_item_ids=[item.id for item in session.items],
+    )
+    items_by_id = {item.id: item for item in session.items}
+    rows = [{
+        "source_id": f"drawing:{source}:page:{row['page']}:{row['takeoff_id']}",
+        "source_ref": row["source"], "page": row["page"], "kind": row["kind"],
+        "quantity": row["quantity"], "unit": row["unit"],
+        "description": row["description"], "formula": row["formula"],
+        "takeoff_code": items_by_id[row["takeoff_id"]].takeoff_code,
+        "status": "needs_review",
+    } for row in validated]
     return {
         "schema": "structuralpro.drawing-takeoff.v1",
-        "drawing_source": str(session.drawing_source),
-        "approval_required": True,
-        "items": [row.to_dict() for row in rows],
+        "drawing_source": source, "approval_required": True, "items": rows,
         "summary": {
-            "items": len(rows),
-            "needs_review": len(rows),
+            "items": len(rows), "needs_review": len(rows),
             "by_unit": {
-                unit: sum(row.quantity for row in rows if row.unit == unit)
-                for unit in sorted({row.unit for row in rows})
+                unit: sum(row["quantity"] for row in rows if row["unit"] == unit)
+                for unit in sorted({row["unit"] for row in rows})
             },
         },
     }

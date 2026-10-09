@@ -1,77 +1,120 @@
-"""Fail-closed validation for AI-proposed takeoff results.
+"""Fail-closed validation for AI-generated takeoff candidates.
 
-AI output is a proposal, never an authoritative measurement. This guard requires
-explicit user confirmation, drawing provenance, explicit scale for geometry-based
-results, supported units, and finite non-negative quantities before a proposal can
-be passed to a review/persistence workflow.
+AI output is advisory. A candidate is never a confirmed takeoff merely because it
+passed schema validation; an explicit human confirmation flag is required.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
-from typing import Any, Mapping
+from typing import Any
 
 
-@dataclass(frozen=True)
-class GuardedTakeoffProposal:
-    quantity: float
-    unit: str
-    source_ref: str
-    scale_ref: str | None
-    method: str
-    description: str
-    user_confirmed: bool
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "quantity": self.quantity,
-            "unit": self.unit,
-            "source_ref": self.source_ref,
-            "scale_ref": self.scale_ref,
-            "method": self.method,
-            "description": self.description,
-            "user_confirmed": self.user_confirmed,
-            "status": "user_confirmed_proposal",
-        }
-
-
-_ALLOWED_UNITS = {"m", "m2", "m3", "kg", "t", "عدد", "set", "l", "hr"}
-_GEOMETRY_METHODS = {"pixel_geometry", "drawing_geometry", "image_geometry", "cad_geometry"}
-
-
-def validate_ai_takeoff_proposal(payload: Mapping[str, Any], *, user_confirmed: bool = False) -> GuardedTakeoffProposal:
-    """Validate, but never silently repair or complete, an AI takeoff proposal."""
-    if not isinstance(payload, Mapping):
-        raise ValueError("خروجی هوش مصنوعی باید ساختار داده معتبر داشته باشد")
-    if not user_confirmed:
-        raise ValueError("خروجی هوش مصنوعی تا پیش از تأیید صریح کاربر قابل ثبت نیست")
+def validate_ai_takeoff_proposal(
+    proposal: dict[str, Any],
+    *,
+    user_confirmed: bool = False,
+    minimum_confidence: float = 0.85,
+) -> dict[str, Any]:
+    issues: list[str] = []
+    if not isinstance(proposal, dict):
+        return {"valid": False, "approved": False, "issues": ["پیشنهاد هوش مصنوعی باید ساختار معتبر داشته باشد"], "rows": []}
     try:
-        quantity = float(payload.get("quantity"))
+        threshold = float(minimum_confidence)
     except (TypeError, ValueError):
-        raise ValueError("مقدار پیشنهادی باید عددی و صریح باشد")
-    if not math.isfinite(quantity) or quantity < 0:
-        raise ValueError("مقدار پیشنهادی باید متناهی و نامنفی باشد")
-    unit = str(payload.get("unit", "") or "").strip().casefold()
-    if unit not in _ALLOWED_UNITS:
-        raise ValueError("واحد خروجی نامشخص یا پشتیبانی‌نشده است؛ واحد حدس زده نمی‌شود")
-    source_ref = str(payload.get("source_ref", "") or "").strip()
-    if not source_ref:
-        raise ValueError("ارجاع به نقشه/سند منبع برای ثبت خروجی الزامی است")
-    method = str(payload.get("method", "") or "").strip().casefold()
-    if not method:
-        raise ValueError("روش استخراج مقدار باید مشخص باشد")
-    scale_ref = str(payload.get("scale_ref", "") or "").strip() or None
-    if method in _GEOMETRY_METHODS and not scale_ref:
-        raise ValueError("برای مقدار هندسی استخراج‌شده از نقشه، ارجاع کالیبراسیون صریح لازم است")
-    description = str(payload.get("description", "") or "").strip()
-    if not description:
-        raise ValueError("شرح آیتم باید صریح باشد؛ شرح خودکار حدس زده نمی‌شود")
-    return GuardedTakeoffProposal(
-        quantity=quantity,
-        unit=unit,
-        source_ref=source_ref,
-        scale_ref=scale_ref,
-        method=method,
-        description=description,
-        user_confirmed=True,
-    )
+        threshold = float("nan")
+    if not math.isfinite(threshold) or not 0.0 < threshold <= 1.0:
+        issues.append("حد اطمینان باید عددی بین صفر و یک باشد")
+    drawing_id = str(proposal.get("drawing_id", "")).strip()
+    revision_id = str(proposal.get("revision_id", "")).strip()
+    if not drawing_id:
+        issues.append("شناسه منبع نقشه الزامی است")
+    if not revision_id:
+        issues.append("شناسه نسخه نقشه الزامی است")
+    candidates = proposal.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        issues.append("پیشنهاد باید دست‌کم یک نامزد متره داشته باشد")
+        candidates = []
+    seen: set[str] = set()
+    normalized: list[dict[str, Any]] = []
+    for index, candidate in enumerate(candidates, 1):
+        prefix = f"نامزد {index}"
+        if not isinstance(candidate, dict):
+            issues.append(f"{prefix}: ساختار نامعتبر است")
+            continue
+        source_id = str(candidate.get("source_id", "")).strip()
+        session_item_id = str(candidate.get("session_item_id", "")).strip()
+        if not source_id:
+            issues.append(f"{prefix}: شناسه منبع پایدار الزامی است")
+        elif source_id in seen:
+            issues.append(f"{prefix}: شناسه منبع تکراری است")
+        if source_id:
+            seen.add(source_id)
+        if not session_item_id:
+            issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
+        page = candidate.get("page")
+        if isinstance(page, bool) or not isinstance(page, int) or page < 1:
+            issues.append(f"{prefix}: شماره صفحه معتبر الزامی است")
+        kind = str(candidate.get("kind", "")).strip().lower()
+        expected_unit = {"length": "m", "area": "m2", "count": "عدد"}.get(kind)
+        unit = str(candidate.get("unit", "")).strip()
+        if expected_unit is None:
+            issues.append(f"{prefix}: نوع متره پشتیبانی نمی‌شود")
+        elif unit != expected_unit:
+            issues.append(f"{prefix}: واحد با نوع متره سازگار نیست")
+        try:
+            quantity = float(candidate.get("quantity"))
+        except (TypeError, ValueError):
+            quantity = float("nan")
+        if not math.isfinite(quantity) or quantity <= 0:
+            issues.append(f"{prefix}: مقدار باید مثبت و متناهی باشد")
+        if kind == "count" and math.isfinite(quantity) and not quantity.is_integer():
+            issues.append(f"{prefix}: تعداد باید عدد صحیح باشد")
+        try:
+            confidence = float(candidate.get("confidence"))
+        except (TypeError, ValueError):
+            confidence = float("nan")
+        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+            issues.append(f"{prefix}: سطح اطمینان نامعتبر است")
+        elif math.isfinite(threshold) and confidence < threshold:
+            issues.append(f"{prefix}: سطح اطمینان از حد مجاز کمتر است")
+        evidence = candidate.get("evidence")
+        if not isinstance(evidence, dict):
+            issues.append(f"{prefix}: شواهد نقشه باید ساختارمند باشد")
+            evidence = {}
+        if str(evidence.get("source_ref", "")).strip() == "":
+            issues.append(f"{prefix}: مرجع دقیق صفحه/ناحیه شواهد الزامی است")
+        if kind in {"length", "area"}:
+            scale_ref = str(evidence.get("scale_ref", "")).strip()
+            if not scale_ref:
+                issues.append(f"{prefix}: مرجع کالیبراسیون/مقیاس الزامی است")
+            try:
+                meters_per_pixel = float(evidence.get("meters_per_pixel"))
+            except (TypeError, ValueError):
+                meters_per_pixel = float("nan")
+            if not math.isfinite(meters_per_pixel) or meters_per_pixel <= 0:
+                issues.append(f"{prefix}: ضریب مقیاس معتبر و مثبت الزامی است")
+        formula = str(candidate.get("formula", "")).strip()
+        if not formula:
+            issues.append(f"{prefix}: فرمول یا روش محاسبه ثبت نشده است")
+        if not str(candidate.get("label", "")).strip():
+            issues.append(f"{prefix}: شرح قابل بازبینی الزامی است")
+        normalized.append({
+            "source_id": source_id, "session_item_id": session_item_id,
+            "page": page, "kind": kind, "unit": unit,
+            "quantity": quantity, "confidence": confidence,
+            "evidence": evidence, "formula": formula,
+            "label": str(candidate.get("label", "")).strip(),
+        })
+    valid = not issues
+    approved = valid and user_confirmed is True
+    if valid and not approved:
+        issues.append("پیشنهاد معتبر است اما تا تأیید صریح کاربر، متره قطعی نیست")
+    return {
+        "valid": valid,
+        "approved": approved,
+        "requires_human_confirmation": not approved,
+        "drawing_id": drawing_id,
+        "revision_id": revision_id,
+        "issues": issues,
+        "rows": normalized if approved else [],
+    }

@@ -70,9 +70,12 @@ EOF
 def test_offline_dwg_converter_contract(tmp_path):
     exe = _fake_converter(tmp_path)
     src = tmp_path / "plan.dwg"
-    src.write_bytes(b"AC1032DXF-FIXTURE")
+    # The production converter now validates output with ezdxf, so this contract
+    # fixture must contain a real parseable DXF rather than arbitrary text.
+    expected_dxf = _minimal_dxf()
+    src.write_bytes(b"AC1032" + expected_dxf.encode("utf-8"))
     r = OfflineDWGConverter(str(exe)).convert(src, tmp_path / "out")
-    assert r.output.read_text() == "DXF-FIXTURE"
+    assert r.output.read_text(encoding="utf-8") == expected_dxf
 
 
 def test_dwg_engine_reads_converter_output(tmp_path, monkeypatch):

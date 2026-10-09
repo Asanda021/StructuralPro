@@ -28,6 +28,7 @@ def main()->int:
         from core.reports.project_report import build_report
         from core.revisions.compare import compare_rows, summary
         from core.takeoff.templates import TemplateLibrary
+        from core.takeoff.assembly_templates import AssemblyTemplateLibrary
         from core.takeoff.formulas import evaluate
         from core.search.global_search import search_project
         from core.history.undo import CommandStack
@@ -255,7 +256,7 @@ def main()->int:
 
     inspect.clicked.connect(inspect_drawing)
     confirm.clicked.connect(confirm_drawing)
-    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
+    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip(), app_service=service, project_id=qpid.text().strip() or pid.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
     # Pricing — professional pricebook workspace with real user-file import.
@@ -420,7 +421,114 @@ def main()->int:
             d={}; [d.__setitem__(x.split("=",1)[0].strip(),float(x.split("=",1)[1])) for x in vars_.text().split(",") if "=" in x]
             fo.setText("نتیجه: "+str(evaluate(expr.text(),d)))
         except Exception as e: fo.setText("خطا: "+str(e))
-    fe.clicked.connect(do_formula); tools.addTab(tf,"قالب و فرمول")
+    fe.clicked.connect(do_formula)
+    # Assembly templates are explicit-input previews; no result is silently persisted.
+    assembly_lib = AssemblyTemplateLibrary()
+    assembly_templates = assembly_lib.list()
+    assembly_combo = QComboBox()
+    for assembly_template in assembly_templates:
+        assembly_combo.addItem(f"{assembly_template.title_fa} | {assembly_template.code}", assembly_template.code)
+    assembly_inputs = QLineEdit()
+    assembly_inputs.setPlaceholderText("ورودی صریح با کلید انگلیسی؛ نمونه: count=1,length=5,width=4,thickness=0.15,openings=0")
+    assembly_button = QPushButton("محاسبه اجزای قالب ترکیبی")
+    assembly_project_id = QLineEdit()
+    assembly_project_id.setPlaceholderText("شناسه پروژه برای ثبت دائمی")
+    assembly_floor_id = QLineEdit()
+    assembly_floor_id.setPlaceholderText("طبقه یا تراز (الزامی)")
+    assembly_save_button = QPushButton("ثبت اجزای تأییدشده در BOQ پروژه")
+    assembly_save_button.setEnabled(False)
+    assembly_preview_state = {}
+    assembly_output = QTextEdit()
+    assembly_output.setReadOnly(True)
+    tfv.addWidget(QLabel("متره ترکیبی با ورودی‌های صریح (بدون ضرایب پنهان)"))
+    tfv.addWidget(assembly_combo)
+    tfv.addWidget(assembly_inputs)
+    tfv.addWidget(assembly_button)
+    tfv.addWidget(assembly_project_id)
+    tfv.addWidget(assembly_floor_id)
+    tfv.addWidget(assembly_save_button)
+    tfv.addWidget(assembly_output)
+    def invalidate_assembly_preview(*_):
+        assembly_preview_state.clear()
+        assembly_save_button.setEnabled(False)
+    assembly_inputs.textChanged.connect(invalidate_assembly_preview)
+    assembly_combo.currentIndexChanged.connect(invalidate_assembly_preview)
+    assembly_project_id.textChanged.connect(invalidate_assembly_preview)
+    assembly_floor_id.textChanged.connect(invalidate_assembly_preview)
+    def do_assembly_preview():
+        assembly_preview_state.clear()
+        assembly_save_button.setEnabled(False)
+        try:
+            import math
+            from core.takeoff.manual_input import PERSIAN_DIGITS
+            raw = assembly_inputs.text().translate(PERSIAN_DIGITS).replace("٫", ".").replace("٬", ",")
+            supplied = {}
+            for pair in raw.split(","):
+                if not pair.strip():
+                    continue
+                if "=" not in pair:
+                    raise ValueError("هر ورودی باید به شکل field=value باشد.")
+                key, value = (part.strip() for part in pair.split("=", 1))
+                if not key or key in supplied:
+                    raise ValueError("کلید ورودی خالی یا تکراری است.")
+                if key == "consumption_unit":
+                    unit = value.strip()
+                    if not unit:
+                        raise ValueError("واحد مصرف مصالح نمی‌تواند خالی باشد.")
+                    supplied[key] = unit
+                    continue
+                number = float(value)
+                if not math.isfinite(number):
+                    raise ValueError(f"مقدار {key} باید متناهی باشد.")
+                supplied[key] = number
+            template = assembly_lib.get(assembly_combo.currentData())
+            unknown = sorted(set(supplied) - set(template.required_inputs) - set(template.optional_inputs))
+            if unknown:
+                raise ValueError("ورودی ناشناخته برای این قالب: " + "، ".join(unknown))
+            result = assembly_lib.expand(template.code, supplied)
+            if not result.complete:
+                assembly_output.setPlainText("ورودی‌های لازم تکمیل نشده‌اند: " + "، ".join(result.missing_inputs))
+                return
+            assembly_preview_state.update({"code": template.code, "inputs": dict(supplied), "title": result.title})
+            assembly_save_button.setEnabled(True)
+            rows = [{"code": c.code, "title": c.title, "quantity": c.quantity,
+                     "unit": c.unit, "formula": c.formula, "warning": c.warning}
+                    for c in result.components]
+            assembly_output.setPlainText(
+                json.dumps({"template": result.title, "inputs_used": result.inputs_used,
+                            "components": rows,
+                            "note": "این پیش‌نمایش محاسبه شده است؛ برای ثبت دائمی شناسه پروژه و طبقه/تراز را وارد و دکمه ثبت را بزن."},
+                           ensure_ascii=False, indent=2)
+            )
+        except Exception as exc:
+            assembly_preview_state.clear()
+            assembly_save_button.setEnabled(False)
+            assembly_output.setPlainText("خطا در محاسبه قالب: " + str(exc))
+    def save_assembly_preview():
+        try:
+            if not assembly_preview_state:
+                raise ValueError("ابتدا قالب را با ورودی‌های معتبر محاسبه کن.")
+            project_id = assembly_project_id.text().strip()
+            floor_id = assembly_floor_id.text().strip()
+            if not project_id or not floor_id:
+                raise ValueError("شناسه پروژه و طبقه/تراز برای ثبت دائمی الزامی است.")
+            saved = service.add_assembly_takeoff(
+                project_id, assembly_preview_state["code"], assembly_preview_state["inputs"],
+                floor_id=floor_id, description=assembly_preview_state["title"]
+            )
+            assembly_output.setPlainText(json.dumps({
+                "status": "saved", "assembly": saved["assembly"],
+                "components_saved": len(saved["rows"]),
+                "source_ids": saved["assembly"]["component_source_ids"],
+            }, ensure_ascii=False, indent=2))
+            assembly_preview_state.clear()
+            assembly_save_button.setEnabled(False)
+            dashboard_page.refresh()
+        except Exception as exc:
+            assembly_output.setPlainText("ثبت در BOQ انجام نشد؛ داده‌ای ثبت نشده است: " + str(exc))
+    assembly_button.clicked.connect(do_assembly_preview)
+    assembly_save_button.clicked.connect(save_assembly_preview)
+    tools.addTab(tf,"قالب و فرمول")
     sm=QWidget(); smv=QVBoxLayout(sm); sq=QLineEdit(); sq.setPlaceholderText("جستجوی پروژه، متره، آیتم یا کد فهرست‌بها")
     sb=QPushButton("جستجوی سراسری"); so=QTextEdit(); so.setReadOnly(True); smv.addWidget(sq); smv.addWidget(sb); smv.addWidget(so)
     def do_search():

@@ -33,6 +33,15 @@ class ACadSharpDWGProvider:
             raise DWGProviderError("DWG bridge timeout must be positive")
         self.config = config
 
+    @property
+    def available(self) -> bool:
+        """Whether the authorized bridge can be resolved on this machine."""
+        try:
+            self._resolve_executable()
+        except DWGProviderError:
+            return False
+        return True
+
     def _resolve_executable(self) -> str:
         configured = self.config.executable or os.environ.get(self.ENV_NAME)
         if configured:
