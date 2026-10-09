@@ -9,7 +9,7 @@ import re
 import unicodedata
 
 _UNICODE_ESCAPE = re.compile(r"\\U\+([0-9A-Fa-f]{4,8})")
-_MTEXT_STACK = re.compile(r"\[A-Za-z][^;]*;")
+_MTEXT_STACK = re.compile(r"\\[A-Za-z][^;]*;")
 _FORMATTING = re.compile(r"\\[ACFHQWT][^;]*;")
 _PERSIAN_ARABIC = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]")
 
@@ -21,8 +21,10 @@ def normalize_cad_text(value: object) -> str:
     text = text.replace(r"\P", "\n").replace(r"\p", "\n")
     text = text.replace(r"\~", "\u00a0")
     text = text.replace(r"\{", "{").replace(r"\}", "}")
+    text = re.sub(r"^\{\\[A-Za-z][^;]*;", "", text)
     text = _FORMATTING.sub("", text)
     text = _MTEXT_STACK.sub("", text)
+    text = text.replace("}", "")
     text = text.replace("%%d", "°").replace("%%D", "°")
     text = text.replace("%%p", "±").replace("%%P", "±")
     text = text.replace("%%c", "Ø").replace("%%C", "Ø")
