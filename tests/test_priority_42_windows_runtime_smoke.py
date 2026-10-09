@@ -10,6 +10,9 @@ def test_app_has_ci_runtime_smoke_exit_path():
     assert "app.processEvents()" in source
     assert "app.quit()" in source
     assert "w.close()" in source
+    assert "WA_DeleteOnClose" in source
+    assert "QEvent.Type.DeferredDelete" in source
+    assert "app.sendPostedEvents(None, QEvent.Type.DeferredDelete)" in source
     assert "return 0" in source
 
 

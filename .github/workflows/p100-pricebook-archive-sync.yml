@@ -1,10 +1,13 @@
 # P100 production sync is an explicit/manual data-import workflow.
-# It is intentionally not a PR/main CI gate because it depends on external archive availability.
+# It is intentionally manual-only because it depends on external archive availability; PRs must not fail on transient archive/network issues.
 name: P100 Pricebook Archive Sync
 
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - ".github/workflows/p100-pricebook-archive-sync.yml"
+  push:
     paths:
       - ".github/workflows/p100-pricebook-archive-sync.yml"
 
@@ -17,8 +20,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate-config:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate sync script syntax without network access
+        run: python -m py_compile scripts/sync_pricebooks_24.py
   sync:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
