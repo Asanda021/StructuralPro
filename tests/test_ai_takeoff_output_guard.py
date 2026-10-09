@@ -12,6 +12,7 @@ def valid_proposal():
         "candidates": [
             {
                 "source_id": "sha256:drawing-a101:page-2:region-7",
+                "session_item_id": "TO-00001",
                 "page": 2,
                 "kind": "length",
                 "unit": "m",
