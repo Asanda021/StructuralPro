@@ -111,10 +111,17 @@ def extract_ifc(payload: bytes) -> IFCModel:
     try:
         import ifcopenshell
         model = ifcopenshell.open(payload) if isinstance(payload, str) else ifcopenshell.file.from_string(payload.decode("utf-8"))
+        # Some parser versions return a file without a loaded schema instead of
+        # raising for malformed STEP input. Resolve it inside the decoding gate.
+        schema = str(model.schema)
+        if not schema:
+            raise IFCError("IFC schema unresolved")
+        projects = model.by_type("IfcProject")
+        products = model.by_type("IfcProduct")
     except Exception as exc:
         raise IFCError("IFC decoding failed") from exc
 
-    project = next(iter(model.by_type("IfcProject")), None)
+    project = next(iter(projects), None)
     units = "unresolved"
     if project is not None:
         assignments = getattr(project, "UnitsInContext", None)
@@ -122,7 +129,7 @@ def extract_ifc(payload: bytes) -> IFCModel:
             names = [str(getattr(u, "Name", "")) for u in assignments.Units]
             units = ",".join(sorted(x for x in names if x)) or "unresolved"
     elements = []
-    for entity in model.by_type("IfcProduct"):
+    for entity in products:
         if entity.is_a("IfcProject") or entity.is_a("IfcSite"):
             continue
         try:
@@ -131,7 +138,7 @@ def extract_ifc(payload: bytes) -> IFCModel:
             continue
     elements.sort(key=lambda e: (e.ifc_type, e.global_id))
     return IFCModel(
-        schema=str(getattr(model, "schema", "")),
+        schema=schema,
         project_name=str(getattr(project, "Name", "") if project else ""),
         units=units,
         elements=tuple(elements),
