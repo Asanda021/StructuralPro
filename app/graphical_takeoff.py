@@ -427,13 +427,30 @@ class GraphicalTakeoffDialog(QDialog):
         self.select_drawing()
 
     def open_drawing(self, path):
-        self.viewer.open(path)
-        self.pdf_path = str(path)
-        self.session.drawing_source = str(path)
+        candidate = str(path)
+        changed_source = bool(self.session.drawing_source and self.session.drawing_source != candidate)
+        if changed_source and self.session.items:
+            answer = QMessageBox.question(
+                self, "تغییر نقشه",
+                "نشست فعلی دارای متره است. بازکردن نقشه جدید، متره‌های موجود را از این پنجره جدا می‌کند؛ "
+                "در صورت ذخیره قبلی، نشست قبلی در پروژه باقی می‌ماند. ادامه می‌دهید؟",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        # Open first: if parsing fails, retain the currently displayed drawing/session.
+        self.viewer.open(candidate)
+        if self.session.drawing_source != candidate:
+            self.session = DrawingTakeoffSession(candidate)
+            self.canvas.session = self.session
+            self.persisted_session_id = None
+            self.persisted_session_revision = None
+        self.pdf_path = candidate
         self.source_label.setText(f"منبع: {self.viewer.source_name} | {self.viewer.kind.upper()}")
         self.page_no.setMaximum(max(1, self.viewer.page_count))
         self.cad_document = self.viewer.cad_document
-        self.engine = PDFDrawingEngine(path) if self.viewer.kind == "pdf" else None
+        self.engine = PDFDrawingEngine(candidate) if self.viewer.kind == "pdf" else None
         self.load_page(1)
 
     def load_page(self, page):
