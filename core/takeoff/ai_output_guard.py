@@ -45,11 +45,12 @@ def validate_ai_takeoff_proposal(
         session_item_id = str(candidate.get("session_item_id", "")).strip()
         if not source_id:
             issues.append(f"{prefix}: شناسه منبع پایدار الزامی است")
-        if not session_item_id:
-            issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
         elif source_id in seen:
             issues.append(f"{prefix}: شناسه منبع تکراری است")
-        seen.add(source_id)
+        if source_id:
+            seen.add(source_id)
+        if not session_item_id:
+            issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
         page = candidate.get("page")
         if isinstance(page, bool) or not isinstance(page, int) or page < 1:
             issues.append(f"{prefix}: شماره صفحه معتبر الزامی است")
