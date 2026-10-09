@@ -125,7 +125,7 @@ class DrawingTakeoffSession:
             self.calibrations = {int(page): Calibration(**value) for page, value in saved_calibrations.items()}
         else:
             self.calibrations = {self.calibration.page: self.calibration} if self.calibration else {}
-        self.calibration = self.calibrations.get(int(state.get("current_page", 1)), self.calibration)
+        self.calibration = self.calibrations.get(int(state.get("current_page", 1)))
         self.items = [
             TakeoffItem(
                 id=str(x["id"]), kind=str(x["kind"]), quantity=float(x["quantity"]),
