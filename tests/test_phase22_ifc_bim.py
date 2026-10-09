@@ -42,6 +42,7 @@ def test_quantity_bridge_and_fingerprint():
     assert result.export_payload()["source_fingerprint"] == fingerprint(raw)
 
 
-def test_invalid_ifc_fails_closed():
+@pytest.mark.parametrize("payload", [b"not-ifc", b"ISO-10303-21;", b"\xff\xfe"])
+def test_invalid_ifc_fails_closed(payload):
     with pytest.raises(IFCError, match="decoding"):
-        extract_ifc(b"not-ifc")
+        extract_ifc(payload)
