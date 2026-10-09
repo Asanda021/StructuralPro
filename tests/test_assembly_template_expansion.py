@@ -92,3 +92,14 @@ def test_assembly_engine_requires_explicit_counts_and_openings():
 def test_assembly_engine_rejects_fractional_counts():
     with pytest.raises(ValueError, match="integer"):
         calculate_assembly("concrete_column", count=1.5, width=0.4, depth=0.4, height=3)
+
+
+def test_assembly_rejects_non_finite_outputs_and_inconsistent_block_thickness():
+    with pytest.raises(ValueError, match="متناهی"):
+        calculate_assembly("concrete_column", count=1, width=1e308, depth=1e308, height=1e308)
+    with pytest.raises(ValueError, match="ضخامت بلوک"):
+        calculate_assembly(
+            "block_wall", length=2, height=2, thickness=0.2, openings=0,
+            block_length=0.4, block_height=0.2, block_thickness=0.3,
+            joint_thickness=0.01, cement_parts=1, sand_parts=4,
+        )
