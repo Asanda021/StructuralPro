@@ -160,6 +160,13 @@ class DrawingTakeoffSession:
             raise ValueError("quantity must be finite and non-negative")
         return value
 
+    @staticmethod
+    def _ensure_confidence(value: float) -> float:
+        value = float(value)
+        if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+            raise ValueError("confidence must be finite and between 0 and 1")
+        return value
+
     def _ensure_source_unique(self, source: str, ignore_id: str | None = None) -> None:
         source = str(source or "").strip()
         if not source:
@@ -184,7 +191,7 @@ class DrawingTakeoffSession:
         item = TakeoffItem(
             item_id, "length", quantity, "m", page, label, takeoff_code, source,
             self._source_ref(page, item_id), tuple((p.x, p.y) for p in pts),
-            f"{px:g} px × {factor:g} m/px", float(confidence),
+            f"{px:g} px × {factor:g} m/px", self._ensure_confidence(confidence),
         )
         self.items.append(item)
         self._commit()
@@ -212,7 +219,7 @@ class DrawingTakeoffSession:
         item = TakeoffItem(
             item_id, "area", quantity, "m2", page, label, takeoff_code, source,
             self._source_ref(page, item_id), tuple((p.x, p.y) for p in pts),
-            f"{max(0.0, net_px):g} px² × {factor:g}²", float(confidence),
+            f"{max(0.0, net_px):g} px² × {factor:g}²", self._ensure_confidence(confidence),
         )
         self.items.append(item)
         self._commit()
@@ -224,6 +231,8 @@ class DrawingTakeoffSession:
     ) -> TakeoffItem:
         page = self.current_page if page is None else int(page)
         quantity = self._ensure_finite(count)
+        if quantity <= 0:
+            raise ValueError("count must be positive")
         if not quantity.is_integer():
             raise ValueError("count must be an integer")
         self._ensure_source_unique(source)
@@ -231,7 +240,7 @@ class DrawingTakeoffSession:
         item_id = self._next_id()
         item = TakeoffItem(
             item_id, "count", quantity, "عدد", page, label, takeoff_code, source,
-            self._source_ref(page, item_id), (), f"{int(quantity)} عدد", float(confidence),
+            self._source_ref(page, item_id), (), f"{int(quantity)} عدد", self._ensure_confidence(confidence),
         )
         self.items.append(item)
         self._commit()
@@ -246,6 +255,8 @@ class DrawingTakeoffSession:
         data.update(changes)
         if "quantity" in data:
             data["quantity"] = self._ensure_finite(data["quantity"])
+        if "confidence" in data:
+            data["confidence"] = self._ensure_confidence(data["confidence"])
         if "page" in data:
             data["page"] = int(data["page"])
             if data["page"] < 1:
