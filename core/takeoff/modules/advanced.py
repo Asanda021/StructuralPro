@@ -2,10 +2,12 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
+import math
 
 def _n(v: Any, name: str, minimum: float = 0.0) -> float:
     try: x=float(v)
     except (TypeError, ValueError): raise ValueError(f"{name} must be numeric")
+    if not math.isfinite(x): raise ValueError(f"{name} must be finite")
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
     return x
 
@@ -53,7 +55,11 @@ def calculate_advanced_item(item: str, **p: Any) -> AdvancedQuantity:
         q=_n(p["length"],"length")*_n(p["width"],"width")*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count")
         return AdvancedQuantity("کف‌سازی","حجم کف‌سازی",q,"m3","L×W×t×تعداد")
     if k in {"facade","نما"}:
-        q=max(0.0,_n(p["length"],"length")*_n(p["height"],"height")-_n(p.get("openings",0),"openings"))
+        gross=_n(p["length"],"length")*_n(p["height"],"height")
+        openings=_n(p.get("openings",0),"openings")
+        if openings > gross:
+            raise ValueError("openings cannot exceed gross facade area")
+        q=gross-openings
         return AdvancedQuantity("نما","سطح نما",q,"m2","L×H−بازشو")
     if k in {"ceiling","false_ceiling","سقف_کاذب"}:
         q=_n(p["length"],"length")*_n(p["width"],"width")*_n(p.get("count",1),"count")
