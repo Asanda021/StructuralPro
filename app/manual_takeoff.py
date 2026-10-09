@@ -211,8 +211,11 @@ class ManualTakeoffDialog(QDialog):
         self.status.setText("ردیف پیش‌نمایش حذف شد؛ با واگرد قابل بازیابی است.")
 
     def undo(self):
-        if self.workbench is None or not self.workbench.records:
+        if self.workbench is None or not self.workbench.can_undo:
             self.status.setText("عملیات قابل واگردی وجود ندارد.")
+            return
+        if self.workbench.records and self.workbench.records[-1].record_id in self._saved_ids:
+            self.status.setText("آخرین ردیف ذخیره‌شده است؛ واگرد فقط برای تغییرات پیش‌نمایش مجاز است.")
             return
         self.workbench.undo()
         self._render_records()
@@ -220,7 +223,7 @@ class ManualTakeoffDialog(QDialog):
         self.status.setText("واگرد انجام شد.")
 
     def redo(self):
-        if self.workbench is None:
+        if self.workbench is None or not self.workbench.can_redo:
             self.status.setText("عملیات قابل تکراری وجود ندارد.")
             return
         self.workbench.redo()
