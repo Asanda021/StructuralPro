@@ -1,9 +1,4 @@
-"""Unified drawing viewer model for PDF/DXF/DWG sources.
-
-The viewer model deliberately keeps rendering concerns out of the deterministic
-takeoff engine. PDF pages use the real PDF renderer; CAD uses the existing
-DWG/DXF parser and preserves layer/entity provenance.
-"""
+"""Transactional drawing viewer model for PDF/DXF/DWG sources."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,16 +14,13 @@ class DrawingViewport:
     height: float
 
     def normalized(self) -> "DrawingViewport":
-        return DrawingViewport(
-            min(self.left, self.left + self.width),
-            min(self.top, self.top + self.height),
-            abs(self.width),
-            abs(self.height),
-        )
+        return DrawingViewport(min(self.left, self.left + self.width),
+                               min(self.top, self.top + self.height),
+                               abs(self.width), abs(self.height))
 
 
 class DrawingViewerModel:
-    """Load a drawing and expose deterministic page/CAD information."""
+    """Load a real drawing; failed imports never replace the currently open drawing."""
 
     def __init__(self, path: str | Path | None = None):
         self.path: Path | None = None
@@ -42,22 +34,32 @@ class DrawingViewerModel:
     def open(self, path: str | Path) -> "DrawingViewerModel":
         p = Path(path)
         if not p.exists() or not p.is_file():
-            raise FileNotFoundError(f"فایل نقشه پیدا نشد: {p}")
+            raise FileNotFoundError(f"فایل نقشه پیدا نشد یا فایل معمولی نیست: {p}")
         ext = p.suffix.lower()
-        self.path = p
-        self.cad_document = None
+        new_kind = ""
+        new_page_count = 0
+        new_cad_document = None
         if ext == ".pdf":
             from core.drawings.pdf_engine import PDFDrawingEngine
-            engine = PDFDrawingEngine(p)
-            self.kind = "pdf"
-            self.page_count = int(engine.page_count)
+            # Close the underlying PDF handle after validating the file and page count.
+            with PDFDrawingEngine(p) as engine:
+                new_kind = "pdf"
+                new_page_count = engine.page_count
+                if new_page_count < 1:
+                    raise ValueError("PDF هیچ صفحه قابل‌نمایشی ندارد.")
         elif ext in {".dwg", ".dxf"}:
             from core.drawings.dwg_takeoff import DWGTakeoffEngine
-            self.cad_document = DWGTakeoffEngine().import_file(p)
-            self.kind = "cad"
-            self.page_count = 1
+            new_cad_document = DWGTakeoffEngine().import_file(p)
+            new_kind = "cad"
+            new_page_count = 1
         else:
             raise ValueError("فرمت نقشه باید PDF، DWG یا DXF باشد.")
+
+        # Commit viewer state only after the complete import/validation succeeds.
+        self.path = p
+        self.kind = new_kind
+        self.page_count = new_page_count
+        self.cad_document = new_cad_document
         self.current_page = 1
         return self
 
@@ -70,7 +72,11 @@ class DrawingViewerModel:
         if self.kind == "cad" and self.cad_document is not None:
             from core.drawings.dwg_takeoff import DWGTakeoffEngine
             return DWGTakeoffEngine().summarize(self.cad_document)
-        return {"pages": self.page_count, "source": str(self.path or "")}
+        return {"pages": self.page_count, "source": str(self.path or ""), "kind": self.kind}
 
     def clamp_page(self, page: int) -> int:
-        return max(1, min(int(page), max(1, self.page_count)))
+        try:
+            value = int(page)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("شماره صفحه باید عدد صحیح باشد.") from exc
+        return max(1, min(value, max(1, self.page_count)))
