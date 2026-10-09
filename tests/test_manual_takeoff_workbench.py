@@ -5,7 +5,9 @@ def test_manual_column_entry_calculates_and_keeps_traceability():
     wb = ManualTakeoffWorkbench("project-1")
     row = wb.add_text("C1 ستون: تعداد=12، عرض=0.5، عمق=0.5، ارتفاع=3", floor_id="level-1", element_label="C1")
     assert isinstance(row, ManualTakeoffRecord)
-    assert row.quantity == pytest.approx(27.0)
+    # 12 columns × 0.5 m × 0.5 m × 3 m = 9 m³.
+    assert row.quantity == pytest.approx(9.0)
+    assert row.params["count"] == pytest.approx(12.0)
     assert row.unit == "m3"
     assert row.project_id == "project-1" and row.floor_id == "level-1"
     assert row.element_label == "C1" and row.source.startswith("C1") and row.formula
@@ -34,7 +36,6 @@ def test_manual_workbench_requires_project_and_floor():
     with pytest.raises(ValueError, match="project_id"): ManualTakeoffWorkbench("")
     wb = ManualTakeoffWorkbench("project-1")
     with pytest.raises(ValueError, match="floor_id"): wb.add_text("ستون: تعداد=1، عرض=0.4، عمق=0.4، ارتفاع=3", floor_id="")
-
 
 def test_wall_can_explicitly_have_zero_openings():
     wb = ManualTakeoffWorkbench("project-1")
