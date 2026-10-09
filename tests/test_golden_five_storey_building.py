@@ -50,3 +50,45 @@ def test_golden_dataset_does_not_inject_hidden_waste_or_prices():
         assert "waste_factor" not in case["inputs"], case["id"]
         assert "unit_price" not in case["inputs"], case["id"]
         assert "price" not in case["inputs"], case["id"]
+
+
+def test_five_storey_golden_dataset_round_trips_through_persistent_project_and_boq(tmp_path):
+    from core.platform.application import StructuralProApp
+
+    dataset = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    app = StructuralProApp(tmp_path)
+    app.create_project(dataset["title"], dataset["dataset_id"])
+    for case in dataset["cases"]:
+        repeats = case["repeat_count"]
+        floors = range(1, repeats + 1) if repeats > 1 else (0,)
+        for floor_index in floors:
+            floor = f"طبقه {floor_index}" if floor_index else "فونداسیون"
+            app.add_assembly_takeoff(
+                dataset["dataset_id"], case["assembly"], case["inputs"],
+                floor_id=floor, description=f"{case['id']} — {floor}",
+            )
+
+    project = app.open_project(dataset["dataset_id"])
+    assert len(project["takeoff_assemblies"]) == sum(case["repeat_count"] for case in dataset["cases"])
+    assert project["takeoffs"]
+    assert project["boq"]
+    by_code = {}
+    for row in project["boq"]:
+        key = row.get("item_code") or row.get("price_code")
+        by_code[key] = by_code.get(key, 0.0) + float(row["quantity"])
+
+    expected = {
+        "excavation": 54.0,
+        "concrete": 295.5,
+        "formwork": 260.0,
+        "reinforcement": 3600.0,
+        "wall_area": 130.0,
+        "block": 1510.0,
+        "mortar": 1.84,
+        "cement": 0.368,
+        "sand": 1.472,
+        "finish_area": 1450.0,
+    }
+    for code, quantity in expected.items():
+        assert by_code[code] == pytest.approx(quantity, abs=1e-8), code
+    assert all(row.get("unit_price") is None and row.get("total") is None for row in project["boq"])
