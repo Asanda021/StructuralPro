@@ -918,7 +918,9 @@ def main()->int:
         # event loop has run can leave native Qt objects to be finalized in an
         # unsafe order by the frozen Python runtime.
         w.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-        QTimer.singleShot(0, w.close)
+        def close_smoke_window():
+            w.close()
+        QTimer.singleShot(0, close_smoke_window)
         result = app.exec()
         # Flush deferred QWidget deletion while QApplication is still alive.
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
