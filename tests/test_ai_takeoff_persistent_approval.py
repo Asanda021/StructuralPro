@@ -73,6 +73,12 @@ def test_ai_takeoff_rejects_stale_revision_wrong_scale_and_duplicate_sources(tmp
         app.commit_ai_takeoff_proposal("ai-evidence-project", wrong_scale, user_confirmed=True)
     assert app.open_project("ai-evidence-project")["takeoffs"] == []
 
+    wrong_quantity = _proposal(sid, revision, session, session.items[0])
+    wrong_quantity["candidates"][0]["quantity"] += 1.0
+    with pytest.raises(ValueError, match="مقدار پیشنهاد"):
+        app.commit_ai_takeoff_proposal("ai-evidence-project", wrong_quantity, user_confirmed=True)
+    assert app.open_project("ai-evidence-project")["takeoffs"] == []
+
     stale = _proposal(sid, revision + 1, session, session.items[0])
     with pytest.raises(RuntimeError, match="نسخه"):
         app.commit_ai_takeoff_proposal("ai-evidence-project", stale, user_confirmed=True)
