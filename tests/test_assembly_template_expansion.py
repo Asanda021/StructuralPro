@@ -39,10 +39,11 @@ def test_rebar_waste_is_only_applied_when_explicitly_supplied():
 
 def test_floor_finish_uses_explicit_geometry_and_consumption():
     result = calculate_assembly("floor_finish", count=2, length=5, width=4, openings=1,
-                                consumption_per_m2=3)
+                                consumption_per_m2=3, consumption_unit="kg")
     by_code = {item.code: item for item in result.components}
     assert by_code["finish_area"].quantity == pytest.approx(39)
     assert by_code["finish_material"].quantity == pytest.approx(117)
+    assert by_code["finish_material"].unit == "kg"
 
 
 @pytest.mark.parametrize("kwargs", [
