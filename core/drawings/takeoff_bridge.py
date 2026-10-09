@@ -107,3 +107,22 @@ def prepare_session_takeoff(session: Any) -> tuple[DrawingTakeoffRow, ...]:
             if int(getattr(item, "page", 0)) not in calibrations:
                 raise ValueError(f"کالیبراسیون صریح صفحه {getattr(item, 'page', '?')} یافت نشد")
     return prepare_drawing_takeoff_rows(items, drawing_source=source)
+
+
+def build_takeoff_export_payload(session: Any) -> dict[str, Any]:
+    """Build a versioned JSON interchange payload for the application's BOQ import path."""
+    rows = prepare_session_takeoff(session)
+    return {
+        "schema": "structuralpro.drawing-takeoff.v1",
+        "drawing_source": str(session.drawing_source),
+        "approval_required": True,
+        "items": [row.to_dict() for row in rows],
+        "summary": {
+            "items": len(rows),
+            "needs_review": len(rows),
+            "by_unit": {
+                unit: sum(row.quantity for row in rows if row.unit == unit)
+                for unit in sorted({row.unit for row in rows})
+            },
+        },
+    }
