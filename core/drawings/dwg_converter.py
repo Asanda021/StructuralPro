@@ -99,6 +99,10 @@ class OfflineDWGConverter:
         if "odafileconverter" in name:
             odir = out / "oda"
             odir.mkdir(exist_ok=True)
+            # Remove only the expected artifact so a stale DXF cannot masquerade as
+            # a successful conversion after the converter exits without writing.
+            target = odir / (src.stem + ".dxf")
+            target.unlink(missing_ok=True)
             proc = subprocess.run(
                 [self.executable, str(src.parent), str(odir), "ACAD2018", "DXF", "0", "1", src.name],
                 capture_output=True,
@@ -111,10 +115,12 @@ class OfflineDWGConverter:
                     f"تبدیل DWG با ODAFileConverter شکست خورد "
                     f"(نسخه {header['version']}): {detail or 'خطای نامشخص مبدل'}"
                 )
-            matches = list(odir.glob("*.dxf"))
-            if matches:
-                target = matches[0]
+            if not target.is_file():
+                matches = [p for p in odir.glob("*.dxf") if p.stem.casefold() == src.stem.casefold()]
+                if len(matches) == 1:
+                    target = matches[0]
         else:
+            target.unlink(missing_ok=True)
             proc = subprocess.run(
                 [self.executable, str(src), str(target)],
                 capture_output=True,
