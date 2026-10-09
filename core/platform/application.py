@@ -1,6 +1,8 @@
 """Application service shared by desktop and future mobile/chat clients."""
 from __future__ import annotations
 from pathlib import Path
+from copy import deepcopy
+from datetime import datetime, timezone
 from typing import Any
 from core.projects.store import ProjectStore
 from core.takeoff.engine import TakeoffEngine
@@ -219,9 +221,12 @@ class StructuralProApp:
         system=str(params.pop("system","")).strip() or None
         if source_id and any(str(t.get("source_id","")).strip()==source_id for t in p.get("takeoffs",[])):
             raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {source_id}")
-        result=self.takeoff.calculate(takeoff_domain(domain),item,description=description or item,**params)
+        calculation_params = deepcopy(params)
+        normalized_domain = takeoff_domain(domain)
+        result=self.takeoff.calculate(normalized_domain,item,description=description or item,**calculation_params)
         row={"id":f"{len(p['takeoffs'])+1}","member_code":str(params.get("member_code",item)),
-             "source_id":source_id,
+             "source_id":source_id,"domain":normalized_domain,"item":str(item),
+             "params":calculation_params,"revision":1,
              "description":description or item,"system":system,
              "quantities":[{"code":item,"title":description or item,"system":system,"unit":result.unit,"amount":result.quantity,
              "formula":result.formula,"warning":result.warning,"price_code":params.get("price_code"),"unit_price":params.get("unit_price")}]}
@@ -245,6 +250,83 @@ class StructuralProApp:
         p["boq"]=build_boq(boq_inputs)
         self.store.save(project_id,p); return row
 
+
+    def revise_takeoff(self, project_id: str, source_id: str, *, expected_revision: int,
+                       domain: str, item: str, description: str = "", system: str | None = None,
+                       **params) -> dict[str, Any]:
+        """Optimistically revise one persisted takeoff row and preserve its prior revision.
+
+        The caller must supply the revision it edited. A stale revision is rejected;
+        the project payload digest is also checked at save time to detect concurrent writes.
+        """
+        pid = str(project_id).strip()
+        source = str(source_id or "").strip()
+        if not pid or not source:
+            raise ValueError("شناسه پروژه و منبع متره برای ویرایش الزامی هستند")
+        try:
+            expected = int(expected_revision)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("شماره نسخه مورد انتظار معتبر نیست") from exc
+        if expected < 1:
+            raise ValueError("شماره نسخه مورد انتظار باید مثبت باشد")
+
+        digest = self.store.current_digest(pid)
+        # Force a fresh database read; never revise a stale in-memory project snapshot.
+        self.store._cache.pop(pid, None)
+        project = self.store.get(pid)
+        if project is None:
+            raise KeyError(pid)
+        matches = [row for row in project.get("takeoffs", [])
+                   if str(row.get("source_id", "")).strip() == source]
+        if len(matches) != 1:
+            raise KeyError(f"منبع متره باید دقیقاً یک ردیف داشته باشد: {source}")
+        row = matches[0]
+        current = int(row.get("revision", 1))
+        if current != expected:
+            raise RuntimeError(f"تعارض نسخه متره؛ نسخه فعلی {current} است و نسخه ارسالی {expected} بود.")
+
+        normalized_domain = takeoff_domain(domain)
+        calculation_params = deepcopy(params)
+        clean_description = str(description or row.get("description") or item).strip()
+        result = self.takeoff.calculate(normalized_domain, item, description=clean_description,
+                                        **calculation_params)
+        previous = deepcopy(row)
+        changed_at = datetime.now(timezone.utc).isoformat()
+        history = project.setdefault("takeoff_revision_history", [])
+        history.append({
+            "source_id": source, "from_revision": current, "to_revision": current + 1,
+            "changed_at": changed_at, "previous_row": previous,
+        })
+        project["takeoff_revision_history"] = history[-500:]
+
+        row.update({
+            "domain": normalized_domain, "item": str(item), "params": calculation_params,
+            "revision": current + 1, "revised_at": changed_at,
+            "description": clean_description,
+            "system": str(system).strip() if system is not None else row.get("system"),
+            "quantities": [{
+                "code": item, "title": clean_description, "system": system or row.get("system"),
+                "unit": result.unit, "amount": result.quantity, "formula": result.formula,
+                "warning": result.warning, "price_code": calculation_params.get("price_code"),
+                "unit_price": calculation_params.get("unit_price"),
+            }],
+        })
+
+        boq_inputs = []
+        for takeoff in project.get("takeoffs", []):
+            for quantity in takeoff.get("quantities", []):
+                boq_inputs.append({
+                    "source": takeoff.get("source_id", "") or "manual",
+                    "source_id": takeoff.get("source_id", ""),
+                    "source_type": "takeoff", "description": quantity.get("title", ""),
+                    "quantity": quantity.get("amount", 0), "unit": quantity.get("unit", ""),
+                    "item_code": quantity.get("code", item), "price_code": quantity.get("price_code"),
+                    "unit_price": quantity.get("unit_price"), "category": takeoff.get("domain", normalized_domain),
+                    "group": takeoff.get("domain", normalized_domain),
+                })
+        project["boq"] = build_boq(boq_inputs)
+        self.store.save(pid, project, expected_digest=digest)
+        return deepcopy(row)
 
     def recalculate_estimate(self, project_id: str, *, factors: dict[str,float] | None = None) -> dict[str,Any]:
         p=self.store.get(project_id)
