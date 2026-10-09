@@ -10,6 +10,7 @@ from dataclasses import dataclass, asdict
 from typing import Any, Mapping
 import hashlib
 import json
+import math
 
 
 class IFCError(ValueError):
@@ -73,9 +74,21 @@ def _prop_value(value: Any) -> str:
     return json.dumps(value, sort_keys=True, default=str)
 
 
+def _validate_quantities(quantities: tuple[tuple[str, float], ...]) -> None:
+    names: set[str] = set()
+    for name, value in quantities:
+        if not isinstance(name, str) or not name.strip():
+            raise IFCError("IFC quantity name unresolved")
+        if name in names:
+            raise IFCError(f"Duplicate IFC quantity name: {name}")
+        names.add(name)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+            raise IFCError(f"IFC quantity must be finite and non-negative: {name}")
+
+
 def _extract_element(entity: Any) -> IFCElement:
     gid = str(getattr(entity, "GlobalId", "") or "")
-    if not gid:
+    if not gid.strip():
         raise IFCError("IFC element without GlobalId")
     props: list[tuple[str, str]] = []
     quantities: list[tuple[str, float]] = []
@@ -96,6 +109,7 @@ def _extract_element(entity: Any) -> IFCElement:
                 if value is not None and name:
                     quantities.append((name, float(value)))
                     break
+    _validate_quantities(tuple(quantities))
     return IFCElement(
         global_id=gid,
         ifc_type=str(entity.is_a()),
@@ -132,10 +146,7 @@ def extract_ifc(payload: bytes) -> IFCModel:
     for entity in products:
         if entity.is_a("IfcProject") or entity.is_a("IfcSite"):
             continue
-        try:
-            elements.append(_extract_element(entity))
-        except IFCError:
-            continue
+        elements.append(_extract_element(entity))
     elements.sort(key=lambda e: (e.ifc_type, e.global_id))
     return IFCModel(
         schema=schema,
@@ -154,6 +165,10 @@ def validate_model(model: IFCModel) -> None:
     ids = [e.global_id for e in model.elements]
     if len(ids) != len(set(ids)):
         raise IFCError("Duplicate IFC GlobalId detected")
+    for element in model.elements:
+        if not element.global_id.strip():
+            raise IFCError("IFC element without GlobalId")
+        _validate_quantities(element.quantities)
 
 
 def element_to_takeoff(model: IFCModel) -> list[dict[str, Any]]:

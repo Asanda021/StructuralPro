@@ -1,4 +1,5 @@
 import io
+from dataclasses import replace
 import pytest
 
 ifc = pytest.importorskip("ifcopenshell")
@@ -46,3 +47,32 @@ def test_quantity_bridge_and_fingerprint():
 def test_invalid_ifc_fails_closed(payload):
     with pytest.raises(IFCError, match="decoding"):
         extract_ifc(payload)
+
+
+def test_missing_identity_is_not_silently_dropped():
+    model = ifc.file.from_string(sample_ifc().decode())
+    model.by_type("IfcWall")[0].GlobalId = None
+    with pytest.raises(IFCError, match="GlobalId"):
+        extract_ifc(model.to_string().encode())
+
+
+def test_negative_quantity_is_rejected_during_extraction():
+    model = ifc.file.from_string(sample_ifc().decode())
+    model.by_type("IfcQuantityVolume")[0].VolumeValue = -12.5
+    with pytest.raises(IFCError, match="quantity"):
+        extract_ifc(model.to_string().encode())
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf"), -1])
+def test_quantity_bridge_rejects_nonfinite_or_negative_values(value):
+    model = extract_ifc(sample_ifc())
+    element = replace(model.elements[0], quantities=(("NetVolume", value),))
+    with pytest.raises(IFCError, match="quantity"):
+        element_to_takeoff(replace(model, elements=(element,)))
+
+
+def test_quantity_bridge_rejects_duplicate_quantity_names():
+    model = extract_ifc(sample_ifc())
+    element = replace(model.elements[0], quantities=(("NetVolume", 1.0), ("NetVolume", 2.0)))
+    with pytest.raises(IFCError, match="Duplicate IFC quantity"):
+        element_to_takeoff(replace(model, elements=(element,)))
