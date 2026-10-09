@@ -83,6 +83,12 @@ def validate_ai_takeoff_proposal(
             scale_ref = str(evidence.get("scale_ref", "")).strip()
             if not scale_ref:
                 issues.append(f"{prefix}: مرجع کالیبراسیون/مقیاس الزامی است")
+            try:
+                meters_per_pixel = float(evidence.get("meters_per_pixel"))
+            except (TypeError, ValueError):
+                meters_per_pixel = float("nan")
+            if not math.isfinite(meters_per_pixel) or meters_per_pixel <= 0:
+                issues.append(f"{prefix}: ضریب مقیاس معتبر و مثبت الزامی است")
         formula = str(candidate.get("formula", "")).strip()
         if not formula:
             issues.append(f"{prefix}: فرمول یا روش محاسبه ثبت نشده است")
