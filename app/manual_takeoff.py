@@ -140,11 +140,11 @@ class ManualTakeoffDialog(QDialog):
             clean = line.strip()
             if not clean:
                 continue
-            if "\\t" in clean:
-                cells = [x.strip() for x in clean.split("\\t")]
+            if "\t" in clean:
+                cells = [x.strip() for x in clean.split("\t")]
                 clean = " ".join(x for x in cells if x)
             lines.append(clean)
-        self.entry_text.setPlainText("\\n".join(lines))
+        self.entry_text.setPlainText("\n".join(lines))
         self.status.setText(f"{len(lines)} ردیف آماده بررسی است. هر ردیف باید متن کامل و معتبر متره باشد؛ سلول‌های عددی پراکنده از Excel به‌صورت خودکار تفسیر نمی‌شوند.")
 
     def _selected_record(self):
