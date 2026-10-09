@@ -24,6 +24,7 @@ from core.drawings.model_registry import ModelRegistry, ModelSource, ModelObject
 from core.performance.project_performance import paginate, project_performance_snapshot
 from core.recovery.recovery import export_project, import_project
 from core.aec.disciplines import takeoff_domain
+from core.drawings.takeoff_bridge import session_to_boq_rows, validate_session_payload
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -253,6 +254,132 @@ class StructuralProApp:
         p["boq"]=build_boq(boq_inputs)
         self.store.save(project_id,p); return row
 
+
+    def save_drawing_takeoff_session(self, project_id: str, session_payload: dict[str, Any] | Any, *,
+                                     session_id: str | None = None,
+                                     expected_revision: int | None = None) -> dict[str, Any]:
+        """Persist a validated graphical drawing session with optimistic revision checks."""
+        pid = str(project_id or "").strip()
+        if not pid:
+            raise ValueError("شناسه پروژه الزامی است")
+        payload = session_payload.to_dict() if hasattr(session_payload, "to_dict") else deepcopy(session_payload)
+        report = validate_session_payload(payload)
+        if not report["valid"]:
+            raise ValueError("نشست متره ذخیره نشد: " + "؛ ".join(report["issues"]))
+        sid = str(session_id or uuid4().hex).strip()
+        if not sid:
+            raise ValueError("شناسه نشست نقشه معتبر نیست")
+        digest = self.store.current_digest(pid)
+        self.store._cache.pop(pid, None)
+        project = self.store.get(pid)
+        if project is None:
+            raise KeyError(pid)
+        sessions = project.setdefault("drawing_sessions", {})
+        if not isinstance(sessions, dict):
+            raise ValueError("ساختار نشست‌های نقشه در پروژه ناسازگار است")
+        previous = sessions.get(sid)
+        if previous is None:
+            if expected_revision not in (None, 0):
+                raise RuntimeError("نشست نقشه تغییر کرده یا وجود ندارد؛ نسخه را دوباره بخوانید")
+            revision = 1
+            committed = []
+        else:
+            current_revision = int(previous.get("revision", 1))
+            if expected_revision is None or int(expected_revision) != current_revision:
+                raise RuntimeError(f"تعارض نسخه نشست نقشه؛ نسخه فعلی {current_revision} است")
+            revision = current_revision + 1
+            committed = list(previous.get("committed_item_ids", []))
+        sessions[sid] = {
+            "id": sid, "revision": revision, "drawing_source": str(payload.get("drawing_source", "")),
+            "session": deepcopy(payload), "committed_item_ids": committed,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self.store.save(pid, project, expected_digest=digest)
+        return {"session_id": sid, "revision": revision, "item_count": len(payload.get("items", [])),
+                "committed_item_ids": committed, "validation": report}
+
+    def load_drawing_takeoff_session(self, project_id: str, session_id: str) -> dict[str, Any]:
+        """Return a copy of a persisted drawing session; no caller can mutate stored state."""
+        project = self.store.get(str(project_id or "").strip())
+        if project is None:
+            raise KeyError(project_id)
+        record = (project.get("drawing_sessions", {}) or {}).get(str(session_id or "").strip())
+        if not isinstance(record, dict):
+            raise KeyError(f"نشست نقشه پیدا نشد: {session_id}")
+        report = validate_session_payload(record.get("session", {}))
+        if not report["valid"]:
+            raise ValueError("نشست ذخیره‌شده نامعتبر است: " + "؛ ".join(report["issues"]))
+        return deepcopy(record)
+
+    def commit_drawing_takeoff_to_boq(self, project_id: str, session_id: str,
+                                      selected_item_ids: list[str], *,
+                                      expected_session_revision: int) -> dict[str, Any]:
+        """Atomically persist explicitly selected drawing measurements into takeoffs and BOQ."""
+        pid, sid = str(project_id or "").strip(), str(session_id or "").strip()
+        if not pid or not sid:
+            raise ValueError("شناسه پروژه و نشست نقشه الزامی هستند")
+        if not selected_item_ids:
+            raise ValueError("برای انتقال به BOQ باید متره‌ها را صریحاً انتخاب کنید")
+        digest = self.store.current_digest(pid)
+        self.store._cache.pop(pid, None)
+        project = self.store.get(pid)
+        if project is None:
+            raise KeyError(pid)
+        sessions = project.get("drawing_sessions", {})
+        record = sessions.get(sid) if isinstance(sessions, dict) else None
+        if not isinstance(record, dict):
+            raise KeyError(f"نشست نقشه پیدا نشد: {sid}")
+        current_revision = int(record.get("revision", 1))
+        if int(expected_session_revision) != current_revision:
+            raise RuntimeError(f"تعارض نسخه نشست نقشه؛ نسخه فعلی {current_revision} است")
+        selected = list(dict.fromkeys(str(x) for x in selected_item_ids))
+        already = set(record.get("committed_item_ids", []))
+        if already.intersection(selected):
+            raise ValueError("برخی متره‌های انتخاب‌شده قبلاً وارد BOQ شده‌اند؛ انتقال تکراری رد شد")
+        rows = session_to_boq_rows(record.get("session", {}), session_id=sid, selected_item_ids=selected)
+        existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
+        duplicate_sources = [row["source_id"] for row in rows if row["source_id"] in existing_sources]
+        if duplicate_sources:
+            raise ValueError("منبع متره قبلاً ثبت شده است: " + "، ".join(duplicate_sources))
+        new_takeoffs = []
+        for row in rows:
+            source_id = row["source_id"]
+            new_takeoffs.append({
+                "id": f"{len(project.get('takeoffs', [])) + len(new_takeoffs) + 1}",
+                "member_code": row["item_code"], "source_id": source_id,
+                "domain": "drawing", "item": row["kind"],
+                "params": {"drawing_session_id": sid, "drawing_source": row["drawing_source"],
+                           "page": row["page"], "geometry": row["geometry"],
+                           "confidence": row["confidence"], "formula": row["formula"]},
+                "revision": 1, "drawing_session_id": sid, "drawing_takeoff_id": row["takeoff_id"],
+                "description": row["description"], "system": f"صفحه {row['page']}",
+                "quantities": [{
+                    "code": row["item_code"], "title": row["description"], "system": f"صفحه {row['page']}",
+                    "unit": row["unit"], "amount": row["quantity"], "formula": row["formula"],
+                    "warning": "", "price_code": row["price_code"], "unit_price": None,
+                    "source_ref": row["source"], "page": row["page"],
+                }],
+            })
+        project.setdefault("takeoffs", []).extend(new_takeoffs)
+        boq_inputs = []
+        for takeoff in project.get("takeoffs", []):
+            for quantity in takeoff.get("quantities", []):
+                boq_inputs.append({
+                    "source": takeoff.get("source_id", "") or "manual",
+                    "source_id": takeoff.get("source_id", ""), "source_type": "takeoff",
+                    "description": quantity.get("title", ""), "quantity": quantity.get("amount", 0),
+                    "unit": quantity.get("unit", ""), "item_code": quantity.get("code", ""),
+                    "price_code": quantity.get("price_code"), "unit_price": quantity.get("unit_price"),
+                    "category": takeoff.get("domain", "manual"), "group": takeoff.get("domain", "manual"),
+                })
+        project["boq"] = build_boq(boq_inputs)
+        record["committed_item_ids"] = sorted(already.union(selected))
+        record["revision"] = current_revision + 1
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
+        self.store.save(pid, project, expected_digest=digest)
+        return {"session_id": sid, "revision": record["revision"],
+                "committed_item_ids": record["committed_item_ids"],
+                "takeoffs_added": deepcopy(new_takeoffs), "boq_count": len(project["boq"])}
 
     def add_assembly_takeoff(self, project_id: str, assembly_code: str, inputs: dict[str, Any], *,
                              floor_id: str, description: str = "") -> dict[str, Any]:
