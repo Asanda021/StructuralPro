@@ -1,5 +1,3 @@
-import math
-
 import pytest
 
 from core.cad.persian_text_v1 import is_rtl_cad_text, normalize_cad_text
