@@ -91,8 +91,8 @@ class DWGTakeoffEngine:
                     data["end"] = _xy(e.dxf.end)
                     data["length"] = math.dist(data["start"], data["end"])
                 elif typ in {"LWPOLYLINE", "POLYLINE"}:
-                    pts = [p[:2] for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [v.dxf.location for v in e.vertices()]
-                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "closed", False)))
+                    pts = [_xy(p) for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [_xy(v.dxf.location) for v in e.vertices]
+                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "is_closed", getattr(e, "closed", False))))
                     data["points"] = pts
                 elif typ == "CIRCLE":
                     r = float(e.dxf.radius)
@@ -154,11 +154,35 @@ class DWGTakeoffEngine:
         if p.suffix.lower() != ".dwg":
             raise ValueError("فرمت فایل باید DWG یا DXF باشد.")
 
+        # Prefer the bundled/authorized ACadSharp bridge used by the Windows
+        # product. Use a separately installed offline converter only when that
+        # bridge is genuinely unavailable; conversion failures from an available
+        # bridge must remain visible rather than silently switching backends.
+        from core.cad.external_dwg_provider_v1 import ACadSharpDWGProvider
+        provider = ACadSharpDWGProvider()
+        if provider.available:
+            converted = provider.convert(p)
+            try:
+                doc = self._read_dxf(converted)
+            finally:
+                converted.unlink(missing_ok=True)
+            doc.source = str(p)
+            doc.format = "DWG→DXF (ACadSharp)"
+            return doc
+
         from core.drawings.dwg_converter import OfflineDWGConverter
-        converted = OfflineDWGConverter().convert(p).output
-        doc = self._read_dxf(converted)
+        result = OfflineDWGConverter().convert(p)
+        try:
+            doc = self._read_dxf(result.output)
+        finally:
+            result.output.unlink(missing_ok=True)
+            if result.output.parent.name.startswith("structuralpro_dwg_"):
+                try:
+                    result.output.parent.rmdir()
+                except OSError:
+                    pass
         doc.source = str(p)
-        doc.format = "DWG→DXF"
+        doc.format = "DWG→DXF (offline converter)"
         return doc
 
     def summarize(self, doc: DWGDocument) -> dict[str, Any]:

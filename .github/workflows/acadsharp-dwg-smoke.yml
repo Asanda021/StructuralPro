@@ -72,6 +72,7 @@ jobs:
           @'
           from pathlib import Path
           from core.cad.external_dwg_provider_v1 import ACadSharpDWGProvider
+          from core.drawings.viewer_model import DrawingViewerModel
 
           versions = ["AC1014","AC1015","AC1018","AC1021","AC1024","AC1027","AC1032"]
           for version in versions:
@@ -80,7 +81,15 @@ jobs:
               assert evidence.dxf_version
               assert evidence.entities, f"{version}: no modelspace entities reached StructuralPro"
               assert evidence.layers, f"{version}: no layers reached StructuralPro"
-              print(f"{version}: dxf={evidence.dxf_version} entities={len(evidence.entities)} layers={len(evidence.layers)} blocks={len(evidence.blocks)}")
+
+              # Exercise the same viewer/import path used by the Windows product,
+              # not just the lower-level provider in isolation.
+              viewer = DrawingViewerModel(source)
+              summary = viewer.summary
+              assert viewer.kind == "cad"
+              assert summary["entities"] > 0, f"{version}: viewer imported no entities"
+              assert summary["format"] == "DWG→DXF (ACadSharp)", summary
+              print(f"{version}: dxf={evidence.dxf_version} provider_entities={len(evidence.entities)} viewer_entities={summary['entities']} layers={len(evidence.layers)} blocks={len(evidence.blocks)}")
           '@ | python -
 
       - name: Parse every generated DXF with ezdxf

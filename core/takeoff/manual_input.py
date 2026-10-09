@@ -1,6 +1,7 @@
-"""Fast, deterministic manual takeoff input normalization."""
+"Fast, deterministic manual takeoff input normalization with fail-closed numeric parsing."
 from __future__ import annotations
 from dataclasses import dataclass
+import math
 import re
 
 PERSIAN_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
@@ -23,6 +24,7 @@ ALIASES = {
     "فولاد": ("steel", ("count","length","unit_weight")),
 }
 LATIN_ALIASES = {"column": ALIASES["ستون"], "beam": ALIASES["تیر"], "wall": ALIASES["دیوار"], "stair": ALIASES["پله"]}
+_NUMBER = r"[+-]?\d+(?:[.,]\d+)?"
 
 @dataclass(frozen=True)
 class ManualEntry:
@@ -35,7 +37,13 @@ class ManualEntry:
         return not self.missing
 
 def _number(value: str) -> float:
-    return float(value.translate(PERSIAN_DIGITS).replace(",", "").strip())
+    try:
+        number = float(value.translate(PERSIAN_DIGITS).replace(",", "").strip())
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("مقدار متره باید عددی باشد") from exc
+    if not math.isfinite(number):
+        raise ValueError("مقدار متره باید متناهی باشد")
+    return number
 
 def _normalise(text: str) -> str:
     return (text.translate(PERSIAN_DIGITS).replace("×","x").replace("✕","x")
@@ -51,8 +59,12 @@ def _extract_named(text: str) -> dict[str, float]:
     }
     out = {}
     for label,key in sorted(aliases.items(), key=lambda x:-len(x[0])):
-        m = re.search(rf"{re.escape(label)}\s*[:=]?\s*(\d+(?:[.,]\d+)?)", text)
-        if m: out[key] = _number(m.group(1))
+        match = re.search(rf"{re.escape(label)}\s*[:=]?\s*({_NUMBER})", text)
+        if match:
+            value = _number(match.group(1))
+            if value < 0:
+                raise ValueError(f"مقدار «{label}» نمی‌تواند منفی باشد")
+            out[key] = value
     return out
 
 def _extract_code(text: str):
@@ -69,8 +81,8 @@ def parse_manual_entry(text: str) -> ManualEntry:
     params = _extract_named(normalized)
     # Compact column syntax: «12 ستون 50x50 ارتفاع 3» (cm is detected from the text).
     if code == "column":
-        dims = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:cm)?\s*x\s*(\d+(?:[.,]\d+)?)\s*(?:cm)?", normalized)
-        nums = [float(x) for x in re.findall(r"\d+(?:[.,]\d+)?", normalized)]
+        dims = re.search(rf"({_NUMBER})\s*(?:cm)?\s*x\s*({_NUMBER})\s*(?:cm)?", normalized)
+        nums = [_number(x) for x in re.findall(_NUMBER, normalized)]
         if dims:
             factor = 100 if ("cm" in normalized.lower() or "سانت" in raw) else 1
             params.setdefault("count", nums[0] if nums else 1)
@@ -78,6 +90,11 @@ def parse_manual_entry(text: str) -> ManualEntry:
             params.setdefault("depth", _number(dims.group(2))/factor)
         elif "count" not in params and nums:
             params["count"] = nums[0]
+    for key, value in params.items():
+        if not math.isfinite(value):
+            raise ValueError(f"{key} باید متناهی باشد")
+        if value < 0:
+            raise ValueError(f"{key} نمی‌تواند منفی باشد")
     missing = tuple(name for name in fields if name not in params or (params[name] < 0 if name == "openings" else params[name] <= 0))
     return ManualEntry(code, params, missing, raw)
 
