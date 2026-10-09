@@ -42,8 +42,11 @@ def validate_ai_takeoff_proposal(
             issues.append(f"{prefix}: ساختار نامعتبر است")
             continue
         source_id = str(candidate.get("source_id", "")).strip()
+        session_item_id = str(candidate.get("session_item_id", "")).strip()
         if not source_id:
             issues.append(f"{prefix}: شناسه منبع پایدار الزامی است")
+        if not session_item_id:
+            issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
         elif source_id in seen:
             issues.append(f"{prefix}: شناسه منبع تکراری است")
         seen.add(source_id)
@@ -95,7 +98,8 @@ def validate_ai_takeoff_proposal(
         if not str(candidate.get("label", "")).strip():
             issues.append(f"{prefix}: شرح قابل بازبینی الزامی است")
         normalized.append({
-            "source_id": source_id, "page": page, "kind": kind, "unit": unit,
+            "source_id": source_id, "session_item_id": session_item_id,
+            "page": page, "kind": kind, "unit": unit,
             "quantity": quantity, "confidence": confidence,
             "evidence": evidence, "formula": formula,
             "label": str(candidate.get("label", "")).strip(),
