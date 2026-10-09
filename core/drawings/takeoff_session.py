@@ -81,13 +81,14 @@ class DrawingTakeoffSession:
         page = int(page)
         px = float(reference_pixels)
         meters = float(reference_meters)
-        if page < 1 or px <= 0 or meters <= 0:
-            raise ValueError("calibration values must be positive")
+        if page < 1 or not math.isfinite(px) or not math.isfinite(meters) or px <= 0 or meters <= 0:
+            raise ValueError("calibration values must be positive and finite")
         self._record()
-        self.calibration = Calibration(meters / px, page, px, meters)
-        self.calibrations[page] = self.calibration
+        calibration = Calibration(meters / px, page, px, meters)
+        self.calibrations[page] = calibration
+        self.calibration = self.calibrations.get(self.current_page)
         self._redo.clear()
-        return self.calibration
+        return calibration
 
     def set_meters_per_pixel(self, meters_per_pixel: float, page: int | None = None) -> Calibration:
         factor = float(meters_per_pixel)
