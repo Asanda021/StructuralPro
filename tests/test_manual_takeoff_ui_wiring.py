@@ -20,7 +20,7 @@ def test_manual_takeoff_requires_project_and_floor_before_preview():
 
 def test_manual_takeoff_saves_deterministic_quantities_to_project_service():
     assert "self.service.add_takeoff(" in DIALOG
-    assert "source_id=f\"manual-workbench:{uuid4().hex}\"" in DIALOG
+    assert 'source_id=f"manual-workbench:{record.project_id}:{record.record_id}"' in DIALOG
     assert "system=record.floor_id" in DIALOG
     assert "record.record_id in self._saved_ids" in DIALOG
     assert '"ذخیره شد"' in DIALOG
