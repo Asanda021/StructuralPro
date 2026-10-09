@@ -413,12 +413,13 @@ class StructuralProApp:
             raise RuntimeError("نسخه نقشه/نشست با پیشنهاد هوش مصنوعی مطابقت ندارد؛ پیشنهاد را دوباره تولید کنید")
         from core.drawings.takeoff_session import DrawingTakeoffSession
         session = DrawingTakeoffSession.from_dict(record.get("session", {}))
+        known_pages = {session.current_page, *session.calibrations.keys(), *[item.page for item in session.items]}
         existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
         new_rows = []
         for candidate in report["rows"]:
             page = candidate["page"]
-            if page > max([1, *[int(x.get("page", 1)) for x in session.items]]):
-                raise ValueError(f"صفحه {page} در نشست نقشه مرجع وجود ندارد")
+            if page not in known_pages:
+                raise ValueError(f"صفحه {page} در نشست نقشه مرجع وجود ندارد یا بازبینی نشده است")
             evidence = candidate["evidence"]
             source_ref = str(evidence.get("source_ref", "")).strip()
             expected_prefix = f"{session.drawing_source}#page={page}"
