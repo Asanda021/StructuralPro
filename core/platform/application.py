@@ -420,11 +420,18 @@ class StructuralProApp:
             page = candidate["page"]
             if page not in known_pages:
                 raise ValueError(f"صفحه {page} در نشست نقشه مرجع وجود ندارد یا بازبینی نشده است")
+            try:
+                measured_item = session.find(candidate["session_item_id"])
+            except KeyError as exc:
+                raise ValueError("شناسه متره هندسی پیشنهاد در نشست ذخیره‌شده وجود ندارد") from exc
+            if measured_item.page != page or measured_item.kind != candidate["kind"] or measured_item.unit != candidate["unit"]:
+                raise ValueError("نوع، واحد یا صفحه پیشنهاد با متره هندسی ذخیره‌شده مطابقت ندارد")
+            if not math.isclose(measured_item.quantity, candidate["quantity"], rel_tol=1e-9, abs_tol=1e-9):
+                raise ValueError("مقدار پیشنهاد با مقدار هندسی محاسبه‌شده در نشست مطابقت ندارد")
             evidence = candidate["evidence"]
             source_ref = str(evidence.get("source_ref", "")).strip()
-            expected_prefix = f"{session.drawing_source}#page={page}"
-            if not source_ref.startswith(expected_prefix):
-                raise ValueError("مرجع شواهد با منبع نقشه و صفحه نشست ذخیره‌شده مطابقت ندارد")
+            if source_ref != measured_item.source_ref:
+                raise ValueError("مرجع شواهد با مرجع متره هندسی ذخیره‌شده مطابقت ندارد")
             if candidate["kind"] in {"length", "area"}:
                 calibration = session.calibrations.get(page)
                 if calibration is None:
@@ -447,6 +454,8 @@ class StructuralProApp:
                 "member_code": candidate["source_id"], "source_id": source_id,
                 "domain": "drawing_ai", "item": candidate["kind"],
                 "params": {"drawing_session_id": sid, "drawing_revision": expected_session_revision,
+                           "session_item_id": candidate["session_item_id"],
+                           "geometry": [list(point) for point in measured_item.geometry],
                            "evidence": deepcopy(candidate["evidence"]), "confidence": candidate["confidence"],
                            "formula": candidate["formula"]},
                 "revision": 1, "drawing_session_id": sid, "ai_generated": True,
