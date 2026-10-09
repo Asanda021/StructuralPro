@@ -184,7 +184,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
 
     if k in {"concrete_column", "column_concrete"}:
         count = _n(p, "count", 1)
-        width, depth, height = _n(p, "width"), _n(p, "depth"), _n(p, "height")
+        width, depth, height = _n(p, "width", 1e-12), _n(p, "depth", 1e-12), _n(p, "height", 1e-12)
         gross = count * width * depth * height
         waste = _optional(p, "waste_factor")
         total = _waste(gross, waste)
@@ -194,8 +194,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("count", "width", "depth", "height") + (("waste_factor",) if waste is not None else ()))
 
     if k in {"concrete_beam", "beam_concrete"}:
-        count, length = _n(p, "count", 1), _n(p, "length")
-        width, depth = _n(p, "width"), _n(p, "depth")
+        count, length = _n(p, "count", 1), _n(p, "length", 1e-12)
+        width, depth = _n(p, "width", 1e-12), _n(p, "depth", 1e-12)
         gross = count * length * width * depth
         waste = _optional(p, "waste_factor")
         total = _waste(gross, waste)
@@ -222,7 +222,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         return AssemblyResult("concrete_beam", "تیر بتنی", tuple(components), tuple(used))
 
     if k in {"concrete_slab", "slab_concrete"}:
-        length, width, thickness = _n(p, "length"), _n(p, "width"), _n(p, "thickness")
+        length, width, thickness = _n(p, "length", 1e-12), _n(p, "width", 1e-12), _n(p, "thickness", 1e-12)
         count = _n({"count": p.get("count", 1)}, "count", 1)
         openings = _n({"openings": p.get("openings", 0)}, "openings")
         gross_area = count * length * width
@@ -243,7 +243,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         return AssemblyResult("concrete_slab", "دال بتنی", tuple(components), tuple(used))
 
     if k in {"excavation", "خاکبرداری"}:
-        length, width, depth = _n(p, "length"), _n(p, "width"), _n(p, "depth")
+        length, width, depth = _n(p, "length", 1e-12), _n(p, "width", 1e-12), _n(p, "depth", 1e-12)
         count = _n({"count": p.get("count", 1)}, "count", 1)
         volume = count * length * width * depth
         return AssemblyResult("excavation", "خاکبرداری", (
@@ -251,7 +251,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("length", "width", "depth", "count"))
 
     if k in {"rebar", "reinforcement"}:
-        count, length, unit_weight = _n(p, "count", 1), _n(p, "length"), _n(p, "unit_weight")
+        count, length, unit_weight = _n(p, "count", 1), _n(p, "length", 1e-12), _n(p, "unit_weight", 1e-12)
         gross = count * length * unit_weight
         waste = _optional(p, "waste_factor")
         total = _waste(gross, waste)
@@ -268,7 +268,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("count", "length", "unit_weight"))
 
     if k in {"floor_finish", "floor_area"}:
-        length, width = _n(p, "length"), _n(p, "width")
+        length, width = _n(p, "length", 1e-12), _n(p, "width", 1e-12)
         count = _n({"count": p.get("count", 1)}, "count", 1)
         openings = _n({"openings": p.get("openings", 0)}, "openings")
         gross_area = count * length * width
