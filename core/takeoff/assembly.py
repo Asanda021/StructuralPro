@@ -92,7 +92,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # and mortar joint/mix are specification inputs, not fixed coefficients.
     if k in {"block_wall", "masonry_block_wall", "دیوار_بلوک"}:
         L, H, t = _n(p, "length", 1e-12), _n(p, "height", 1e-12), _n(p, "thickness", 1e-12)
-        openings = _n({"openings": p.get("openings", 0)}, "openings")
+        openings = _n(p, "openings")
         if openings > L * H:
             raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دیوار بیشتر باشد")
         area = L * H - openings
@@ -200,7 +200,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         )
 
     if k in {"concrete_column", "column_concrete"}:
-        count = _n(p, "count", 1)
+        count = _count(p, "count")
         width, depth, height = _n(p, "width", 1e-12), _n(p, "depth", 1e-12), _n(p, "height", 1e-12)
         gross = count * width * depth * height
         waste = _optional(p, "waste_factor")
@@ -240,7 +240,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
 
     if k in {"concrete_slab", "slab_concrete"}:
         length, width, thickness = _n(p, "length", 1e-12), _n(p, "width", 1e-12), _n(p, "thickness", 1e-12)
-        count = _n({"count": p.get("count", 1)}, "count", 1)
+        count = _count(p, "count")
         openings = _n({"openings": p.get("openings", 0)}, "openings")
         gross_area = count * length * width
         if openings > gross_area:
@@ -278,7 +278,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("count", "length", "unit_weight") + (("waste_factor",) if waste is not None else ()))
 
     if k in {"steel_member", "steel"}:
-        count, length, unit_weight = _n(p, "count", 1), _n(p, "length"), _n(p, "unit_weight")
+        count, length, unit_weight = _count(p, "count"), _n(p, "length", 1e-12), _n(p, "unit_weight", 1e-12)
         weight = count * length * unit_weight
         return AssemblyResult("steel_member", "عضو فولادی", (
             AssemblyComponent("steel_weight", "وزن عضو فولادی", "kg", "تعداد×طول×وزن واحد", weight),
