@@ -241,7 +241,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     if k in {"concrete_slab", "slab_concrete"}:
         length, width, thickness = _n(p, "length", 1e-12), _n(p, "width", 1e-12), _n(p, "thickness", 1e-12)
         count = _count(p, "count")
-        openings = _n({"openings": p.get("openings", 0)}, "openings")
+        openings = _n(p, "openings")
         gross_area = count * length * width
         if openings > gross_area:
             raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دال بیشتر باشد")
@@ -261,7 +261,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
 
     if k in {"excavation", "خاکبرداری"}:
         length, width, depth = _n(p, "length", 1e-12), _n(p, "width", 1e-12), _n(p, "depth", 1e-12)
-        count = _n({"count": p.get("count", 1)}, "count", 1)
+        count = _count(p, "count")
         volume = count * length * width * depth
         return AssemblyResult("excavation", "خاکبرداری", (
             AssemblyComponent("excavation", "حجم خاکبرداری", "m³", "تعداد×طول×عرض×عمق", volume),
@@ -286,8 +286,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
 
     if k in {"floor_finish", "floor_area"}:
         length, width = _n(p, "length", 1e-12), _n(p, "width", 1e-12)
-        count = _n({"count": p.get("count", 1)}, "count", 1)
-        openings = _n({"openings": p.get("openings", 0)}, "openings")
+        count = _count(p, "count")
+        openings = _n(p, "openings")
         gross_area = count * length * width
         if openings > gross_area:
             raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص کف بیشتر باشد")
