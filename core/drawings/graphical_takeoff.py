@@ -136,9 +136,10 @@ def snap_point(point: Point, candidates: Iterable[Point], tolerance: float) -> P
     _number(point.x, "point.x")
     _number(point.y, "point.y")
     tolerance = _number(tolerance, "snap tolerance", 0.0)
-    pts = _points(candidates, 1) if candidates else []
-    if not pts:
+    candidate_points = list(candidates)
+    if not candidate_points:
         return point
+    pts = _points(candidate_points, 1)
     best = min(pts, key=lambda p: hypot(p.x - point.x, p.y - point.y))
     distance = hypot(best.x - point.x, best.y - point.y)
     if not isfinite(distance):
