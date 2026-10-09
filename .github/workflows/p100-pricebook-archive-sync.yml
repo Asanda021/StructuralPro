@@ -69,12 +69,7 @@ jobs:
           prs=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api/repos/${GITHUB_REPOSITORY}/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:$branch&base=main")
           count=$(printf "%s" "$prs" | python -c 'import json,sys; print(len(json.load(sys.stdin)))')
           if [ "$count" -eq 0 ]; then
-            payload=$(python - "$branch" <<'PY'
-          import json, sys
-          branch=sys.argv[1]
-          print(json.dumps({"title":"P100 — Publish 24 real Iranian pricebooks","head":branch,"base":"main","body":"Automated publication of the verified P100 1399–1404 × 4-discipline real pricebook dataset. Includes normalized rows, manifest, SHA-256 provenance and priced-row coverage.\\n\\nDirect pushes to main are blocked by repository rules, so this PR is the publication boundary."}))
-          PY
-            )
+            payload=$(python -c 'import json,sys; print(json.dumps({"title":"P100 — Publish 24 real Iranian pricebooks","head":sys.argv[1],"base":"main","body":"Automated publication of the verified P100 1399–1404 × 4-discipline real pricebook dataset. Includes normalized rows, manifest, SHA-256 provenance and priced-row coverage. Direct pushes to main are blocked by repository rules, so this PR is the publication boundary."}))' "$branch")
             curl -fsSL -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" "$api/repos/${GITHUB_REPOSITORY}/pulls" -d "$payload"
           else
             echo "An open publication PR already exists for $branch."
