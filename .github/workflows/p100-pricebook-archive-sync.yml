@@ -23,6 +23,7 @@ jobs:
     timeout-minutes: 45
     env:
       PYTHONPATH: .
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,7 +36,7 @@ jobs:
       - name: Download and extract 24 pricebooks
         run: python scripts/sync_pricebooks_24.py
       - name: Remove raw archives from repository payload
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         run: rm -rf data/pricebooks/raw
       - name: Verify 24-cell production matrix
         run: |
@@ -50,7 +51,7 @@ jobs:
           print("24/24 cells verified with priced rows, URLs and SHA-256 provenance")
           PY
       - name: Publish imported pricebooks on automation branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
