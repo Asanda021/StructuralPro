@@ -5,12 +5,13 @@ THEME = Path("app/theme.py").read_text(encoding="utf-8")
 DASHBOARD = Path("app/dashboard.py").read_text(encoding="utf-8")
 
 
-def test_primary_navigation_is_planswift_style_tree():
-    assert "QTreeWidget" in MAIN
-    assert 'nav_tree.setObjectName("PlanSwiftNavigation")' in MAIN
-    assert 'nav_group("متره و Takeoff"' in MAIN
-    assert 'nav_group("برآورد و تجاری"' in MAIN
+def test_primary_navigation_is_horizontal_and_targets_real_pages():
+    assert 'navigation_tabs.setObjectName("MainNavigationTabs")' in MAIN
+    assert 'navigation_tabs.setTabData(tab_index,target)' in MAIN
     assert 'pages.setCurrentIndex(target)' in MAIN
+    assert 'navigation_tabs.currentChanged.connect(navigate_from_tab)' in MAIN
+    assert 'pages.currentChanged.connect(sync_tabs_to_page)' in MAIN
+    assert 'shell.addWidget(nav_tree)' not in MAIN
 
 
 def test_dashboard_is_project_first_and_action_oriented():
