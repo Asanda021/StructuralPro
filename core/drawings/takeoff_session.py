@@ -53,6 +53,7 @@ class DrawingTakeoffSession:
     def __init__(self, drawing_source: str = ""):
         self.drawing_source = str(drawing_source or "")
         self.calibration: Calibration | None = None
+        self.calibrations: dict[int, Calibration] = {}
         self.items: list[TakeoffItem] = []
         self.markups = MarkupStore()
         self.current_page = 1
@@ -73,6 +74,7 @@ class DrawingTakeoffSession:
         if page < 1:
             raise ValueError("page must be positive")
         self.current_page = page
+        self.calibration = self.calibrations.get(page)
         return page
 
     def calibrate(self, page: int, reference_pixels: float, reference_meters: float) -> Calibration:
@@ -83,6 +85,7 @@ class DrawingTakeoffSession:
             raise ValueError("calibration values must be positive")
         self._record()
         self.calibration = Calibration(meters / px, page, px, meters)
+        self.calibrations[page] = self.calibration
         self._redo.clear()
         return self.calibration
 
@@ -94,9 +97,10 @@ class DrawingTakeoffSession:
         return self.calibrate(page, 1.0, factor)
 
     def _factor_for(self, page: int) -> float:
-        if self.calibration is None:
-            raise ValueError("ابتدا مقیاس نقشه را کالیبره کنید")
-        return float(self.calibration.meters_per_pixel)
+        calibration = self.calibrations.get(int(page))
+        if calibration is None:
+            raise ValueError(f"مقیاس صفحه {page} کالیبره نشده است؛ قبل از متره همین صفحه را کالیبره کن")
+        return float(calibration.meters_per_pixel)
 
     def _record(self) -> None:
         self._undo.append(self._snapshot())
@@ -106,6 +110,7 @@ class DrawingTakeoffSession:
     def _snapshot(self) -> dict[str, Any]:
         return {
             "calibration": self.calibration.to_dict() if self.calibration else None,
+            "calibrations": {str(page): value.to_dict() for page, value in self.calibrations.items()},
             "items": [x.to_dict() for x in self.items],
             "markups": [x.to_dict() for x in self.markups.items],
             "current_page": self.current_page,
@@ -115,6 +120,12 @@ class DrawingTakeoffSession:
     def _restore(self, state: dict[str, Any]) -> None:
         raw = state.get("calibration")
         self.calibration = Calibration(**raw) if raw else None
+        saved_calibrations = state.get("calibrations")
+        if isinstance(saved_calibrations, dict):
+            self.calibrations = {int(page): Calibration(**value) for page, value in saved_calibrations.items()}
+        else:
+            self.calibrations = {self.calibration.page: self.calibration} if self.calibration else {}
+        self.calibration = self.calibrations.get(int(state.get("current_page", 1)), self.calibration)
         self.items = [
             TakeoffItem(
                 id=str(x["id"]), kind=str(x["kind"]), quantity=float(x["quantity"]),
