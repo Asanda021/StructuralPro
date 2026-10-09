@@ -62,6 +62,14 @@ class ManualTakeoffWorkbench:
     @property
     def records(self) -> tuple[ManualTakeoffRecord, ...]: return tuple(self._records)
 
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
+
     def _snapshot(self) -> None:
         self._undo.append(tuple(self._records))
         self._redo.clear()
