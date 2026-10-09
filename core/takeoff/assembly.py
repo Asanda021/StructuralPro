@@ -182,4 +182,113 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
             tuple(components), tuple(used), tuple(missing)
         )
 
+    if k in {"concrete_column", "column_concrete"}:
+        count = _n(p, "count", 1)
+        width, depth, height = _n(p, "width"), _n(p, "depth"), _n(p, "height")
+        gross = count * width * depth * height
+        waste = _optional(p, "waste_factor")
+        total = _waste(gross, waste)
+        return AssemblyResult("concrete_column", "ستون بتنی", (
+            AssemblyComponent("concrete", "بتن ستون", "m³", "تعداد×عرض×عمق×ارتفاع", total,
+                              warning="پرت فقط در صورت ورود صریح waste_factor اعمال شده است."),
+        ), ("count", "width", "depth", "height") + (("waste_factor",) if waste is not None else ()))
+
+    if k in {"concrete_beam", "beam_concrete"}:
+        count, length = _n(p, "count", 1), _n(p, "length")
+        width, depth = _n(p, "width"), _n(p, "depth")
+        gross = count * length * width * depth
+        waste = _optional(p, "waste_factor")
+        total = _waste(gross, waste)
+        components = [AssemblyComponent("concrete", "بتن تیر", "m³", "تعداد×طول×عرض×عمق", total,
+                                        warning="پرت فقط در صورت ورود صریح waste_factor اعمال شده است.")]
+        used = ["count", "length", "width", "depth"]
+        if waste is not None:
+            used.append("waste_factor")
+        sides = _optional(p, "formwork_sides")
+        if sides is not None:
+            if sides not in (0, 1, 2):
+                raise ValueError("formwork_sides must be 0, 1 or 2")
+            form_area = count * length * (width + sides * depth)
+            components.append(AssemblyComponent("formwork", "سطح قالب تیر", "m²",
+                                                "تعداد×طول×(عرض زیر تیر+تعداد وجوه جانبی×عمق)", form_area,
+                                                warning="تعداد وجوه جانبی صریحاً توسط کاربر تعیین شده است."))
+            used.append("formwork_sides")
+        rebar_rate = _optional(p, "rebar_kg_per_m3")
+        if rebar_rate is not None:
+            components.append(AssemblyComponent("reinforcement", "وزن آرماتور بر اساس مشخصات ورودی", "kg",
+                                                "حجم بتن×وزن آرماتور واردشده بر m³", total * rebar_rate,
+                                                warning="این نرخ باید از نقشه/مشخصات معتبر وارد شود؛ نرخ پیش‌فرض وجود ندارد."))
+            used.append("rebar_kg_per_m3")
+        return AssemblyResult("concrete_beam", "تیر بتنی", tuple(components), tuple(used))
+
+    if k in {"concrete_slab", "slab_concrete"}:
+        length, width, thickness = _n(p, "length"), _n(p, "width"), _n(p, "thickness")
+        count = _n({"count": p.get("count", 1)}, "count", 1)
+        openings = _n({"openings": p.get("openings", 0)}, "openings")
+        gross_area = count * length * width
+        if openings > gross_area:
+            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دال بیشتر باشد")
+        net_area = gross_area - openings
+        gross_volume = net_area * thickness
+        waste = _optional(p, "waste_factor")
+        total_volume = _waste(gross_volume, waste)
+        components = [
+            AssemblyComponent("net_area", "مساحت خالص دال", "m²", "تعداد×طول×عرض−مساحت بازشوها", net_area),
+            AssemblyComponent("concrete", "بتن دال", "m³", "مساحت خالص×ضخامت", total_volume,
+                              warning="پرت فقط در صورت ورود صریح waste_factor اعمال شده است."),
+        ]
+        used = ["length", "width", "thickness", "count", "openings"]
+        if waste is not None:
+            used.append("waste_factor")
+        return AssemblyResult("concrete_slab", "دال بتنی", tuple(components), tuple(used))
+
+    if k in {"excavation", "خاکبرداری"}:
+        length, width, depth = _n(p, "length"), _n(p, "width"), _n(p, "depth")
+        count = _n({"count": p.get("count", 1)}, "count", 1)
+        volume = count * length * width * depth
+        return AssemblyResult("excavation", "خاکبرداری", (
+            AssemblyComponent("excavation", "حجم خاکبرداری", "m³", "تعداد×طول×عرض×عمق", volume),
+        ), ("length", "width", "depth", "count"))
+
+    if k in {"rebar", "reinforcement"}:
+        count, length, unit_weight = _n(p, "count", 1), _n(p, "length"), _n(p, "unit_weight")
+        gross = count * length * unit_weight
+        waste = _optional(p, "waste_factor")
+        total = _waste(gross, waste)
+        return AssemblyResult("rebar", "آرماتور", (
+            AssemblyComponent("rebar_weight", "وزن آرماتور", "kg", "تعداد×طول×وزن واحد", total,
+                              warning="وزن واحد و پرت باید از ورودی معتبر/مشخصات تأییدشده باشند."),
+        ), ("count", "length", "unit_weight") + (("waste_factor",) if waste is not None else ()))
+
+    if k in {"steel_member", "steel"}:
+        count, length, unit_weight = _n(p, "count", 1), _n(p, "length"), _n(p, "unit_weight")
+        weight = count * length * unit_weight
+        return AssemblyResult("steel_member", "عضو فولادی", (
+            AssemblyComponent("steel_weight", "وزن عضو فولادی", "kg", "تعداد×طول×وزن واحد", weight),
+        ), ("count", "length", "unit_weight"))
+
+    if k in {"floor_finish", "floor_area"}:
+        length, width = _n(p, "length"), _n(p, "width")
+        count = _n({"count": p.get("count", 1)}, "count", 1)
+        openings = _n({"openings": p.get("openings", 0)}, "openings")
+        gross_area = count * length * width
+        if openings > gross_area:
+            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص کف بیشتر باشد")
+        net_area = gross_area - openings
+        components = [AssemblyComponent("finish_area", "مساحت خالص کف‌سازی", "m²",
+                                        "تعداد×طول×عرض−مساحت بازشوها", net_area)]
+        used = ["length", "width", "count", "openings"]
+        consumption = _optional(p, "consumption_per_m2")
+        if consumption is not None:
+            components.append(AssemblyComponent("finish_material", "مصرف مصالح طبق نرخ ورودی", "unit",
+                                                "مساحت خالص×مصرف واردشده بر m²", net_area * consumption,
+                                                warning="واحد مصرف باید توسط کاربر/مشخصات تعیین شود."))
+            used.append("consumption_per_m2")
+        waste = _optional(p, "waste_factor")
+        if waste is not None:
+            components.append(AssemblyComponent("finish_procurement_area", "مقدار تهیه با پرت صریح", "m²",
+                                                "مساحت خالص×(1+پرت)", _waste(net_area, waste)))
+            used.append("waste_factor")
+        return AssemblyResult("floor_finish", "کف‌سازی", tuple(components), tuple(used))
+
     raise KeyError(f"unsupported assembly: {code}")
