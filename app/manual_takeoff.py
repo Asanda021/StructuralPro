@@ -162,6 +162,8 @@ class ManualTakeoffDialog(QDialog):
     def refresh_saved_rows(self):
         self.saved_table.setRowCount(0)
         project_id = self.project_id.text().strip()
+        if self._editing_persisted and self._editing_persisted.get("_selected_project_id") != project_id:
+            self._editing_persisted = None
         if not project_id:
             return
         try:
@@ -232,7 +234,8 @@ class ManualTakeoffDialog(QDialog):
         if parsed.code != item or parsed.missing:
             self.status.setText("پارامترهای خام این ردیف کامل/قابل بازسازی نیستند؛ ویرایش متوقف شد.")
             return
-        self._editing_persisted = record
+        self._editing_persisted = dict(record)
+        self._editing_persisted["_selected_project_id"] = project_id
         self.entry_text.setPlainText(source_text)
         self.element_label.setText(str(record.get("description", label)))
         self.floor_id.setText(str(record.get("system", "") or ""))
@@ -249,7 +252,7 @@ class ManualTakeoffDialog(QDialog):
         project_id = self.project_id.text().strip()
         floor_id = self.floor_id.text().strip()
         try:
-            if not project_id or project_id != str(record.get("project_id", project_id)):
+            if not project_id or project_id != str(record.get("_selected_project_id", "")):
                 raise ValueError("شناسه پروژه با ردیف انتخاب‌شده مطابقت ندارد.")
             if not floor_id:
                 raise ValueError("طبقه یا تراز را مشخص کن.")
