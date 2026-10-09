@@ -28,6 +28,7 @@ def main()->int:
         from core.reports.project_report import build_report
         from core.revisions.compare import compare_rows, summary
         from core.takeoff.templates import TemplateLibrary
+        from core.takeoff.assembly_templates import AssemblyTemplateLibrary
         from core.takeoff.formulas import evaluate
         from core.search.global_search import search_project
         from core.history.undo import CommandStack
@@ -420,7 +421,62 @@ def main()->int:
             d={}; [d.__setitem__(x.split("=",1)[0].strip(),float(x.split("=",1)[1])) for x in vars_.text().split(",") if "=" in x]
             fo.setText("نتیجه: "+str(evaluate(expr.text(),d)))
         except Exception as e: fo.setText("خطا: "+str(e))
-    fe.clicked.connect(do_formula); tools.addTab(tf,"قالب و فرمول")
+    fe.clicked.connect(do_formula)
+    # Assembly templates are explicit-input previews; no result is silently persisted.
+    assembly_lib = AssemblyTemplateLibrary()
+    assembly_templates = assembly_lib.list()
+    assembly_combo = QComboBox()
+    for assembly_template in assembly_templates:
+        assembly_combo.addItem(f"{assembly_template.title_fa} | {assembly_template.code}", assembly_template.code)
+    assembly_inputs = QLineEdit()
+    assembly_inputs.setPlaceholderText("ورودی صریح با کلید انگلیسی؛ نمونه: count=1,length=5,width=4,thickness=0.15,openings=0")
+    assembly_button = QPushButton("محاسبه اجزای قالب ترکیبی")
+    assembly_output = QTextEdit()
+    assembly_output.setReadOnly(True)
+    tfv.addWidget(QLabel("متره ترکیبی با ورودی‌های صریح (بدون ضرایب پنهان)"))
+    tfv.addWidget(assembly_combo)
+    tfv.addWidget(assembly_inputs)
+    tfv.addWidget(assembly_button)
+    tfv.addWidget(assembly_output)
+    def do_assembly_preview():
+        try:
+            import math
+            from core.takeoff.manual_input import PERSIAN_DIGITS
+            raw = assembly_inputs.text().translate(PERSIAN_DIGITS).replace("٫", ".").replace("٬", ",")
+            supplied = {}
+            for pair in raw.split(","):
+                if not pair.strip():
+                    continue
+                if "=" not in pair:
+                    raise ValueError("هر ورودی باید به شکل field=value باشد.")
+                key, value = (part.strip() for part in pair.split("=", 1))
+                if not key or key in supplied:
+                    raise ValueError("کلید ورودی خالی یا تکراری است.")
+                number = float(value)
+                if not math.isfinite(number):
+                    raise ValueError(f"مقدار {key} باید متناهی باشد.")
+                supplied[key] = number
+            template = assembly_lib.get(assembly_combo.currentData())
+            unknown = sorted(set(supplied) - set(template.required_inputs) - set(template.optional_inputs))
+            if unknown:
+                raise ValueError("ورودی ناشناخته برای این قالب: " + "، ".join(unknown))
+            result = assembly_lib.expand(template.code, supplied)
+            if not result.complete:
+                assembly_output.setPlainText("ورودی‌های لازم تکمیل نشده‌اند: " + "، ".join(result.missing_inputs))
+                return
+            rows = [{"code": c.code, "title": c.title, "quantity": c.quantity,
+                     "unit": c.unit, "formula": c.formula, "warning": c.warning}
+                    for c in result.components]
+            assembly_output.setPlainText(
+                json.dumps({"template": result.title, "inputs_used": result.inputs_used,
+                            "components": rows,
+                            "note": "این پیش‌نمایش است؛ ثبت دائمی در پروژه انجام نشده است."},
+                           ensure_ascii=False, indent=2)
+            )
+        except Exception as exc:
+            assembly_output.setPlainText("خطا در محاسبه قالب: " + str(exc))
+    assembly_button.clicked.connect(do_assembly_preview)
+    tools.addTab(tf,"قالب و فرمول")
     sm=QWidget(); smv=QVBoxLayout(sm); sq=QLineEdit(); sq.setPlaceholderText("جستجوی پروژه، متره، آیتم یا کد فهرست‌بها")
     sb=QPushButton("جستجوی سراسری"); so=QTextEdit(); so.setReadOnly(True); smv.addWidget(sq); smv.addWidget(sb); smv.addWidget(so)
     def do_search():
