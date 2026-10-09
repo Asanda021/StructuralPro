@@ -70,6 +70,11 @@ class ManualTakeoffWorkbench:
     def can_redo(self) -> bool:
         return bool(self._redo)
 
+    @property
+    def undo_preview(self) -> tuple[ManualTakeoffRecord, ...]:
+        """Read-only target state for UI safety checks before undo."""
+        return self._undo[-1] if self._undo else self.records
+
     def _snapshot(self) -> None:
         self._undo.append(tuple(self._records))
         self._redo.clear()
