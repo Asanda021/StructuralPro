@@ -45,3 +45,27 @@ def test_bridge_rejects_missing_drawing_identity_and_unsupported_kind():
         prepare_drawing_takeoff_rows([_item()], drawing_source="")
     with pytest.raises(ValueError, match="پشتیبانی"):
         prepare_drawing_takeoff_rows([_item(kind="unknown")], drawing_source="plan.pdf")
+
+
+def test_bridge_adapts_real_drawing_session_and_preserves_takeoff_code():
+    from core.drawings.graphical_takeoff import Point
+    from core.drawings.takeoff_session import DrawingTakeoffSession
+    from core.drawings.takeoff_bridge import prepare_session_takeoff
+
+    session = DrawingTakeoffSession("plan.pdf")
+    session.calibrate(page=1, reference_pixels=100, reference_meters=10)
+    session.add_length([Point(0, 0), Point(100, 0)], page=1, label="دیوار", takeoff_code="WALL-01")
+    rows = prepare_session_takeoff(session)
+    assert len(rows) == 1
+    assert rows[0].quantity == 10
+    assert rows[0].takeoff_code == "WALL-01"
+    assert rows[0].source_ref == "plan.pdf#page=1&takeoff=TO-00001"
+    assert rows[0].status == "needs_review"
+
+
+def test_bridge_rejects_reference_not_matching_drawing_page_and_item():
+    with pytest.raises(ValueError, match="همخوانی"):
+        prepare_drawing_takeoff_rows(
+            [_item(source_ref="other.pdf#page=2&takeoff=TO-00001")],
+            drawing_source="plan.pdf",
+        )
