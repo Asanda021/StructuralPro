@@ -326,11 +326,19 @@ class DrawingTakeoffSession:
         sources = [x.source for x in self.items if x.source]
         if len(sources) != len(set(sources)):
             issues.append("منبع متره تکراری است")
+        for page, calibration in self.calibrations.items():
+            if (page < 1 or calibration.page != page
+                    or not math.isfinite(calibration.meters_per_pixel) or calibration.meters_per_pixel <= 0
+                    or not math.isfinite(calibration.reference_pixels) or calibration.reference_pixels <= 0
+                    or not math.isfinite(calibration.reference_meters) or calibration.reference_meters <= 0):
+                issues.append(f"کالیبراسیون صفحه {page} نامعتبر است")
         for item in self.items:
             if item.page < 1 or not math.isfinite(item.quantity) or item.quantity < 0:
                 issues.append(f"متره {item.id} مقدار نامعتبر دارد")
-            if item.kind in {"length", "area"} and self.calibration is None:
-                issues.append(f"متره {item.id} بدون مقیاس ثبت شده است")
+            if not math.isfinite(item.confidence) or not 0.0 <= item.confidence <= 1.0:
+                issues.append(f"متره {item.id} سطح اطمینان نامعتبر دارد")
+            if item.kind in {"length", "area"} and item.page not in self.calibrations:
+                issues.append(f"متره {item.id} بدون مقیاس همان صفحه ثبت شده است")
         return {"valid": not issues, "issues": issues, "item_count": len(self.items)}
 
     def boq_rows(self, selected_ids: Iterable[str] | None = None) -> list[dict[str, Any]]:
@@ -368,6 +376,7 @@ class DrawingTakeoffSession:
         return {
             "drawing_source": self.drawing_source,
             "calibration": self.calibration.to_dict() if self.calibration else None,
+            "calibrations": {str(page): value.to_dict() for page, value in self.calibrations.items()},
             "current_page": self.current_page,
             "items": [x.to_dict() for x in self.items],
             "markups": [x.to_dict() for x in self.markups.items],
@@ -379,9 +388,27 @@ class DrawingTakeoffSession:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DrawingTakeoffSession":
         session = cls(data.get("drawing_source", ""))
-        raw = data.get("calibration")
-        session.calibration = Calibration(**raw) if raw else None
+        raw_calibrations = data.get("calibrations")
+        if isinstance(raw_calibrations, dict):
+            for page_key, value in raw_calibrations.items():
+                page_number = int(page_key)
+                calibration = Calibration(**value)
+                if calibration.page != page_number:
+                    raise ValueError("شماره صفحه کالیبراسیون با کلید ذخیره‌شده مطابقت ندارد")
+                session.calibrations[page_number] = calibration
+        else:
+            raw = data.get("calibration")
+            if raw:
+                calibration = Calibration(**raw)
+                session.calibrations[calibration.page] = calibration
+        for page_number, calibration in session.calibrations.items():
+            values = (calibration.meters_per_pixel, calibration.reference_pixels, calibration.reference_meters)
+            if page_number < 1 or any(not math.isfinite(float(v)) or float(v) <= 0 for v in values):
+                raise ValueError("فایل متره دارای کالیبراسیون نامعتبر است")
         session.current_page = int(data.get("current_page", 1))
+        if session.current_page < 1:
+            raise ValueError("شماره صفحه جاری باید مثبت باشد")
+        session.calibration = session.calibrations.get(session.current_page)
         session.items = [
             TakeoffItem(
                 id=str(x["id"]), kind=str(x["kind"]), quantity=float(x["quantity"]),
