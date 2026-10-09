@@ -16,6 +16,7 @@ jobs:
         priority: [P110, P111, P112, P113, P114]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-qt-runtime
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -28,6 +29,7 @@ jobs:
     needs: acceptance
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-qt-runtime
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
