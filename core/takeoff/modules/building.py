@@ -7,6 +7,7 @@ forms, CAD rules, BIM quantities, or imported schedules.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
+import math
 
 @dataclass(frozen=True)
 class QuantityResult:
@@ -20,11 +21,17 @@ class QuantityResult:
 def _n(v: Any, name: str, *, minimum: float = 0.0) -> float:
     try: x=float(v)
     except (TypeError, ValueError): raise ValueError(f"{name} must be numeric")
+    if not math.isfinite(x): raise ValueError(f"{name} must be finite")
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
     return x
 
 def _rect_area(length,width): return _n(length,"length")*_n(width,"width")
-def _wall_area(length,height,openings=0): return max(0.0,_n(length,"length")*_n(height,"height")-_n(openings,"openings"))
+def _wall_area(length,height,openings=0):
+    gross = _n(length,"length")*_n(height,"height")
+    deduction = _n(openings,"openings")
+    if deduction > gross:
+        raise ValueError("openings cannot exceed gross wall area")
+    return gross-deduction
 
 def calculate_building_item(item: str, **p: Any) -> QuantityResult:
     k=item.strip().casefold().replace(" ","_")
@@ -53,7 +60,9 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
         area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
         gross=area*_n(p["thickness"],"thickness", minimum=1e-12)
         void=3.141592653589793*(_n(p["void_diameter"],"void_diameter")/2)**2*_n(p["length"],"length")*_n(p["void_count"],"void_count")*_n(p.get("count",1),"count")
-        q=max(0.0,gross-void)
+        if void > gross:
+            raise ValueError("hollow-core void volume cannot exceed gross slab volume")
+        q=gross-void
         return QuantityResult("سقف دال مجوف",item,q,"m3","L×W×t − π(d/2)²×L×تعداد فضای خالی",())
     if k in {"waffle_roof","وافل"}:
         area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
@@ -67,7 +76,9 @@ def calculate_building_item(item: str, **p: Any) -> QuantityResult:
         area=_rect_area(p["length"],p["width"])*_n(p.get("count",1),"count")
         gross=area*_n(p["thickness"],"thickness")
         void=_n(p["void_length"],"void_length")*_n(p["void_width"],"void_width")*_n(p["void_height"],"void_height")*_n(p["void_count"],"void_count")*_n(p.get("count",1),"count")
-        q=max(0.0,gross-void)
+        if void > gross:
+            raise ValueError("void volume cannot exceed gross slab volume")
+        q=gross-void
         return QuantityResult("سقف مجوف",item,q,"m3","L×W×t − حجم واقعی فضاهای خالی",())
     if k in {"slab_volume","concrete_slab","بتن_سقف"}:
         q=_rect_area(p["length"],p["width"])*_n(p["thickness"],"thickness")*_n(p.get("count",1),"count"); return QuantityResult("ابنیه","بتن سقف",q,"m3","L×W×t×تعداد")

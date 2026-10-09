@@ -11,7 +11,7 @@ Iranian quantity-takeoff practice explicit and traceable.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import ceil
+from math import ceil, isfinite
 from typing import Any, Mapping
 
 
@@ -44,6 +44,8 @@ def _n(p: Mapping[str, Any], name: str, minimum: float = 0.0) -> float:
         value = float(p[name])
     except (KeyError, TypeError, ValueError):
         raise ValueError(f"{name} must be numeric")
+    if not isfinite(value):
+        raise ValueError(f"{name} must be finite")
     if value < minimum:
         raise ValueError(f"{name} must be >= {minimum}")
     return value
@@ -58,6 +60,8 @@ def _optional(p: Mapping[str, Any], name: str) -> float | None:
 def _waste(q: float, factor: float | None) -> float:
     if factor is None:
         return q
+    if not isfinite(factor):
+        raise ValueError("waste_factor must be finite")
     if factor < 0:
         raise ValueError("waste_factor must be >= 0")
     return q * (1.0 + factor)

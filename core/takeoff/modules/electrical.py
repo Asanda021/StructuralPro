@@ -1,6 +1,7 @@
 """Electrical quantity operations."""
 from __future__ import annotations
 from dataclasses import dataclass
+import math
 from typing import Any
 
 @dataclass(frozen=True)
@@ -13,6 +14,7 @@ class ElectricalResult:
 def _n(v,name):
     try: x=float(v)
     except (TypeError,ValueError): raise ValueError(f"{name} must be numeric")
+    if not math.isfinite(x): raise ValueError(f"{name} must be finite")
     if x<0: raise ValueError(f"{name} must be >= 0")
     return x
 

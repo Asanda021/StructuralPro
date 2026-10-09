@@ -92,18 +92,18 @@ def test_roof_calculations_fail_closed_on_invalid_geometry(item, params, field):
         calculate_building_item(item, **params)
 
 
-def test_roof_void_quantity_never_creates_negative_concrete():
-    result = calculate_building_item(
-        "uboot_roof",
-        length=1,
-        width=1,
-        thickness=0.10,
-        void_length=1,
-        void_width=1,
-        void_height=1,
-        void_count=100,
-    )
-    assert result.quantity == 0.0
+def test_uboot_void_volume_larger_than_gross_slab_is_rejected():
+    with pytest.raises(ValueError, match="void volume cannot exceed gross slab volume"):
+        calculate_building_item(
+            "uboot_roof",
+            length=1,
+            width=1,
+            thickness=0.10,
+            void_length=1,
+            void_width=1,
+            void_height=1,
+            void_count=100,
+        )
 
 
 def test_steel_roof_families_use_explicit_inputs():

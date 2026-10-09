@@ -17,7 +17,7 @@ def main()->int:
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
             QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
         )
-        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtCore import Qt, QTimer, QEvent, QCoreApplication
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
@@ -913,16 +913,21 @@ def main()->int:
     w.show()
     logger.info("StructuralPro UI initialized")
     if os.getenv("STRUCTURALPRO_SMOKE") == "1":
-        # CI smoke must validate full desktop construction without relying on
-        # platform-specific event-loop shutdown semantics.
+        # Exercise the same Qt event-loop and top-level-window destruction path
+        # used by interactive Windows shutdown. Returning before QApplication's
+        # event loop has run can leave native Qt objects to be finalized in an
+        # unsafe order by the frozen Python runtime.
+        w.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        def close_smoke_window():
+            w.close()
+        QTimer.singleShot(0, close_smoke_window)
+        result = app.exec()
+        # Flush deferred QWidget deletion while QApplication is still alive.
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
-        # Close the top-level window before QApplication teardown. This keeps
-        # the frozen Windows runtime on the same orderly widget-destruction
-        # path as an interactive shutdown instead of exiting with live widgets.
-        w.close()
-        app.processEvents()
+        # Explicitly request Qt shutdown after deferred widget destruction.
         app.quit()
-        logger.info("StructuralPro smoke initialization completed")
+        logger.info("StructuralPro smoke initialization completed with exit code %s", result)
         return 0
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
