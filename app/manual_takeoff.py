@@ -214,8 +214,10 @@ class ManualTakeoffDialog(QDialog):
         if self.workbench is None or not self.workbench.can_undo:
             self.status.setText("عملیات قابل واگردی وجود ندارد.")
             return
-        if self.workbench.records and self.workbench.records[-1].record_id in self._saved_ids:
-            self.status.setText("آخرین ردیف ذخیره‌شده است؛ واگرد فقط برای تغییرات پیش‌نمایش مجاز است.")
+        undo_target_ids = {row.record_id for row in self.workbench.undo_preview}
+        if any(row.record_id in self._saved_ids and row.record_id not in undo_target_ids
+               for row in self.workbench.records):
+            self.status.setText("این واگرد ردیف ذخیره‌شده را از پیش‌نمایش خارج می‌کند؛ برای جلوگیری از مغایرت، عملیات متوقف شد.")
             return
         self.workbench.undo()
         self._render_records()
