@@ -1,6 +1,8 @@
 """Project-linked Persian manual takeoff dialog for StructuralPro."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout,
@@ -53,6 +55,7 @@ class ManualTakeoffDialog(QDialog):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.workbench = None
         self._saved_ids: set[str] = set()
+        self._session_id = uuid4().hex
 
         root = QVBoxLayout(self)
         form = QFormLayout()
@@ -92,6 +95,7 @@ class ManualTakeoffDialog(QDialog):
         if self.workbench is None or self.workbench.project_id != project_id:
             self.workbench = ManualTakeoffWorkbench(project_id)
             self._saved_ids.clear()
+            self._session_id = uuid4().hex
             self.table.setRowCount(0)
         try:
             entries = parse_manual_batch(self.entry_text.toPlainText())
@@ -165,7 +169,7 @@ class ManualTakeoffDialog(QDialog):
                     domain,
                     item,
                     description=record.element_label,
-                    source_id=f"manual-workbench:{record.project_id}:{record.record_id}",
+                    source_id=f"manual-workbench:{record.project_id}:{self._session_id}:{record.record_id}",
                     system=record.floor_id,
                     **dict(record.params),
                 )
