@@ -42,7 +42,7 @@ TEMPLATES: tuple[AssemblyTemplate, ...] = (
     AssemblyTemplate("rebar", "آرماتور", ("count", "length", "unit_weight"), ("waste_factor",)),
     AssemblyTemplate("steel_member", "عضو فولادی", ("count", "length", "unit_weight"), ()),
     AssemblyTemplate("floor_finish", "کف‌سازی", ("count", "length", "width", "openings"),
-                     ("consumption_per_m2", "waste_factor")),
+                     ("consumption_per_m2", "consumption_unit", "waste_factor")),
 )
 
 
