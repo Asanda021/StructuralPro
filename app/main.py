@@ -452,6 +452,12 @@ def main()->int:
                 key, value = (part.strip() for part in pair.split("=", 1))
                 if not key or key in supplied:
                     raise ValueError("کلید ورودی خالی یا تکراری است.")
+                if key == "consumption_unit":
+                    unit = value.strip()
+                    if not unit:
+                        raise ValueError("واحد مصرف مصالح نمی‌تواند خالی باشد.")
+                    supplied[key] = unit
+                    continue
                 number = float(value)
                 if not math.isfinite(number):
                     raise ValueError(f"مقدار {key} باید متناهی باشد.")
