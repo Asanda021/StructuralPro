@@ -15,7 +15,7 @@ def test_manual_takeoff_requires_project_and_floor_before_preview():
     assert 'if not project_id:' in DIALOG
     assert 'if not floor_id:' in DIALOG
     assert "self.service.open_project(project_id)" in DIALOG
-    assert "self.workbench.add_batch(" in DIALOG
+    assert "self.workbench.add_text(" in DIALOG
 
 
 def test_manual_takeoff_saves_deterministic_quantities_to_project_service():
