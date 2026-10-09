@@ -186,6 +186,7 @@ class DrawingTakeoffSession:
         px = polyline_length(pts)
         quantity = self._ensure_finite(px * factor)
         self._ensure_source_unique(source)
+        confidence = self._ensure_confidence(confidence)
         self._record()
         item_id = self._next_id()
         item = TakeoffItem(
