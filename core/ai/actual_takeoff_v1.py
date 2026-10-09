@@ -18,7 +18,7 @@ from core.ai.takeoff_intelligence_v1 import group_candidates
 from core.ai.takeoff_production_v1 import build_production_takeoff
 
 
-_INDEX_SOURCE = re.compile(r"^entity-\\d+$")
+_INDEX_SOURCE = re.compile(r"^entity-\d+$")
 
 
 @dataclass(frozen=True)
