@@ -92,7 +92,7 @@ class DWGTakeoffEngine:
                     data["length"] = math.dist(data["start"], data["end"])
                 elif typ in {"LWPOLYLINE", "POLYLINE"}:
                     pts = [p[:2] for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [v.dxf.location for v in e.vertices]
-                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "closed", False)))
+                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "is_closed", getattr(e, "closed", False))))
                     data["points"] = pts
                 elif typ == "CIRCLE":
                     r = float(e.dxf.radius)
