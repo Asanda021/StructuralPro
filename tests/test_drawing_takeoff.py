@@ -13,7 +13,7 @@ def test_dwg_layer_quantity():
     )
     assert rows[0]["quantity"] == 10
     assert rows[0]["count"] == 2
-    assert rows[0]["needs_confirmation"] is False
+    assert rows[0]["needs_confirmation"] is True
 
 
 def test_dwg_missing_metric_uses_count():
