@@ -43,3 +43,19 @@ def test_wall_can_explicitly_have_zero_openings():
     assert isinstance(row, ManualTakeoffRecord)
     assert row.quantity == pytest.approx(12.0)
     assert row.unit == "m2"
+
+
+def test_remove_record_is_undoable_and_redoable():
+    wb = ManualTakeoffWorkbench("project-1")
+    first = wb.add_text("ستون: تعداد=1، عرض=0.4، عمق=0.4، ارتفاع=3", floor_id="L1")
+    second = wb.add_text("ستون: تعداد=2، عرض=0.4، عمق=0.4، ارتفاع=3", floor_id="L1")
+    wb.remove_record(first.record_id)
+    assert [row.record_id for row in wb.records] == [second.record_id]
+    wb.undo()
+    assert [row.record_id for row in wb.records] == [first.record_id, second.record_id]
+    assert wb.can_undo and wb.can_redo
+    wb.redo()
+    assert [row.record_id for row in wb.records] == [second.record_id]
+    assert wb.can_undo and not wb.can_redo
+    with pytest.raises(KeyError):
+        wb.remove_record("not-a-record")

@@ -62,6 +62,19 @@ class ManualTakeoffWorkbench:
     @property
     def records(self) -> tuple[ManualTakeoffRecord, ...]: return tuple(self._records)
 
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
+
+    @property
+    def undo_preview(self) -> tuple[ManualTakeoffRecord, ...]:
+        """Read-only target state for UI safety checks before undo."""
+        return self._undo[-1] if self._undo else self.records
+
     def _snapshot(self) -> None:
         self._undo.append(tuple(self._records))
         self._redo.clear()
@@ -103,6 +116,16 @@ class ManualTakeoffWorkbench:
 
     def redo(self) -> tuple[ManualTakeoffRecord, ...]:
         if self._redo: self._undo.append(tuple(self._records)); self._records = list(self._redo.pop())
+        return self.records
+
+    def remove_record(self, record_id: str) -> tuple[ManualTakeoffRecord, ...]:
+        """Remove one pending record with undo/redo support."""
+        key = str(record_id or "").strip()
+        index = next((i for i, row in enumerate(self._records) if row.record_id == key), None)
+        if index is None:
+            raise KeyError(f"manual takeoff record not found: {key}")
+        self._snapshot()
+        self._records.pop(index)
         return self.records
 
     def export_rows(self) -> tuple[dict, ...]: return tuple(record.to_dict() for record in self._records)

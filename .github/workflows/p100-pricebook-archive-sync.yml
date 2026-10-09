@@ -4,9 +4,6 @@ name: P100 Pricebook Archive Sync
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/p100-pricebook-archive-sync.yml"
 
 permissions:
   contents: write
@@ -18,11 +15,11 @@ concurrency:
 
 jobs:
   sync:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       PYTHONPATH: .
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,7 +32,7 @@ jobs:
       - name: Download and extract 24 pricebooks
         run: python scripts/sync_pricebooks_24.py
       - name: Remove raw archives from repository payload
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
         run: rm -rf data/pricebooks/raw
       - name: Verify 24-cell production matrix
         run: |
@@ -50,7 +47,7 @@ jobs:
           print("24/24 cells verified with priced rows, URLs and SHA-256 provenance")
           PY
       - name: Publish imported pricebooks on automation branch
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -69,12 +66,7 @@ jobs:
           prs=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "$api/repos/${GITHUB_REPOSITORY}/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:$branch&base=main")
           count=$(printf "%s" "$prs" | python -c 'import json,sys; print(len(json.load(sys.stdin)))')
           if [ "$count" -eq 0 ]; then
-            payload=$(python - "$branch" <<'PY'
-import json, sys
-branch=sys.argv[1]
-print(json.dumps({"title":"P100 — Publish 24 real Iranian pricebooks","head":branch,"base":"main","body":"Automated publication of the verified P100 1399–1404 × 4-discipline real pricebook dataset. Includes normalized rows, manifest, SHA-256 provenance and priced-row coverage.\n\nDirect pushes to main are blocked by repository rules, so this PR is the publication boundary."}))
-PY
-)
+            payload=$(python -c 'import json,sys; print(json.dumps({"title":"P100 — Publish 24 real Iranian pricebooks","head":sys.argv[1],"base":"main","body":"Automated publication of the verified P100 1399–1404 × 4-discipline real pricebook dataset. Includes normalized rows, manifest, SHA-256 provenance and priced-row coverage. Direct pushes to main are blocked by repository rules, so this PR is the publication boundary."}))' "$branch")
             curl -fsSL -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" "$api/repos/${GITHUB_REPOSITORY}/pulls" -d "$payload"
           else
             echo "An open publication PR already exists for $branch."

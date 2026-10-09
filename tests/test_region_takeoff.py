@@ -50,6 +50,7 @@ def test_registering_same_region_twice_is_rejected_to_prevent_double_counting():
 
 def test_calibrated_rectangle_area_previews_quantity_without_creating_an_item():
     session = DrawingTakeoffSession("plan.pdf")
+    session.set_page(2)
     session.calibrate(page=2, reference_pixels=100, reference_meters=10)
     area = calibrated_rectangle_area(10, 20, 30, 60, session.calibration.meters_per_pixel)
     assert area == pytest.approx(8.0)

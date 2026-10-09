@@ -45,6 +45,7 @@ def main()->int:
         from core.commercial.progress import build_progress
         from core.reports.production import prepare_report
         from app.graphical_takeoff import GraphicalTakeoffDialog
+        from app.manual_takeoff import ManualTakeoffDialog
         from app.aec_workspace import build_aec_workspace
         from app.theme import APP_STYLESHEET
         from core.ui.ux import DEFAULT_ACTIONS, navigation_groups, quick_status
@@ -158,7 +159,7 @@ def main()->int:
     for d in all_disciplines(): discipline.addItem(d.title_fa, d.key)
     length=QLineEdit(); width=QLineEdit(); height=QLineEdit(); price_code=QLineEdit()
     for x,l in ((qpid,"شناسه پروژه"),(discipline,"رشته/دیسپلین"),(item,"آیتم"),(length,"طول"),(width,"عرض"),(height,"ارتفاع"),(price_code,"کد فهرست‌بها")): form.addRow(l,x)
-    v.addLayout(form); calc=QPushButton("محاسبه و ثبت"); out=QTextEdit(); out.setReadOnly(True); v.addWidget(calc); v.addWidget(out)
+    v.addLayout(form); calc=QPushButton("محاسبه و ثبت"); manual_button=QPushButton("📝 متره دستی حرفه‌ای"); out=QTextEdit(); out.setReadOnly(True); v.addWidget(calc); v.addWidget(manual_button); v.addWidget(out)
     def do_calc():
         try:
             params={"length":float(length.text() or 0),"width":float(width.text() or 0),"height":float(height.text() or 0),"member_code":item.currentText(),"discipline":discipline.currentData() or "building","price_code":price_code.text().strip() or None}
@@ -170,6 +171,11 @@ def main()->int:
             out.setPlainText(f'ثبت شد\nمقدار: {row["quantities"][0]["amount"]} {row["quantities"][0]["unit"]}')
         except Exception as e: out.setPlainText("خطا: "+str(e))
     calc.clicked.connect(do_calc)
+    def open_manual_workbench():
+        dialog=ManualTakeoffDialog(service,qpid.text().strip(),w)
+        dialog.exec()
+        dashboard_page.refresh()
+    manual_button.clicked.connect(open_manual_workbench)
     pages.addWidget(p); idx_quick=pages.count()-1
 
     # Drawing takeoff — phase 1 human confirmation + provenance/audit gate
