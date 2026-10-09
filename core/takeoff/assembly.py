@@ -82,9 +82,9 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # Block wall: geometry determines net area and nominal volume.  Block size
     # and mortar joint/mix are specification inputs, not fixed coefficients.
     if k in {"block_wall", "masonry_block_wall", "دیوار_بلوک"}:
-        L, H, t = _n(p, "length"), _n(p, "height"), _n(p, "thickness")
+        L, H, t = _n(p, "length", 1e-12), _n(p, "height", 1e-12), _n(p, "thickness", 1e-12)
         openings = _n({"openings": p.get("openings", 0)}, "openings")
-        area = max(0.0, L * H - openings)
+        if openings > L * H:\n            raise ValueError("مساحت بازشوها نمی‌تواند از مساحت ناخالص دیوار بیشتر باشد")\n        area = L * H - openings
         volume = area * t
         bw = _optional(p, "block_length")
         bh = _optional(p, "block_height")
@@ -102,7 +102,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
                     ("cement_parts", mortar_ratio_c), ("sand_parts", mortar_ratio_s),
                 ) if v is None),
             )
-        block_nominal = (bw + joint) * (bh + joint) * bt
+        if min(bw, bh, bt, joint) <= 0:\n            raise ValueError("ابعاد بلوک و ضخامت بند باید مثبت باشند")\n        block_nominal = (bw + joint) * (bh + joint) * bt
         blocks = area / ((bw + joint) * (bh + joint))
         block_waste = _optional(p, "block_waste_factor")
         blocks_final = ceil(_waste(blocks, block_waste))
@@ -129,13 +129,13 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # geometry.  Foam and joist quantities come from actual module dimensions;
     # reinforcement is only calculated when its specification is supplied.
     if k in {"joist_foam_roof_assembly", "joist_block_roof_assembly", "سقف_تیرچه_یونولیت"}:
-        L, W = _n(p, "length"), _n(p, "width")
+        L, W = _n(p, "length", 1e-12), _n(p, "width", 1e-12)
         count = _n({"count": p.get("count", 1)}, "count", 1)
         area = L * W * count
-        topping = _n(p, "topping_thickness")
+        topping = _n(p, "topping_thickness", 1e-12)
         spacing = _n(p, "joist_spacing", 1e-12)
-        jw = _n(p, "joist_width")
-        jd = _n(p, "joist_depth")
+        jw = _n(p, "joist_width", 1e-12)
+        jd = _n(p, "joist_depth", 1e-12)
         joist_count = _optional(p, "joist_count")
         if joist_count is None:
             joist_count = ceil(W / spacing) + 1
@@ -144,7 +144,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         foam_l = _optional(p, "foam_length")
         foam_w = _optional(p, "foam_width")
         foam_h = _optional(p, "foam_height")
-        if None in (foam_l, foam_w, foam_h):
+        if any(v is not None and v <= 0 for v in (foam_l, foam_w, foam_h)):\n            raise ValueError("ابعاد یونولیت باید مثبت باشند")\n        if None in (foam_l, foam_w, foam_h):
             return AssemblyResult(
                 k, "سقف تیرچه یونولیت" if "foam" in k or "یونولیت" in k else "سقف تیرچه‌بلوک", (
                     AssemblyComponent("concrete", "بتن", "m³",
