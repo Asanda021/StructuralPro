@@ -83,3 +83,26 @@ def test_drawing_scale_calibration_is_independent_per_page():
     assert session.calibration is not None and session.calibration.page == 1
     third = session.add_length([Point(0, 0), Point(100, 0)], page=1, source="page1-wall-2")
     assert third.quantity == 10
+
+
+def test_drawing_calibration_rejects_non_finite_reference_values():
+    import math
+    import pytest
+    from core.drawings.takeoff_session import DrawingTakeoffSession
+
+    session = DrawingTakeoffSession("plan.pdf")
+    for pixels, meters in ((math.nan, 10), (math.inf, 10), (100, math.nan), (100, math.inf)):
+        with pytest.raises(ValueError, match="finite"):
+            session.calibrate(1, pixels, meters)
+
+
+def test_calibrating_another_page_does_not_change_active_page_scale():
+    from core.drawings.takeoff_session import DrawingTakeoffSession
+
+    session = DrawingTakeoffSession("plan.pdf")
+    first = session.calibrate(1, 100, 10)
+    second = session.calibrate(2, 100, 5)
+    assert second.page == 2
+    assert session.calibration == first
+    session.set_page(2)
+    assert session.calibration == second
