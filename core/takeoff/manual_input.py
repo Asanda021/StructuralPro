@@ -44,7 +44,8 @@ def _normalise(text: str) -> str:
 def _extract_named(text: str) -> dict[str, float]:
     aliases = {
         "تعداد":"count","عدد":"count","طول":"length","عرض":"width","عمق":"depth",
-        "ارتفاع":"height","ضخامت":"thickness","بازشو":"openings","فاصله تیرچه":"joist_spacing",
+        "ارتفاع":"height","ضخامت":"thickness","ضخامت رویه":"topping_thickness","ضخامت جان پله":"waist_thickness",
+        "طول شیبدار":"sloped_length","بازشو":"openings","فاصله تیرچه":"joist_spacing",
         "فاصله":"joist_spacing","عرض تیرچه":"joist_width","عمق تیرچه":"joist_depth",
         "وزن واحد":"unit_weight","وزن":"unit_weight",
     }
@@ -77,7 +78,7 @@ def parse_manual_entry(text: str) -> ManualEntry:
             params.setdefault("depth", _number(dims.group(2))/factor)
         elif "count" not in params and nums:
             params["count"] = nums[0]
-    missing = tuple(name for name in fields if name not in params or params[name] <= 0)
+    missing = tuple(name for name in fields if name not in params or (params[name] < 0 if name == "openings" else params[name] <= 0))
     return ManualEntry(code, params, missing, raw)
 
 def parse_manual_batch(text: str) -> tuple[ManualEntry,...]:

@@ -178,28 +178,43 @@ class DWGTakeoffEngine:
         }
 
     def layer_takeoff(self, doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+        """Create review-required layer summaries; never treat raw/unknown units as metres."""
         out = []
         for layer, rule in rules.items():
             ents = [e for e in doc.entities if e.layer == layer]
             if not ents:
                 continue
-            metric = rule.get("metric", "count")
-            values = [float(e.data.get(metric, 1) or 0) for e in ents]
-            if any(not math.isfinite(v) or v < 0 for v in values):
-                raise ValueError(f"Invalid CAD quantity on layer: {layer}")
+            metric = str(rule.get("metric", "count")).strip().lower()
+            if metric not in {"count", "length", "area"}:
+                raise ValueError(f"متریک CAD پشتیبانی نمی‌شود: {metric}")
+            if metric in {"length", "area"} and cad_unit_factor(doc.units) is None:
+                raise ValueError(
+                    f"واحد نقشه CAD برای لایه {layer} نامشخص است؛ پیش از برداشت طول/مساحت، واحد یا کالیبراسیون معتبر تعیین شود."
+                )
+            values = []
+            for entity in ents:
+                raw = entity.data.get(metric, 1 if metric == "count" else None)
+                if raw is None:
+                    raise ValueError(f"هندسه لازم برای متریک {metric} در لایه {layer} وجود ندارد.")
+                value = float(raw)
+                if not math.isfinite(value) or value < 0:
+                    raise ValueError(f"مقدار CAD نامعتبر در لایه: {layer}")
+                values.append(value)
             qty = sum(values)
+            default_unit = {"count": "عدد", "length": "m", "area": "m²"}[metric]
             out.append({
                 "layer": layer,
                 "count": len(ents),
                 "quantity": qty,
-                "description": rule.get("description", layer),
-                "unit": rule.get("unit", "عدد" if metric == "count" else "m"),
+                "description": str(rule.get("description", layer)),
+                "unit": str(rule.get("unit", default_unit)),
                 "price_code": rule.get("price_code"),
                 "source": f"dwg-layer:{layer}",
-                "needs_confirmation": False,
+                "needs_confirmation": True,
+                "unit_basis": doc.units,
+                "metric": metric,
             })
         return out
-
 
 def infer_takeoff_from_layers(doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return DWGTakeoffEngine().layer_takeoff(doc, rules)
