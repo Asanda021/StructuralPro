@@ -13,6 +13,12 @@ python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpat
 
 $exe="dist/StructuralPro/StructuralPro.exe"
 $embedded="dist/StructuralPro/VERSION"
+dotnet restore tools/acadsharp-dwg-bridge/StructuralPro.DwgBridge.csproj
+dotnet publish tools/acadsharp-dwg-bridge/StructuralPro.DwgBridge.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true --output dist/StructuralPro/dwg-bridge
+if (-not (Test-Path "dist/StructuralPro/dwg-bridge/StructuralPro.DwgBridge.exe")) { throw "ACadSharp DWG bridge was not published" }
+Copy-Item "tools/acadsharp-dwg-bridge/README.md" "dist/StructuralPro/dwg-bridge/README.md" -Force
+Copy-Item "third_party/ACADSHARP_LICENSE.txt" "dist/StructuralPro/dwg-bridge/ACADSHARP_LICENSE.txt" -Force
+
 if (-not (Test-Path $exe)) { throw "PyInstaller did not create $exe" }
 Copy-Item VERSION $embedded -Force
 if (-not (Test-Path $embedded)) { throw "Packaged VERSION is missing" }

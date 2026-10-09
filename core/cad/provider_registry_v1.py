@@ -28,7 +28,7 @@ def provider_info(cad_format: str) -> ProviderInfo:
     if fmt == "DXF":
         return DXF_PROVIDER
     if fmt == "DWG":
-        return ProviderInfo("DWG", "external-authorized-provider", False, False)
+        return ProviderInfo("DWG", "ACadSharp", True, True)
     raise ValueError("Unsupported CAD format")
 
 def read_production_cad(path: str | Path, *, dwg_provider: AuthorizedCADProvider | None = None) -> object:
@@ -40,7 +40,7 @@ def read_production_cad(path: str | Path, *, dwg_provider: AuthorizedCADProvider
         if dwg_provider is None:
             raise ValueError(
                 "DWG import requires an explicitly configured authorized provider; "
-                "no native DWG parser is bundled."
+                "the MIT-licensed ACadSharp bridge is bundled for the Windows product."
             )
         return dwg_provider.read(source)
     raise ValueError("Unsupported CAD format")
