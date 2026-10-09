@@ -19,13 +19,14 @@ def test_phase10_takeoff_to_boq_estimate_statement_and_report(tmp_path):
         unit_price=1000,
         source_id="drawing:A:01",
     )
+    assert row["source_id"] == "drawing:A:01"
     assert row["quantities"][0]["amount"] == pytest.approx(15)
-    assert row["quantities"][0]["source_id"] == "drawing:A:01"
 
     project = app.open_project("phase10-001")
     assert len(project["boq"]) == 1
     assert project["boq"][0]["price_code"] == "W001"
     assert project["boq"][0]["quantity"] == pytest.approx(15)
+    assert project["boq"][0]["source_id"] == "drawing:A:01"
 
     estimate = app.recalculate_estimate("phase10-001", factors={"بالاسری": 0.10})
     assert estimate["finalizable"] is True
