@@ -57,7 +57,7 @@ def test_phase_three_to_five_viewer_zoom_and_persian_cad_are_wired():
     assert 'self.zoom_window = QPushButton("Zoom Window")' in source
     assert 'self.select_region = QPushButton("انتخاب ناحیه")' in source
     assert 'self.region_to_takeoff = QPushButton("ثبت ناحیه در متره")' in source
-    assert "self.canvas.fitInView(scene_rect" in source
+    assert "self.fitInView(scene_rect" in source
     assert "normalize_cad_text(d[\"text\"])" in source
     assert "is_rtl_cad_text(text)" in source
     assert "کالیبراسیون لازم است" in source
