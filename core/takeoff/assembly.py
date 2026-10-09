@@ -51,6 +51,13 @@ def _n(p: Mapping[str, Any], name: str, minimum: float = 0.0) -> float:
     return value
 
 
+def _count(p: Mapping[str, Any], name: str, default: int = 1) -> int:
+    value = _n({name: p.get(name, default)}, name, 1)
+    if not value.is_integer():
+        raise ValueError(f"{name} must be an integer")
+    return int(value)
+
+
 def _optional(p: Mapping[str, Any], name: str) -> float | None:
     if name not in p or p[name] in (None, ""):
         return None
@@ -130,7 +137,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
     # reinforcement is only calculated when its specification is supplied.
     if k in {"joist_foam_roof_assembly", "joist_block_roof_assembly", "سقف_تیرچه_یونولیت"}:
         L, W = _n(p, "length", 1e-12), _n(p, "width", 1e-12)
-        count = _n({"count": p.get("count", 1)}, "count", 1)
+        count = _count(p, "count")
         area = L * W * count
         topping = _n(p, "topping_thickness", 1e-12)
         spacing = _n(p, "joist_spacing", 1e-12)
@@ -139,6 +146,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         joist_count = _optional(p, "joist_count")
         if joist_count is None:
             joist_count = ceil(W / spacing) + 1
+        if joist_count is not None and (joist_count <= 0 or not float(joist_count).is_integer()):
+            raise ValueError("joist_count must be a positive integer when supplied")
         joists = joist_count * count
         concrete = area * topping + joists * L * jw * jd
         foam_l = _optional(p, "foam_length")
@@ -194,7 +203,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("count", "width", "depth", "height") + (("waste_factor",) if waste is not None else ()))
 
     if k in {"concrete_beam", "beam_concrete"}:
-        count, length = _n(p, "count", 1), _n(p, "length", 1e-12)
+        count, length = _count(p, "count"), _n(p, "length", 1e-12)
         width, depth = _n(p, "width", 1e-12), _n(p, "depth", 1e-12)
         gross = count * length * width * depth
         waste = _optional(p, "waste_factor")
@@ -251,7 +260,7 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
         ), ("length", "width", "depth", "count"))
 
     if k in {"rebar", "reinforcement"}:
-        count, length, unit_weight = _n(p, "count", 1), _n(p, "length", 1e-12), _n(p, "unit_weight", 1e-12)
+        count, length, unit_weight = _count(p, "count"), _n(p, "length", 1e-12), _n(p, "unit_weight", 1e-12)
         gross = count * length * unit_weight
         waste = _optional(p, "waste_factor")
         total = _waste(gross, waste)
