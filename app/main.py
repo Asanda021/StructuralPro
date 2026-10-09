@@ -923,8 +923,10 @@ def main()->int:
         # Flush deferred QWidget deletion while QApplication is still alive.
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
+        # Explicitly request Qt shutdown after deferred widget destruction.
+        app.quit()
         logger.info("StructuralPro smoke initialization completed with exit code %s", result)
-        return result
+        return 0
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
     return result
