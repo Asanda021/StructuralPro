@@ -1,0 +1,77 @@
+import copy
+
+import pytest
+
+from core.drawings.graphical_takeoff import Point
+from core.drawings.takeoff_session import DrawingTakeoffSession
+from core.platform.application import StructuralProApp
+
+
+def _proposal(session_id, revision, drawing_source, *, meters_per_pixel=0.1):
+    return {
+        "drawing_id": session_id,
+        "revision_id": str(revision),
+        "candidates": [{
+            "source_id": "page-1:line-1",
+            "page": 1,
+            "kind": "length",
+            "unit": "m",
+            "quantity": 10.0,
+            "confidence": 0.98,
+            "label": "طول دیوار محور A",
+            "formula": "طول هندسی × مقیاس صفحه",
+            "evidence": {
+                "source_ref": f"{drawing_source}#page=1&region=line-1",
+                "scale_ref": "calibration:page-1:rev-1",
+                "meters_per_pixel": meters_per_pixel,
+            },
+        }],
+    }
+
+
+def test_ai_takeoff_requires_human_confirmation_and_saved_drawing_evidence(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه متره هوشمند", "ai-project")
+    session = DrawingTakeoffSession("golden://project/A101.pdf")
+    session.calibrate(1, 100, 10)
+    session.add_length([Point(0, 0), Point(100, 0)], page=1, label="خط مرجع")
+    saved = app.save_drawing_takeoff_session("ai-project", session)
+    proposal = _proposal(saved["session_id"], saved["revision"], session.drawing_source)
+
+    with pytest.raises(PermissionError, match="تأیید صریح"):
+        app.commit_ai_takeoff_proposal("ai-project", proposal, user_confirmed=False)
+    assert app.open_project("ai-project")["takeoffs"] == []
+
+    committed = app.commit_ai_takeoff_proposal("ai-project", proposal, user_confirmed=True)
+    assert committed["approved"] is True
+    assert len(committed["takeoffs_added"]) == 1
+    project = app.open_project("ai-project")
+    assert len(project["takeoffs"]) == 1
+    assert len(project["boq"]) == 1
+    assert project["takeoffs"][0]["ai_generated"] is True
+
+
+def test_ai_takeoff_rejects_stale_revision_wrong_scale_and_duplicate_sources(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه کنترل شواهد", "ai-evidence-project")
+    session = DrawingTakeoffSession("golden://project/A102.pdf")
+    session.calibrate(1, 100, 10)
+    session.add_length([Point(0, 0), Point(100, 0)], page=1, label="خط مرجع")
+    saved = app.save_drawing_takeoff_session("ai-evidence-project", session)
+    sid, revision = saved["session_id"], saved["revision"]
+
+    wrong_scale = _proposal(sid, revision, session.drawing_source, meters_per_pixel=0.5)
+    with pytest.raises(ValueError, match="مطابقت ندارد"):
+        app.commit_ai_takeoff_proposal("ai-evidence-project", wrong_scale, user_confirmed=True)
+    assert app.open_project("ai-evidence-project")["takeoffs"] == []
+
+    stale = _proposal(sid, revision + 1, session.drawing_source)
+    with pytest.raises(RuntimeError, match="نسخه"):
+        app.commit_ai_takeoff_proposal("ai-evidence-project", stale, user_confirmed=True)
+    assert app.open_project("ai-evidence-project")["takeoffs"] == []
+
+    proposal = _proposal(sid, revision, session.drawing_source)
+    app.commit_ai_takeoff_proposal("ai-evidence-project", proposal, user_confirmed=True)
+    with pytest.raises(ValueError, match="تکراری"):
+        app.commit_ai_takeoff_proposal("ai-evidence-project", copy.deepcopy(proposal), user_confirmed=True)
+    assert len(app.open_project("ai-evidence-project")["takeoffs"]) == 1
