@@ -25,6 +25,11 @@ class AssemblyComponent:
     source: str = "derived"
     warning: str = ""
 
+    def __post_init__(self):
+        value = float(self.quantity)
+        if not isfinite(value) or value < 0:
+            raise ValueError(f"مقدار جزء {self.code} باید متناهی و غیرمنفی باشد")
+
 
 @dataclass(frozen=True)
 class AssemblyResult:
@@ -73,7 +78,10 @@ def _waste(q: float, factor: float | None) -> float:
         raise ValueError("waste_factor must be finite")
     if factor < 0:
         raise ValueError("waste_factor must be >= 0")
-    return q * (1.0 + factor)
+    result = q * (1.0 + factor)
+    if not isfinite(result):
+        raise ValueError("مقدار نهایی پس از اعمال پرت متناهی نیست")
+    return result
 
 
 def _missing(*names: str) -> AssemblyResult:
@@ -115,6 +123,8 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
             )
         if min(bw, bh, bt, joint) <= 0:
             raise ValueError("ابعاد بلوک و ضخامت بند باید مثبت باشند")
+        if bt > t:
+            raise ValueError("ضخامت بلوک نمی‌تواند از ضخامت دیوار بیشتر باشد")
         if mortar_ratio_c + mortar_ratio_s <= 0:
             raise ValueError("جمع نسبت‌های سیمان و ماسه باید مثبت باشد")
         block_nominal = (bw + joint) * (bh + joint) * bt
