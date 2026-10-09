@@ -59,10 +59,10 @@ class ScaleCalibration:
 
     def length(self, drawing_distance: float) -> float:
         distance = _number(drawing_distance, "drawing distance", 0.0)
-        factor = {"mm": 0.001, "cm": 0.01, "m": 1.0}.get(self.drawing_unit)
-        if factor is None:
-            raise ValueError(f"واحد نقشه پشتیبانی نمی‌شود: {self.drawing_unit}")
-        result = distance * self.ratio * factor
+        drawing_to_m = {"mm": 0.001, "cm": 0.01, "m": 1.0}[self.drawing_unit]
+        metres = distance * self.ratio * drawing_to_m
+        model_from_m = {"mm": 1000.0, "cm": 100.0, "m": 1.0}[self.model_unit]
+        result = metres * model_from_m
         if not isfinite(result):
             raise ValueError("نتیجه طول باید متناهی باشد")
         return result
@@ -155,7 +155,7 @@ class MeasurementStore:
         distance = polyline_length(pts)
         value = scale.length(distance)
         item_id = f"M{self._counter + 1:05d}"
-        item = GraphicMeasurement(item_id, "length", value, "m",
+        item = GraphicMeasurement(item_id, "length", value, scale.model_unit,
             geometry=tuple((p.x, p.y) for p in pts),
             formula=f"{distance:g} × {scale.ratio:g}", **meta)
         self._add(item)
@@ -170,7 +170,8 @@ class MeasurementStore:
         openings = [scale.area(_number(value, "opening area", 0.0)) for value in holes]
         value = subtract_areas(gross, openings)
         item_id = f"M{self._counter + 1:05d}"
-        item = GraphicMeasurement(item_id, "area", value, "m2",
+        area_unit = {"mm": "mm2", "cm": "cm2", "m": "m2"}[scale.model_unit]
+        item = GraphicMeasurement(item_id, "area", value, area_unit,
             geometry=tuple((p.x, p.y) for p in pts),
             formula=f"مساحت ناخالص {gross:g} - بازشوها {sum(openings):g}", **meta)
         self._add(item)
