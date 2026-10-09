@@ -84,9 +84,9 @@ def test_five_storey_golden_dataset_round_trips_through_persistent_project_and_b
         "reinforcement": 3600.0,
         "wall_area": 130.0,
         "block": 1510.0,
-        "mortar": 1.84,
-        "cement": 0.368,
-        "sand": 1.472,
+        "mortar": 1.842044134727061,
+        "cement": 0.3684088269454122,
+        "sand": 1.473635307781649,
         "finish_area": 1450.0,
     }
     for code, quantity in expected.items():

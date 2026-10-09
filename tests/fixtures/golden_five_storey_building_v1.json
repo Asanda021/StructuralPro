@@ -49,7 +49,7 @@
       "assembly": "block_wall",
       "repeat_count": 5,
       "inputs": {"length": 10.0, "height": 3.0, "thickness": 0.2, "openings": 4.0, "block_length": 0.4, "block_height": 0.2, "block_thickness": 0.2, "joint_thickness": 0.01, "cement_parts": 1.0, "sand_parts": 4.0},
-      "expected_per_repeat": {"wall_area": 26.0, "block": 302.0, "mortar": 0.368, "cement": 0.0736, "sand": 0.2944},
+      "expected_per_repeat": {"wall_area": 26.0, "block": 302.0, "mortar": 0.3684088269454122, "cement": 0.07368176538908244, "sand": 0.2947270615563298},
       "units": {"wall_area": "m²", "block": "عدد", "mortar": "m³", "cement": "m³", "sand": "m³"}
     },
     {

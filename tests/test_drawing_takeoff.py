@@ -7,7 +7,7 @@ def test_dwg_layer_quantity():
     doc = DWGDocument([
         DWGEntity("LINE", "WALL", "1", {"length": 4}),
         DWGEntity("LINE", "WALL", "2", {"length": 6}),
-    ], ["WALL"])
+    ], ["WALL"], units="m")
     rows = infer_takeoff_from_layers(
         doc, {"WALL": {"description": "wall", "unit": "m", "metric": "length", "price_code": "W1"}}
     )

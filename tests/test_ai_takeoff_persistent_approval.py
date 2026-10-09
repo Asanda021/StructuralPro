@@ -86,6 +86,6 @@ def test_ai_takeoff_rejects_stale_revision_wrong_scale_and_duplicate_sources(tmp
 
     proposal = _proposal(sid, revision, session, session.items[0])
     app.commit_ai_takeoff_proposal("ai-evidence-project", proposal, user_confirmed=True)
-    with pytest.raises(ValueError, match="تکراری"):
+    with pytest.raises(ValueError, match="دوباره‌شماری"):
         app.commit_ai_takeoff_proposal("ai-evidence-project", copy.deepcopy(proposal), user_confirmed=True)
     assert len(app.open_project("ai-evidence-project")["takeoffs"]) == 1

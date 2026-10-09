@@ -72,7 +72,7 @@ def test_drawing_session_persists_and_selected_items_enter_boq_once(tmp_path):
     amounts = {row["source_id"]: row["quantities"][0]["amount"] for row in project["takeoffs"]}
     assert amounts[f"drawing:{sid}:{items['line-10m'].id}"] == pytest.approx(10.0)
     assert amounts[f"drawing:{sid}:{items['rectangle-50m2'].id}"] == pytest.approx(50.0)
-    with pytest.raises(ValueError, match="قبلاً وارد BOQ"):
+    with pytest.raises(ValueError, match="انتقال تکراری رد شد"):
         app.commit_drawing_takeoff_to_boq(
             "golden-project", sid, chosen, expected_session_revision=2
         )
