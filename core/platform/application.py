@@ -321,8 +321,8 @@ class StructuralProApp:
                     "source_type": "takeoff", "description": quantity.get("title", ""),
                     "quantity": quantity.get("amount", 0), "unit": quantity.get("unit", ""),
                     "item_code": quantity.get("code", item), "price_code": quantity.get("price_code"),
-                    "unit_price": quantity.get("unit_price"), "category": takeoff.get("domain", normalized_domain),
-                    "group": takeoff.get("domain", normalized_domain),
+                    "unit_price": quantity.get("unit_price"), "category": takeoff.get("domain", "manual"),
+                    "group": takeoff.get("domain", "manual"),
                 })
         project["boq"] = build_boq(boq_inputs)
         self.store.save(pid, project, expected_digest=digest)
