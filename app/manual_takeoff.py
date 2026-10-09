@@ -253,7 +253,10 @@ class ManualTakeoffDialog(QDialog):
                 raise ValueError("شناسه پروژه با ردیف انتخاب‌شده مطابقت ندارد.")
             if not floor_id:
                 raise ValueError("طبقه یا تراز را مشخص کن.")
-            parsed = parse_manual_entry(self.entry_text.toPlainText())
+            entries = parse_manual_batch(self.entry_text.toPlainText())
+            if len(entries) != 1:
+                raise ValueError("برای ویرایش نسخه ذخیره‌شده فقط یک ردیف وارد کن.")
+            parsed = entries[0]
             if parsed.missing:
                 raise ValueError("ورودی ناقص است: " + "، ".join(parsed.missing))
             mapping = _ENGINE_CODES.get(parsed.code)
