@@ -4,7 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QRectF, QByteArray
-from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF
+from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF, QFont, QTextOption
+from core.cad.persian_text_v1 import normalize_cad_text, is_rtl_cad_text, cad_text_height
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox,
     QLabel, QGraphicsView, QGraphicsScene, QDialog, QTableWidget,
@@ -423,8 +424,25 @@ class GraphicalTakeoffDialog(QDialog):
                 x,y=d["center"]; r=float(d["radius"])
                 self.canvas.scene.addEllipse(sx(x-r),sy(y+r),2*r,2*r,pen)
             elif entity.entity_type in {"TEXT","MTEXT"} and d.get("text"):
-                pos=d.get("insert",d.get("start",(0,0)))
-                item=self.canvas.scene.addText(str(d["text"])); item.setPos(sx(pos[0]),sy(pos[1]))
+                text = normalize_cad_text(d["text"])
+                if not text:
+                    continue
+                pos = d.get("insert", d.get("start", (0, 0)))
+                height = cad_text_height(d)
+                font = QFont("Tahoma")
+                font.setPixelSize(max(1, min(1000, round(height))))
+                item = self.canvas.scene.addText(text, font)
+                item.setDefaultTextColor(QColor(20, 35, 70))
+                option = item.document().defaultTextOption()
+                option.setTextDirection(
+                    Qt.LayoutDirection.RightToLeft
+                    if is_rtl_cad_text(text)
+                    else Qt.LayoutDirection.LeftToRight
+                )
+                item.document().setDefaultTextOption(option)
+                # CAD insertion points usually refer to the text baseline;
+                # Qt graphics text items are positioned from their top edge.
+                item.setPos(sx(pos[0]), sy(pos[1]) - height)
         self.canvas.setSceneRect(0,0,max_x-min_x,max_y-min_y)
         self.status.setText(f"🟢 CAD نمایش داده شد | {len(doc.entities)} المان | لایه‌ها: {len(doc.layers)} | واحد: {doc.units}")
 
