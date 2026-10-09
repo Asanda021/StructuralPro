@@ -115,3 +115,24 @@ def test_viewer_failed_open_preserves_the_previously_open_drawing(tmp_path):
 def test_snap_with_empty_candidate_iterator_is_a_noop():
     point = Point(2, 3)
     assert snap_point(point, iter(()), 1) == point
+
+
+def test_scale_calibration_converts_between_drawing_and_model_units():
+    scale_cm = ScaleCalibration.parse("1:100", drawing_unit="cm", model_unit="cm")
+    assert scale_cm.length(1) == pytest.approx(100)
+    assert scale_cm.area(1) == pytest.approx(10000)
+
+    scale_mm_to_m = ScaleCalibration.parse(100, drawing_unit="mm", model_unit="m")
+    assert scale_mm_to_m.length(100) == pytest.approx(10)
+    assert scale_mm_to_m.area(10000) == pytest.approx(100)
+
+
+def test_measurement_store_uses_the_calibrated_model_unit():
+    store = MeasurementStore()
+    scale = ScaleCalibration.parse(100, drawing_unit="cm", model_unit="cm")
+    line = store.add_length([Point(0, 0), Point(1, 0)], scale)
+    area = store.add_area([Point(0, 0), Point(1, 0), Point(1, 1), Point(0, 1)], scale)
+    assert line.unit == "cm"
+    assert line.value == pytest.approx(100)
+    assert area.unit == "cm2"
+    assert area.value == pytest.approx(10000)
