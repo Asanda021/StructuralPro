@@ -17,7 +17,7 @@ def main()->int:
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
             QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
         )
-        from PySide6.QtCore import Qt, QTimer, QEvent
+        from PySide6.QtCore import Qt, QTimer, QEvent, QCoreApplication
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
@@ -921,7 +921,6 @@ def main()->int:
         QTimer.singleShot(0, w.close)
         result = app.exec()
         # Flush deferred QWidget deletion while QApplication is still alive.
-        QCoreApplication = type(app)
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         app.processEvents()
         logger.info("StructuralPro smoke initialization completed with exit code %s", result)
