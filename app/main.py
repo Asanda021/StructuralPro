@@ -256,7 +256,7 @@ def main()->int:
 
     inspect.clicked.connect(inspect_drawing)
     confirm.clicked.connect(confirm_drawing)
-    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
+    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip(), app_service=service, project_id=pid.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
     # Pricing — professional pricebook workspace with real user-file import.
