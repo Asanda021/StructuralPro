@@ -96,16 +96,23 @@ class ManualTakeoffDialog(QDialog):
             self._saved_ids.clear()
             self.table.setRowCount(0)
         try:
-            label = self.element_label.text().strip()
-            results = tuple(
-                self.workbench.add_text(
-                    entry.source_text, floor_id=floor_id, element_label=label
-                )
-                for entry in parse_manual_batch(self.entry_text.toPlainText())
-            )
+            entries = parse_manual_batch(self.entry_text.toPlainText())
         except Exception as exc:
             QMessageBox.warning(self, "ورودی متره", str(exc))
             return
+
+        label = self.element_label.text().strip()
+        results = []
+        row_errors = []
+        for entry in entries:
+            try:
+                results.append(
+                    self.workbench.add_text(
+                        entry.source_text, floor_id=floor_id, element_label=label
+                    )
+                )
+            except Exception as exc:
+                row_errors.append(f"{entry.source_text}: {exc}")
 
         added = 0
         incomplete = []
@@ -131,13 +138,13 @@ class ManualTakeoffDialog(QDialog):
                 if col == 6:
                     cell.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 self.table.setItem(row, col, cell)
+        messages = []
         if incomplete:
-            self.status.setText(
-                f"{added} ردیف کامل محاسبه شد؛ {len(incomplete)} ردیف ذخیره نشد. "
-                + " | ".join(incomplete)
-            )
-        else:
-            self.status.setText(f"{added} ردیف محاسبه شد. برای ثبت دائمی، ذخیره ردیف‌ها را بزن.")
+            messages.append(f"{len(incomplete)} ردیف ناقص: " + " | ".join(incomplete))
+        if row_errors:
+            messages.append(f"{len(row_errors)} ردیف خطادار: " + " | ".join(row_errors))
+        messages.insert(0, f"{added} ردیف کامل محاسبه شد.")
+        self.status.setText(" ".join(messages) + " برای ثبت دائمی، ذخیره ردیف‌ها را بزن.")
         self.entry_text.clear()
 
     def save_pending(self):
