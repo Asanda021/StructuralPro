@@ -276,10 +276,13 @@ class GraphicalTakeoffDialog(QDialog):
         self.project_id_input = QLineEdit(self.persisted_project_id)
         self.project_id_input.setPlaceholderText("شناسه پروژه برای ذخیره دائمی")
         self.save_session_button = QPushButton("ذخیره نشست متره")
+        self.load_session_button = QPushButton("بارگذاری نشست")
         self.commit_boq_button = QPushButton("انتقال انتخاب به BOQ")
         self.save_session_button.setToolTip("نشست نقشه، کالیبراسیون‌ها و ریزمتره‌ها را در پروژه ذخیره می‌کند.")
+        self.load_session_button.setToolTip("نشست ذخیره‌شده را از پروژه بازیابی می‌کند.")
         self.commit_boq_button.setToolTip("فقط ردیف‌های انتخاب‌شده، پس از تأیید، به BOQ منتقل می‌شوند.")
         self.save_session_button.setEnabled(self.app_service is not None)
+        self.load_session_button.setEnabled(self.app_service is not None)
         self.commit_boq_button.setEnabled(self.app_service is not None)
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
@@ -289,7 +292,8 @@ class GraphicalTakeoffDialog(QDialog):
             self.open_pdf, self.prev, self.next, self.page_no,
             self.zoom_out, self.zoom_in, self.fit, self.zoom_window,
             self.select_region, self.cancel_selection, self.region_to_takeoff, self.undo, self.redo,
-            self.delete, self.finish, self.project_id_input, self.save_session_button, self.commit_boq_button
+            self.delete, self.finish, self.project_id_input, self.save_session_button,
+            self.load_session_button, self.commit_boq_button
         ]:
             header.addWidget(x)
         header.addWidget(self.source_label)
@@ -339,6 +343,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.redo.clicked.connect(self.redo_session)
         self.delete.clicked.connect(self.delete_selected)
         self.save_session_button.clicked.connect(self.save_session_to_project)
+        self.load_session_button.clicked.connect(self.load_session_from_project)
         self.commit_boq_button.clicked.connect(self.commit_selected_to_boq)
 
         if pdf_path:
@@ -373,6 +378,48 @@ class GraphicalTakeoffDialog(QDialog):
         except Exception as exc:
             QMessageBox.critical(self, "ذخیره نشست متره", "ذخیره انجام نشد؛ داده موجود حفظ شد.\n" + str(exc))
             return False
+
+    def load_session_from_project(self):
+        if self.app_service is None:
+            QMessageBox.warning(self, "بارگذاری نشست", "سرویس پروژه در این پنجره در دسترس نیست.")
+            return
+        project_id = self.project_id_input.text().strip()
+        if not project_id:
+            QMessageBox.warning(self, "شناسه پروژه", "ابتدا شناسه پروژه را وارد کنید.")
+            return
+        session_id, accepted = QInputDialog.getText(
+            self, "بارگذاری نشست متره", "شناسه نشست ذخیره‌شده:"
+        )
+        if not accepted or not session_id.strip():
+            return
+        try:
+            from core.drawings.viewer_model import DrawingViewerModel
+            record = self.app_service.load_drawing_takeoff_session(project_id, session_id.strip())
+            restored = DrawingTakeoffSession.from_dict(record["session"])
+            source = Path(restored.drawing_source)
+            if not source.is_file():
+                raise FileNotFoundError("فایل نقشه اصلی در این مسیر در دسترس نیست؛ نشست ذخیره‌شده تغییر نکرد.")
+            new_viewer = DrawingViewerModel()
+            new_viewer.open(source)
+            new_engine = PDFDrawingEngine(source) if new_viewer.kind == "pdf" else None
+            self.viewer = new_viewer
+            self.engine = new_engine
+            self.cad_document = new_viewer.cad_document
+            self.session = restored
+            self.canvas.session = restored
+            self.pdf_path = str(source)
+            self.persisted_project_id = project_id
+            self.persisted_session_id = record["id"]
+            self.persisted_session_revision = int(record["revision"])
+            self.source_label.setText(f"منبع: {new_viewer.source_name} | {new_viewer.kind.upper()}")
+            self.page_no.setMaximum(max(1, new_viewer.page_count))
+            self.load_page(min(restored.current_page, max(1, new_viewer.page_count)))
+            self.status.setText(
+                f"🟢 نشست بازیابی شد | نسخه {self.persisted_session_revision} | "
+                f"متره‌ها: {len(restored.items)}"
+            )
+        except Exception as exc:
+            QMessageBox.critical(self, "بارگذاری نشست", "بازیابی انجام نشد؛ نشست ذخیره‌شده تغییر نکرد.\n" + str(exc))
 
     def commit_selected_to_boq(self):
         if self.app_service is None:
