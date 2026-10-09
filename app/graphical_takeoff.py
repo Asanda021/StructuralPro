@@ -18,7 +18,7 @@ from core.drawings.pdf_engine import PDFDrawingEngine
 from core.drawings.takeoff_session import DrawingTakeoffSession
 from core.drawings.viewer_model import DrawingViewerModel
 from core.drawings.viewport_tools import ViewportRect
-from core.drawings.region_takeoff import rectangle_to_points
+from core.drawings.region_takeoff import calibrated_rectangle_area, rectangle_to_points
 
 
 class TakeoffCanvas(QGraphicsView):
@@ -477,8 +477,30 @@ class GraphicalTakeoffDialog(QDialog):
             return
         try:
             points = rectangle_to_points(rect.left(), rect.top(), rect.right(), rect.bottom())
+            calibration = self.session.calibration
+            preview_area = calibrated_rectangle_area(
+                rect.left(), rect.top(), rect.right(), rect.bottom(),
+                calibration.meters_per_pixel,
+            )
             source = (f"region:page={self.page}:left={rect.left():.6f}:top={rect.top():.6f}:"
                       f"right={rect.right():.6f}:bottom={rect.bottom():.6f}")
+            confirmation = (
+                f"پیش‌نمایش متره ناحیه\n\n"
+                f"صفحه: {self.page}\nشرح: {label.strip()}\n"
+                f"مقدار محاسبه‌شده: {preview_area:.4f} مترمربع\n"
+                f"کالیبراسیون: {calibration.meters_per_pixel:.8f} متر/پیکسل\n"
+                f"کد BOQ: {code.strip() or '—'}\n\n"
+                "این مقدار فقط از مستطیل انتخاب‌شده و کالیبراسیون ثبت‌شده محاسبه شده است. "
+                "قبل از تأیید، محدوده و مقیاس نقشه را بررسی کنید. آیا در متره ثبت شود؟"
+            )
+            answer = QMessageBox.question(
+                self, "تأیید مقدار متره", confirmation,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                self.status.setText("ثبت ناحیه لغو شد؛ هیچ آیتم متره‌ای اضافه نشد.")
+                return
             item = self.session.add_area(
                 [Point(x, y) for x, y in points], page=self.page, label=label.strip(),
                 takeoff_code=code.strip(), source=source,
