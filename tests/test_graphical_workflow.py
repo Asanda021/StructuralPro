@@ -61,3 +61,25 @@ def test_phase_three_to_five_viewer_zoom_and_persian_cad_are_wired():
     assert "normalize_cad_text(d[\"text\"])" in source
     assert "is_rtl_cad_text(text)" in source
     assert "کالیبراسیون لازم است" in source
+
+
+def test_drawing_scale_calibration_is_independent_per_page():
+    import pytest
+    from core.drawings.takeoff_session import DrawingTakeoffSession
+    from core.drawings.graphical_takeoff import Point
+
+    session = DrawingTakeoffSession("plan.pdf")
+    session.calibrate(1, 100, 10)
+    first = session.add_length([Point(0, 0), Point(100, 0)], page=1, source="page1-wall")
+    assert first.quantity == 10
+    session.set_page(2)
+    assert session.calibration is None
+    with pytest.raises(ValueError, match="صفحه 2"):
+        session.add_length([Point(0, 0), Point(100, 0)], page=2, source="page2-wall")
+    session.calibrate(2, 100, 5)
+    second = session.add_length([Point(0, 0), Point(100, 0)], page=2, source="page2-wall")
+    assert second.quantity == 5
+    session.set_page(1)
+    assert session.calibration is not None and session.calibration.page == 1
+    third = session.add_length([Point(0, 0), Point(100, 0)], page=1, source="page1-wall-2")
+    assert third.quantity == 10
