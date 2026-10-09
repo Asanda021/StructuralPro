@@ -53,7 +53,9 @@ def test_remove_record_is_undoable_and_redoable():
     assert [row.record_id for row in wb.records] == [second.record_id]
     wb.undo()
     assert [row.record_id for row in wb.records] == [first.record_id, second.record_id]
+    assert wb.can_undo and not wb.can_redo
     wb.redo()
     assert [row.record_id for row in wb.records] == [second.record_id]
+    assert wb.can_undo and not wb.can_redo
     with pytest.raises(KeyError):
         wb.remove_record("not-a-record")
