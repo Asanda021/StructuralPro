@@ -348,11 +348,9 @@ class GraphicalTakeoffDialog(QDialog):
 
         if pdf_path:
             try:
-                self.engine = PDFDrawingEngine(pdf_path)
-                self.page_no.setMaximum(self.engine.page_count)
-                self.load_page(1)
+                self.open_drawing(pdf_path)
             except Exception as exc:
-                QMessageBox.warning(self, "PDF", "فایل برای نمایش گرافیکی باز نشد: " + str(exc))
+                QMessageBox.warning(self, "نقشه", "فایل برای نمایش گرافیکی باز نشد: " + str(exc))
 
     def save_session_to_project(self):
         if self.app_service is None:
@@ -488,6 +486,9 @@ class GraphicalTakeoffDialog(QDialog):
                 return
         # Open first: if parsing fails, retain the currently displayed drawing/session.
         self.viewer.open(candidate)
+        new_engine = PDFDrawingEngine(candidate) if self.viewer.kind == "pdf" else None
+        if self.engine is not None:
+            self.engine.close()
         if self.session.drawing_source != candidate:
             self.session = DrawingTakeoffSession(candidate)
             self.canvas.session = self.session
@@ -497,7 +498,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.source_label.setText(f"منبع: {self.viewer.source_name} | {self.viewer.kind.upper()}")
         self.page_no.setMaximum(max(1, self.viewer.page_count))
         self.cad_document = self.viewer.cad_document
-        self.engine = PDFDrawingEngine(candidate) if self.viewer.kind == "pdf" else None
+        self.engine = new_engine
         self.load_page(1)
 
     def load_page(self, page):
