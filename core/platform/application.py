@@ -414,6 +414,17 @@ class StructuralProApp:
         record = (project.get("drawing_sessions", {}) or {}).get(sid)
         if not isinstance(record, dict):
             raise ValueError("نشست نقشه مرجع پیشنهاد در پروژه ذخیره نشده است")
+        candidate_item_ids = {str(row.get("session_item_id", "")).strip() for row in report["rows"]}
+        candidate_item_ids.discard("")
+        committed_item_ids = set(record.get("committed_item_ids", [])) | set(record.get("ai_committed_item_ids", []))
+        existing_item_ids = {
+            str(row.get("drawing_takeoff_id") or (row.get("params") or {}).get("session_item_id") or "").strip()
+            for row in project.get("takeoffs", [])
+            if str(row.get("drawing_session_id", "")).strip() == sid
+        }
+        existing_item_ids.discard("")
+        if candidate_item_ids.intersection(committed_item_ids | existing_item_ids):
+            raise ValueError("یک یا چند متره هندسی قبلاً از مسیر دستی یا هوشمند ثبت شده است؛ دوباره‌شماری رد شد")
         if int(record.get("revision", 1)) != expected_session_revision:
             raise RuntimeError("نسخه نقشه/نشست با پیشنهاد هوش مصنوعی مطابقت ندارد؛ پیشنهاد را دوباره تولید کنید")
         from core.drawings.takeoff_session import DrawingTakeoffSession
@@ -421,7 +432,12 @@ class StructuralProApp:
         known_pages = {session.current_page, *session.calibrations.keys(), *[item.page for item in session.items]}
         existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
         new_rows = []
+        seen_session_items: set[str] = set()
         for candidate in report["rows"]:
+            item_id = candidate["session_item_id"]
+            if item_id in seen_session_items:
+                raise ValueError("یک متره هندسی در همین پیشنهاد بیش از یک بار استفاده شده است")
+            seen_session_items.add(item_id)
             page = candidate["page"]
             if page not in known_pages:
                 raise ValueError(f"صفحه {page} در نشست نقشه مرجع وجود ندارد یا بازبینی نشده است")
@@ -487,9 +503,12 @@ class StructuralProApp:
                     "category": takeoff.get("domain", "manual"), "group": takeoff.get("domain", "manual"),
                 })
         project["boq"] = build_boq(boq_inputs)
+        record["ai_committed_item_ids"] = sorted(set(record.get("ai_committed_item_ids", [])) | seen_session_items)
+        record["revision"] = expected_session_revision + 1
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
         self.store.save(pid, project, expected_digest=digest)
         return {"approved": True, "takeoffs_added": deepcopy(new_rows), "boq_count": len(project["boq"]),
-                "drawing_session_id": sid, "drawing_session_revision": expected_session_revision}
+                "drawing_session_id": sid, "drawing_session_revision": record["revision"]}
 
     def add_assembly_takeoff(self, project_id: str, assembly_code: str, inputs: dict[str, Any], *,
                              floor_id: str, description: str = "") -> dict[str, Any]:
