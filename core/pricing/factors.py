@@ -1,7 +1,8 @@
 """Year-aware commercial factor sets with strict numeric validation and auditability."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
+from decimal import Decimal, InvalidOperation
 import math
 from typing import Iterable, Mapping
 
@@ -29,8 +30,11 @@ class FactorRegistry:
         if not isinstance(factor_set, FactorSet):
             raise TypeError("factor set must be a FactorSet")
         try:
-            year = int(factor_set.year)
-        except (TypeError, ValueError, OverflowError) as exc:
+            raw_year = Decimal(str(factor_set.year))
+            if not raw_year.is_finite() or raw_year != raw_year.to_integral_value():
+                raise ValueError("invalid year")
+            year = int(raw_year)
+        except (InvalidOperation, TypeError, ValueError, OverflowError) as exc:
             raise ValueError("invalid year") from exc
         if isinstance(factor_set.year, bool) or year < 1300:
             raise ValueError("invalid year")
@@ -80,7 +84,8 @@ class FactorRegistry:
         return sorted(name for y, name in self._sets if y == int(year))
 
     def get(self, year: int, name: str) -> FactorSet | None:
-        return self._sets.get((int(year), name.strip()))
+        item = self._sets.get((int(year), name.strip()))
+        return None if item is None else replace(item, factors=dict(item.factors))
 
     def rates(self, year: int, name: str) -> dict[str, float]:
         item = self.get(year, name)

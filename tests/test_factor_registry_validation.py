@@ -44,3 +44,18 @@ def test_factor_registry_retains_audit_metadata():
     detail = registry.describe(1405, "پیمان")
     assert detail["source"] == "contract"
     assert detail["effective_date"] == "1405-01-01"
+
+
+def test_get_cannot_mutate_validated_registry_state():
+    registry = FactorRegistry([FactorSet(1405, "پیمان", {"overhead": 0.1})])
+    returned = registry.get(1405, "پیمان")
+    returned.factors["overhead"] = float("nan")
+    returned.factors["injected"] = float("inf")
+    assert registry.rates(1405, "پیمان") == {"overhead": 0.1}
+    assert registry.describe(1405, "پیمان")["factors"] == {"overhead": 0.1}
+
+
+@pytest.mark.parametrize("year", [1405.5, "1405.5", True, float("inf"), float("nan")])
+def test_fractional_or_nonfinite_years_are_not_coerced(year):
+    with pytest.raises(ValueError, match="invalid year"):
+        FactorRegistry([FactorSet(year, "پیمان", {"overhead": 0.1})])

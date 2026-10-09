@@ -75,7 +75,7 @@ def test_dwg_layer_takeoff_and_document_summary():
         ["WALL", "DOOR"],
         block_counts={"D1": 1},
         text_labels=["Door"],
-        units="6",
+        units="m",
     )
     rows = infer_takeoff_from_layers(doc, {
         "WALL": {"description": "wall", "unit": "m", "metric": "length", "price_code": "W1"},

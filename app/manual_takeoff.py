@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QTextEdit, QVBoxLayout, QHeaderView, QInputDialog,
 )
 
-from core.takeoff.manual_input import parse_manual_batch
+from core.takeoff.manual_input import parse_manual_batch, parse_manual_entry
 from core.takeoff.manual_workbench import ManualTakeoffDraft, ManualTakeoffWorkbench
 
 _ENGINE_CODES = {
@@ -30,6 +30,22 @@ _ENGINE_CODES = {
     "steel": ("advanced", "steel"),
 }
 
+_SAVED_ITEM_LABELS = {
+    "column": "ستون", "beam": "تیر", "tie_beam": "شناژ",
+    "footing_concrete": "پی", "shear_wall": "دیوار برشی",
+    "solid_slab_roof": "دال", "joist_block_roof": "تیرچه بلوک",
+    "joist_foam_roof": "تیرچه یونولیت", "stair_concrete": "پله",
+    "wall": "دیوار", "excavation": "خاکبرداری", "rebar": "آرماتور", "steel": "فولاد",
+}
+_PARAM_LABELS = {
+    "count": "تعداد", "length": "طول", "width": "عرض", "depth": "عمق",
+    "height": "ارتفاع", "thickness": "ضخامت", "openings": "بازشو",
+    "topping_thickness": "ضخامت رویه", "joist_spacing": "فاصله تیرچه",
+    "joist_width": "عرض تیرچه", "joist_depth": "عمق تیرچه",
+    "sloped_length": "طول شیبدار", "waist_thickness": "ضخامت جان پله",
+    "unit_weight": "وزن واحد",
+}
+
 
 class ManualTakeoffDialog(QDialog):
     """Collect explicit manual entries, preview quantities, then persist to the active project."""
@@ -40,7 +56,8 @@ class ManualTakeoffDialog(QDialog):
         self.setWindowTitle("متره دستی حرفه‌ای — پروژه‌محور")
         self.resize(1080, 720)
         self.project_id = QLineEdit(project_id)
-        self.floor_id = QLineEdit("طبقه همکف")
+        self.floor_id = QLineEdit("")
+        self.floor_id.setPlaceholderText("طبقه یا تراز را صریح وارد کن")
         self.element_label = QLineEdit()
         self.entry_text = QTextEdit()
         self.entry_text.setPlaceholderText(
@@ -54,6 +71,10 @@ class ManualTakeoffDialog(QDialog):
             ["شناسه", "طبقه", "نوع", "شرح", "مقدار", "واحد", "وضعیت"]
         )
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.saved_table = QTableWidget(0, 6)
+        self.saved_table.setHorizontalHeaderLabels(["منبع متره", "نسخه", "شرح", "مقدار", "واحد", "طبقه"])
+        self.saved_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self._editing_persisted = None
         self.workbench = None
         self._saved_ids: set[str] = set()
         self._session_id = uuid4().hex
@@ -76,13 +97,18 @@ class ManualTakeoffDialog(QDialog):
         self.undo_button = QPushButton("واگرد")
         self.redo_button = QPushButton("تکرار")
         self.save_button = QPushButton("ذخیره ردیف‌های محاسبه‌شده در پروژه")
+        self.load_saved_button = QPushButton("ویرایش نسخه ذخیره‌شده")
+        self.revise_saved_button = QPushButton("ثبت نسخه اصلاح‌شده")
         self.close_button = QPushButton("بستن")
         for button in (self.add_button, self.paste_button, self.edit_button, self.copy_button,
                        self.floor_copy_button, self.delete_button, self.undo_button,
-                       self.redo_button, self.save_button, self.close_button):
+                       self.redo_button, self.save_button, self.load_saved_button,
+                       self.revise_saved_button, self.close_button):
             actions.addWidget(button)
         root.addLayout(actions)
-        root.addWidget(self.table, 3)
+        root.addWidget(self.table, 2)
+        root.addWidget(QLabel("ردیف‌های ذخیره‌شده پروژه (ویرایش با کنترل نسخه)"))
+        root.addWidget(self.saved_table, 2)
         root.addWidget(self.status)
         self.add_button.clicked.connect(self.add_entries)
         self.paste_button.clicked.connect(self.paste_clipboard)
@@ -93,7 +119,11 @@ class ManualTakeoffDialog(QDialog):
         self.undo_button.clicked.connect(self.undo)
         self.redo_button.clicked.connect(self.redo)
         self.save_button.clicked.connect(self.save_pending)
+        self.load_saved_button.clicked.connect(self.edit_saved_selected)
+        self.revise_saved_button.clicked.connect(self.apply_saved_revision)
         self.close_button.clicked.connect(self.accept)
+        self.project_id.editingFinished.connect(self.refresh_saved_rows)
+        self.refresh_saved_rows()
 
     def _audit(self, event: str, details: dict | None = None):
         """Persist a compact, append-only project audit event when storage is available."""
@@ -128,6 +158,131 @@ class ManualTakeoffDialog(QDialog):
                       f"{record.quantity:g}", record.unit, status]
             for col, value in enumerate(values):
                 self.table.setItem(row, col, QTableWidgetItem(str(value)))
+
+    def refresh_saved_rows(self):
+        self.saved_table.setRowCount(0)
+        project_id = self.project_id.text().strip()
+        if self._editing_persisted and self._editing_persisted.get("_selected_project_id") != project_id:
+            self._editing_persisted = None
+        if not project_id:
+            return
+        try:
+            project = self.service.open_project(project_id)
+        except Exception as exc:
+            self.status.setText("خواندن متره‌های ذخیره‌شده ناموفق بود: " + str(exc))
+            return
+        if project is None:
+            return
+        for takeoff in project.get("takeoffs", []):
+            quantities = takeoff.get("quantities", [])
+            if not quantities:
+                continue
+            quantity = quantities[0]
+            row = self.saved_table.rowCount()
+            self.saved_table.insertRow(row)
+            source_id = str(takeoff.get("source_id", "")).strip()
+            values = [source_id or str(takeoff.get("id", "")),
+                      str(takeoff.get("revision", 1)),
+                      str(takeoff.get("description", quantity.get("title", ""))),
+                      str(quantity.get("amount", "")), str(quantity.get("unit", "")),
+                      str(takeoff.get("system", "") or "—")]
+            for col, value in enumerate(values):
+                cell = QTableWidgetItem(value)
+                if col == 0:
+                    cell.setData(Qt.ItemDataRole.UserRole, source_id)
+                self.saved_table.setItem(row, col, cell)
+
+    def edit_saved_selected(self):
+        row_index = self.saved_table.currentRow()
+        if row_index < 0:
+            self.status.setText("ابتدا یک ردیف ذخیره‌شده را انتخاب کن.")
+            return
+        source_cell = self.saved_table.item(row_index, 0)
+        source_id = source_cell.data(Qt.ItemDataRole.UserRole) if source_cell else None
+        if not source_id:
+            self.status.setText("این ردیف شناسه منبع پایدار ندارد و قابل ویرایش نسخه‌ای نیست.")
+            return
+        project_id = self.project_id.text().strip()
+        project = self.service.open_project(project_id) if project_id else None
+        record = next((x for x in (project or {}).get("takeoffs", [])
+                       if str(x.get("source_id", "")).strip() == str(source_id)), None)
+        if record is None:
+            self.status.setText("ردیف ذخیره‌شده پیدا نشد؛ فهرست را تازه‌سازی کن.")
+            self.refresh_saved_rows()
+            return
+        if not record.get("params") or not record.get("item"):
+            self.status.setText("این ردیف قدیمی فاقد پارامترهای خام است؛ ویرایش ایمن ممکن نیست. ردیف اصلی حفظ شد.")
+            return
+        item = str(record.get("item", ""))
+        label = _SAVED_ITEM_LABELS.get(item)
+        if label is None or item not in _ENGINE_CODES:
+            self.status.setText("این نوع آیتم از مسیر ویرایش دستی پشتیبانی نمی‌شود؛ ردیف اصلی تغییر نکرد.")
+            return
+        params = record.get("params", {})
+        missing_fields = [key for key in _PARAM_LABELS if key in params]
+        if not missing_fields:
+            self.status.setText("پارامترهای قابل ویرایش این ردیف پیدا نشد؛ ردیف اصلی تغییر نکرد.")
+            return
+        source_text = label + ": " + "، ".join(
+            f"{_PARAM_LABELS[key]}={params[key]}" for key in _PARAM_LABELS if key in params
+        )
+        try:
+            parsed = parse_manual_entry(source_text)
+        except Exception as exc:
+            self.status.setText("پارامترهای ذخیره‌شده برای ویرایش معتبر نیستند: " + str(exc))
+            return
+        if parsed.code != item or parsed.missing:
+            self.status.setText("پارامترهای خام این ردیف کامل/قابل بازسازی نیستند؛ ویرایش متوقف شد.")
+            return
+        self._editing_persisted = dict(record)
+        self._editing_persisted["_selected_project_id"] = project_id
+        self.entry_text.setPlainText(source_text)
+        self.element_label.setText(str(record.get("description", label)))
+        self.floor_id.setText(str(record.get("system", "") or ""))
+        self.status.setText(
+            f"ردیف {source_id} از نسخه {record.get('revision', 1)} برای اصلاح بارگذاری شد. "
+            "مقادیر را تغییر بده و «ثبت نسخه اصلاح‌شده» را بزن؛ نسخه قبلی در تاریخچه باقی می‌ماند."
+        )
+
+    def apply_saved_revision(self):
+        record = self._editing_persisted
+        if record is None:
+            self.status.setText("ابتدا از جدول ردیف‌های ذخیره‌شده، یک ردیف قابل ویرایش را بارگذاری کن.")
+            return
+        project_id = self.project_id.text().strip()
+        floor_id = self.floor_id.text().strip()
+        try:
+            if not project_id or project_id != str(record.get("_selected_project_id", "")):
+                raise ValueError("شناسه پروژه با ردیف انتخاب‌شده مطابقت ندارد.")
+            if not floor_id:
+                raise ValueError("طبقه یا تراز را مشخص کن.")
+            entries = parse_manual_batch(self.entry_text.toPlainText())
+            if len(entries) != 1:
+                raise ValueError("برای ویرایش نسخه ذخیره‌شده فقط یک ردیف وارد کن.")
+            parsed = entries[0]
+            if parsed.missing:
+                raise ValueError("ورودی ناقص است: " + "، ".join(parsed.missing))
+            mapping = _ENGINE_CODES.get(parsed.code)
+            if mapping is None:
+                raise ValueError("نوع آیتم برای محاسبه پشتیبانی نمی‌شود.")
+            domain, item = mapping
+            updated = self.service.revise_takeoff(
+                project_id, str(record.get("source_id", "")),
+                expected_revision=int(record.get("revision", 1)),
+                domain=domain, item=item,
+                description=self.element_label.text().strip() or parsed.code,
+                system=floor_id, **dict(parsed.params),
+            )
+            self._editing_persisted = None
+            self.refresh_saved_rows()
+            self._audit("saved_takeoff_revision", {
+                "source_id": updated.get("source_id"), "revision": updated.get("revision"),
+            })
+            self.status.setText(
+                f"نسخه {updated.get('revision')} ثبت شد؛ نسخه قبلی در تاریخچه پروژه حفظ شد."
+            )
+        except Exception as exc:
+            self.status.setText("نسخه اصلاح نشد؛ اطلاعات ذخیره‌شده تغییر نکرد: " + str(exc))
 
     def paste_clipboard(self):
         text = QApplication.clipboard().text()
@@ -344,3 +499,4 @@ class ManualTakeoffDialog(QDialog):
             self.status.setText("هیچ ردیفی ذخیره نشد: " + " | ".join(errors))
         else:
             self.status.setText("همه ردیف‌های کامل قبلاً ذخیره شده‌اند.")
+        self.refresh_saved_rows()

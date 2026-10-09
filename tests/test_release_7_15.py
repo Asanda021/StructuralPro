@@ -10,7 +10,7 @@ from core.drawings.markup import Markup,MarkupStore
 def test_revision_template_formula():
     c=compare_rows([{"price_code":"A","quantity":10,"total":100}], [{"price_code":"A","quantity":14,"total":140},{"price_code":"B","quantity":2,"total":20}])
     assert summary(c)["added"]==1 and summary(c)["changed"]==1 and summary(c)["quantity_delta"]==6
-    assert TemplateLibrary().get("WALL-AREA").formula=="length*height-openings"
+    assert TemplateLibrary().get("WALL-AREA").formula=="count * (length * height - openings)"
     assert evaluate("length*height-openings",{"length":5,"height":3,"openings":2})==13
 def test_excel_layout_and_search(tmp_path):
     rows=[{"price_code":"A","description":"دیوار","quantity":2,"unit":"m2","unit_price":10,"total":20}]

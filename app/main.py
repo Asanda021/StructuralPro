@@ -15,9 +15,9 @@ def main()->int:
             QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
             QLabel,QPushButton,QListWidget,QStackedWidget,QStatusBar,QLineEdit,
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
-            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
+            QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QDialog,QCalendarWidget
         )
-        from PySide6.QtCore import Qt, QTimer, QEvent, QCoreApplication
+        from PySide6.QtCore import Qt, QTimer, QEvent, QCoreApplication, QDate, QCalendar, QLocale
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
@@ -28,6 +28,7 @@ def main()->int:
         from core.reports.project_report import build_report
         from core.revisions.compare import compare_rows, summary
         from core.takeoff.templates import TemplateLibrary
+        from core.takeoff.assembly_templates import AssemblyTemplateLibrary
         from core.takeoff.formulas import evaluate
         from core.search.global_search import search_project
         from core.history.undo import CommandStack
@@ -76,6 +77,7 @@ def main()->int:
     bundle_dir=Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
     packaged=packaged_edition(bundle_dir, fail_closed=False)
     current_edition=packaged.value if packaged else "pro"
+    edition_title={"light":"سبک", "standard":"استاندارد", "pro":"حرفه‌ای", "enterprise":"سازمانی"}.get(current_edition,"نامشخص")
     assistant=ProjectAssistant()
     w=QMainWindow(); w.setWindowTitle("StructuralPro — مدیریت مهندسی پروژه"); w.resize(1560,960); w.setMinimumSize(1180,760)
 
@@ -85,8 +87,34 @@ def main()->int:
     header=QFrame(); header.setObjectName("TopShell"); hv=QVBoxLayout(header); hv.setContentsMargins(18,12,18,8); hv.setSpacing(8)
     header_row=QHBoxLayout(); header_row.setSpacing(14)
     title=QLabel("StructuralPro"); title.setObjectName("BrandTitle"); header_row.addWidget(title)
-    edition_label=QLabel(f"نسخه {current_edition}"); edition_label.setObjectName("EditionBadge"); header_row.addWidget(edition_label)
+    edition_label=QLabel(f"نسخه {edition_title}"); edition_label.setObjectName("EditionBadge"); header_row.addWidget(edition_label)
     header_row.addStretch()
+    persian_locale=QLocale(QLocale.Language.Persian, QLocale.Country.Iran)
+    persian_calendar=QCalendar(QCalendar.System.Jalali)
+    date_button=QPushButton()
+    date_button.setObjectName("SystemPersianDate")
+    date_button.setToolTip("تاریخ سیستم و تقویم شمسی")
+    def refresh_system_date():
+        date_button.setText(persian_locale.toString(
+            QDate.currentDate(), QLocale.FormatType.LongFormat, persian_calendar))
+    def show_persian_calendar():
+        dialog=QDialog(w)
+        dialog.setWindowTitle("تقویم شمسی")
+        dialog.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        calendar=QCalendarWidget(dialog)
+        calendar.setLocale(persian_locale)
+        calendar.setCalendar(persian_calendar)
+        calendar.setSelectedDate(QDate.currentDate())
+        calendar_layout=QVBoxLayout(dialog)
+        calendar_layout.addWidget(calendar)
+        dialog.exec()
+    date_button.clicked.connect(show_persian_calendar)
+    date_timer=QTimer(w)
+    date_timer.setInterval(30000)
+    date_timer.timeout.connect(refresh_system_date)
+    date_timer.start()
+    refresh_system_date()
+    header_row.addWidget(date_button)
     status=QLabel("🟢 آفلاین فعال | داده‌ها روی سیستم ذخیره می‌شوند"); status.setObjectName("ShellStatus"); header_row.addWidget(status)
     hv.addLayout(header_row)
     pages=QStackedWidget()
@@ -97,7 +125,7 @@ def main()->int:
         d=QLabel(desc); d.setObjectName("PageDescription"); d.setWordWrap(True)
         v.addWidget(h); v.addWidget(d); return p,v
 
-    sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و BOQ","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
+    sections=["⌂ داشبورد","📁 پروژه‌ها","🏠 معماری","🏗 سازه بتن","🏭 سازه فولاد","🧱 بنایی","❄ تأسیسات مکانیکی","⚡ تأسیسات برقی","🌳 محوطه و عملیات بیرونی","♻ بازسازی و مرمت","📐 متره سریع","🗺 متره از نقشه","💰 فهرست‌بها","📋 برآورد و صورت‌مقادیر","📊 گزارشات","🛠 ابزارهای حرفه‌ای","🤖 هوش مصنوعی آفلاین","🧾 صورت‌وضعیت","📎 اسناد پروژه","🤝 همکاری","✓ کنترل کیفیت","⚙ تنظیمات","❔ راهنما"]
     # Navigation tabs are created after all pages exist so their indices are deterministic.
 
     # Dashboard — functional project overview with real project data
@@ -255,7 +283,7 @@ def main()->int:
 
     inspect.clicked.connect(inspect_drawing)
     confirm.clicked.connect(confirm_drawing)
-    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip()).exec())
+    graphical.clicked.connect(lambda: GraphicalTakeoffDialog(w,file_edit.text().strip(), app_service=service, project_id=qpid.text().strip() or pid.text().strip()).exec())
     pages.addWidget(p); idx_drawing=pages.count()-1
 
     # Pricing — professional pricebook workspace with real user-file import.
@@ -403,14 +431,14 @@ def main()->int:
     tools=QTabWidget(); v.addWidget(tools)
     rv=QWidget(); rvv=QVBoxLayout(rv); oldtxt=QTextEdit(); newtxt=QTextEdit()
     rvv.addWidget(QLabel("نسخه قدیم (JSON ردیف‌ها)")); rvv.addWidget(oldtxt); rvv.addWidget(QLabel("نسخه جدید (JSON ردیف‌ها)")); rvv.addWidget(newtxt)
-    rvc=QPushButton("مقایسه Revision"); rvout=QTextEdit(); rvout.setReadOnly(True); rvv.addWidget(rvc); rvv.addWidget(rvout)
+    rvc=QPushButton("مقایسه نسخه‌ها"); rvout=QTextEdit(); rvout.setReadOnly(True); rvv.addWidget(rvc); rvv.addWidget(rvout)
     def do_revision():
         import json
         try:
             a=json.loads(oldtxt.toPlainText() or "[]"); b=json.loads(newtxt.toPlainText() or "[]")
             c=compare_rows(a,b); rvout.setPlainText(json.dumps({"changes":c,"summary":summary(c)},ensure_ascii=False,indent=2))
         except Exception as e: rvout.setPlainText("خطا: "+str(e))
-    rvc.clicked.connect(do_revision); tools.addTab(rv,"Revision")
+    rvc.clicked.connect(do_revision); tools.addTab(rv,"نسخه‌ها")
     tf=QWidget(); tfv=QVBoxLayout(tf); tmpl=QComboBox(); lib=TemplateLibrary()
     tmpl.addItems([f"{x.code} | {x.name} | {x.formula}" for x in lib.items.values()]); tfv.addWidget(tmpl)
     expr=QLineEdit("length*height-openings"); vars_=QLineEdit("length=5,height=3,openings=2")
@@ -420,7 +448,114 @@ def main()->int:
             d={}; [d.__setitem__(x.split("=",1)[0].strip(),float(x.split("=",1)[1])) for x in vars_.text().split(",") if "=" in x]
             fo.setText("نتیجه: "+str(evaluate(expr.text(),d)))
         except Exception as e: fo.setText("خطا: "+str(e))
-    fe.clicked.connect(do_formula); tools.addTab(tf,"قالب و فرمول")
+    fe.clicked.connect(do_formula)
+    # Assembly templates are explicit-input previews; no result is silently persisted.
+    assembly_lib = AssemblyTemplateLibrary()
+    assembly_templates = assembly_lib.list()
+    assembly_combo = QComboBox()
+    for assembly_template in assembly_templates:
+        assembly_combo.addItem(f"{assembly_template.title_fa} | {assembly_template.code}", assembly_template.code)
+    assembly_inputs = QLineEdit()
+    assembly_inputs.setPlaceholderText("ورودی صریح با کلید انگلیسی؛ نمونه: count=1,length=5,width=4,thickness=0.15,openings=0")
+    assembly_button = QPushButton("محاسبه اجزای قالب ترکیبی")
+    assembly_project_id = QLineEdit()
+    assembly_project_id.setPlaceholderText("شناسه پروژه برای ثبت دائمی")
+    assembly_floor_id = QLineEdit()
+    assembly_floor_id.setPlaceholderText("طبقه یا تراز (الزامی)")
+    assembly_save_button = QPushButton("ثبت اجزای تأییدشده در BOQ پروژه")
+    assembly_save_button.setEnabled(False)
+    assembly_preview_state = {}
+    assembly_output = QTextEdit()
+    assembly_output.setReadOnly(True)
+    tfv.addWidget(QLabel("متره ترکیبی با ورودی‌های صریح (بدون ضرایب پنهان)"))
+    tfv.addWidget(assembly_combo)
+    tfv.addWidget(assembly_inputs)
+    tfv.addWidget(assembly_button)
+    tfv.addWidget(assembly_project_id)
+    tfv.addWidget(assembly_floor_id)
+    tfv.addWidget(assembly_save_button)
+    tfv.addWidget(assembly_output)
+    def invalidate_assembly_preview(*_):
+        assembly_preview_state.clear()
+        assembly_save_button.setEnabled(False)
+    assembly_inputs.textChanged.connect(invalidate_assembly_preview)
+    assembly_combo.currentIndexChanged.connect(invalidate_assembly_preview)
+    assembly_project_id.textChanged.connect(invalidate_assembly_preview)
+    assembly_floor_id.textChanged.connect(invalidate_assembly_preview)
+    def do_assembly_preview():
+        assembly_preview_state.clear()
+        assembly_save_button.setEnabled(False)
+        try:
+            import math
+            from core.takeoff.manual_input import PERSIAN_DIGITS
+            raw = assembly_inputs.text().translate(PERSIAN_DIGITS).replace("٫", ".").replace("٬", ",")
+            supplied = {}
+            for pair in raw.split(","):
+                if not pair.strip():
+                    continue
+                if "=" not in pair:
+                    raise ValueError("هر ورودی باید به شکل field=value باشد.")
+                key, value = (part.strip() for part in pair.split("=", 1))
+                if not key or key in supplied:
+                    raise ValueError("کلید ورودی خالی یا تکراری است.")
+                if key == "consumption_unit":
+                    unit = value.strip()
+                    if not unit:
+                        raise ValueError("واحد مصرف مصالح نمی‌تواند خالی باشد.")
+                    supplied[key] = unit
+                    continue
+                number = float(value)
+                if not math.isfinite(number):
+                    raise ValueError(f"مقدار {key} باید متناهی باشد.")
+                supplied[key] = number
+            template = assembly_lib.get(assembly_combo.currentData())
+            unknown = sorted(set(supplied) - set(template.required_inputs) - set(template.optional_inputs))
+            if unknown:
+                raise ValueError("ورودی ناشناخته برای این قالب: " + "، ".join(unknown))
+            result = assembly_lib.expand(template.code, supplied)
+            if not result.complete:
+                assembly_output.setPlainText("ورودی‌های لازم تکمیل نشده‌اند: " + "، ".join(result.missing_inputs))
+                return
+            assembly_preview_state.update({"code": template.code, "inputs": dict(supplied), "title": result.title})
+            assembly_save_button.setEnabled(True)
+            rows = [{"code": c.code, "title": c.title, "quantity": c.quantity,
+                     "unit": c.unit, "formula": c.formula, "warning": c.warning}
+                    for c in result.components]
+            assembly_output.setPlainText(
+                json.dumps({"template": result.title, "inputs_used": result.inputs_used,
+                            "components": rows,
+                            "note": "این پیش‌نمایش محاسبه شده است؛ برای ثبت دائمی شناسه پروژه و طبقه/تراز را وارد و دکمه ثبت را بزن."},
+                           ensure_ascii=False, indent=2)
+            )
+        except Exception as exc:
+            assembly_preview_state.clear()
+            assembly_save_button.setEnabled(False)
+            assembly_output.setPlainText("خطا در محاسبه قالب: " + str(exc))
+    def save_assembly_preview():
+        try:
+            if not assembly_preview_state:
+                raise ValueError("ابتدا قالب را با ورودی‌های معتبر محاسبه کن.")
+            project_id = assembly_project_id.text().strip()
+            floor_id = assembly_floor_id.text().strip()
+            if not project_id or not floor_id:
+                raise ValueError("شناسه پروژه و طبقه/تراز برای ثبت دائمی الزامی است.")
+            saved = service.add_assembly_takeoff(
+                project_id, assembly_preview_state["code"], assembly_preview_state["inputs"],
+                floor_id=floor_id, description=assembly_preview_state["title"]
+            )
+            assembly_output.setPlainText(json.dumps({
+                "status": "saved", "assembly": saved["assembly"],
+                "components_saved": len(saved["rows"]),
+                "source_ids": saved["assembly"]["component_source_ids"],
+            }, ensure_ascii=False, indent=2))
+            assembly_preview_state.clear()
+            assembly_save_button.setEnabled(False)
+            dashboard_page.refresh()
+        except Exception as exc:
+            assembly_output.setPlainText("ثبت در BOQ انجام نشد؛ داده‌ای ثبت نشده است: " + str(exc))
+    assembly_button.clicked.connect(do_assembly_preview)
+    assembly_save_button.clicked.connect(save_assembly_preview)
+    tools.addTab(tf,"قالب و فرمول")
     sm=QWidget(); smv=QVBoxLayout(sm); sq=QLineEdit(); sq.setPlaceholderText("جستجوی پروژه، متره، آیتم یا کد فهرست‌بها")
     sb=QPushButton("جستجوی سراسری"); so=QTextEdit(); so.setReadOnly(True); smv.addWidget(sq); smv.addWidget(sb); smv.addWidget(so)
     def do_search():
@@ -442,12 +577,12 @@ def main()->int:
     pages.addWidget(p); idx_tools=pages.count()-1
 
     # AI — embedded in the same StructuralPro installation; edition controls the AI tier.
-    p,v=page("هوش مصنوعی آفلاین",f"نسخه {current_edition} | AI داخلی، بدون سرویس خارجی")
+    p,v=page("هوش مصنوعی آفلاین",f"نسخه {edition_title} | هوش مصنوعی داخلی و آفلاین")
     apid=QLineEdit(); ago=QPushButton("🤖 بازبینی پروژه"); aout=QTextEdit(); aout.setReadOnly(True)
     v.addWidget(apid); v.addWidget(ago)
     if current_edition == "light":
         ago.setEnabled(False)
-        aout.setPlainText("این Edition فاقد AI است. برای استفاده از AI، نسخه Standard یا Pro/Enterprise را نصب کنید.")
+        aout.setPlainText("این نسخه فاقد هوش مصنوعی است؛ از نسخه استاندارد، حرفه‌ای یا سازمانی استفاده کنید.")
     else:
         v.addWidget(aout)
     def review():
@@ -459,7 +594,7 @@ def main()->int:
         aout.setPlainText(text)
     ago.clicked.connect(review)
     if current_edition in ("pro","enterprise"):
-        image_path=QLineEdit(); image_btn=QPushButton("🖼️ AI Takeoff از تصویر")
+        image_path=QLineEdit(); image_btn=QPushButton("🖼️ متره هوشمند از تصویر")
         image_run=QPushButton("تحلیل تصویر")
         v.addWidget(image_path); v.addWidget(image_btn); v.addWidget(image_run)
         def choose_ai_image():
@@ -640,7 +775,7 @@ def main()->int:
 
     # Settings — expose only controls that actually affect the application.
     p,v=page("تنظیمات","تنظیمات فعال نرم‌افزار؛ کنترل نمایشیِ بدون اثر در این صفحه وجود ندارد.")
-    v.addWidget(QLabel("زبان رابط فعلی: فارسی (RTL)"))
+    v.addWidget(QLabel("زبان رابط فعلی: فارسی (راست‌چین)"))
     v.addWidget(QLabel("واحد محاسبات متره: m / m² / m³ / kg / عدد"))
     v.addWidget(QLabel("ذخیره‌سازی: محلی و آفلاین | مسیر داده: ~/.structuralpro"))
     v.addWidget(QLabel("تغییر واحد تا زمان پیاده‌سازی تبدیل کامل مهندسی، عمداً در رابط ارائه نشده است."))
@@ -700,8 +835,8 @@ def main()->int:
     pmadd.clicked.connect(manage_project); tools.addTab(pm,"مدیریت پروژه")
 
     # Revision visual/data change log connected to the project revision engine
-    revui=QWidget(); revv=QVBoxLayout(revui); revpid=QLineEdit(); revv.addWidget(QLabel("شناسه پروژه برای Change Log")); revv.addWidget(revpid)
-    revbtn=QPushButton("ساخت Change Log از آخرین دو نسخه"); revout=QTableWidget(0,6); revout.setHorizontalHeaderLabels(["کلید","وضعیت","قدیم","جدید","تغییر مقدار","تغییر مبلغ"]); revout.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    revui=QWidget(); revv=QVBoxLayout(revui); revpid=QLineEdit(); revv.addWidget(QLabel("شناسه پروژه برای تاریخچه تغییرات")); revv.addWidget(revpid)
+    revbtn=QPushButton("ساخت تاریخچه تغییرات از آخرین دو نسخه"); revout=QTableWidget(0,6); revout.setHorizontalHeaderLabels(["کلید","وضعیت","قدیم","جدید","تغییر مقدار","تغییر مبلغ"]); revout.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
     revv.addWidget(revbtn); revv.addWidget(revout)
     def refresh_revision_ui():
         p=service.open_project(revpid.text().strip())
@@ -713,7 +848,7 @@ def main()->int:
         for i,x in enumerate(compare_rows(old,rows)):
             revout.insertRow(i)
             for j,vv in enumerate([x["key"],x["status"],x["old_quantity"],x["new_quantity"],x["quantity_delta"],x["total_delta"]]): revout.setItem(i,j,QTableWidgetItem(str(vv)))
-    revbtn.clicked.connect(refresh_revision_ui); tools.addTab(revui,"Change Log")
+    revbtn.clicked.connect(refresh_revision_ui); tools.addTab(revui,"تاریخچه تغییرات")
 
     # Report designer controls are connected to the existing report export path.
     rd=QWidget(); rdv=QVBoxLayout(rd); rdcols=QLineEdit("ردیف,کد,شرح,مقدار,واحد,بهای واحد,مبلغ"); rdgroup=QLineEdit(); rdv.addWidget(QLabel("ستون‌ها (با , جدا کنید)")); rdv.addWidget(rdcols); rdv.addWidget(QLabel("گروه‌بندی (مثلاً کد)")); rdv.addWidget(rdgroup)
@@ -742,45 +877,23 @@ def main()->int:
         except Exception as e: cbout.setPlainText("خطا: "+str(e))
     cbcalc.clicked.connect(calc_progress); tools.addTab(cb,"صورت‌وضعیت")
 
-    # PlanSwift-inspired desktop shell: project tree on the left + contextual command ribbon.
-    # Navigation is mapped directly to the real pages above; no placeholder destinations are created.
-    nav_tree=QTreeWidget()
-    nav_tree.setObjectName("PlanSwiftNavigation")
-    nav_tree.setHeaderHidden(True)
-    nav_tree.setIndentation(18)
-    nav_tree.setMinimumWidth(250)
-    nav_tree.setMaximumWidth(310)
-
-    def nav_group(title, targets):
-        parent=QTreeWidgetItem([title])
-        parent.setFlags(Qt.ItemFlag.ItemIsEnabled)
-        nav_tree.addTopLevelItem(parent)
-        for label,target in targets:
-            child=QTreeWidgetItem([label])
-            child.setData(0,Qt.ItemDataRole.UserRole,target)
-            parent.addChild(child)
-        parent.setExpanded(True)
-        return parent
-
-    nav_group("پروژه", [
-        ("⌂ داشبورد", idx_dash), ("📁 پروژه‌ها", idx_projects), ("📎 اسناد پروژه", idx_docs),
-        ("🤝 همکاری", idx_collaboration),
-    ])
-    nav_group("متره و Takeoff", [
-        ("🏠 معماری", idx_architecture), ("🏗 سازه بتن", idx_structural_concrete),
-        ("🏭 سازه فولاد", idx_structural_steel), ("🧱 بنایی", idx_masonry),
-        ("❄ تأسیسات مکانیکی", idx_mechanical), ("⚡ تأسیسات برقی", idx_electrical),
-        ("🌳 محوطه و عملیات بیرونی", idx_civil), ("♻ بازسازی و مرمت", idx_renovation),
-        ("📐 متره سریع", idx_quick), ("🗺 متره از نقشه", idx_drawing),
-    ])
-    nav_group("برآورد و تجاری", [
-        ("💰 فهرست‌بها", idx_prices), ("📋 برآورد و BOQ", idx_boq), ("🧾 صورت‌وضعیت", idx_statement),
-    ])
-    nav_group("گزارش و کنترل", [
-        ("📊 گزارشات", idx_reports), ("🛠 ابزارهای حرفه‌ای", idx_tools),
-        ("✓ کنترل کیفیت", idx_quality), ("🤖 هوش مصنوعی آفلاین", idx_ai),
-    ])
-    nav_group("سیستم", [("⚙ تنظیمات", idx_settings), ("❔ راهنما", idx_help)])
+    # Primary navigation remains horizontal, with every tab targeting a real page.
+    navigation_tabs=QTabBar()
+    navigation_tabs.setObjectName("MainNavigationTabs")
+    navigation_tabs.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    navigation_tabs.setExpanding(False)
+    navigation_tabs.setUsesScrollButtons(True)
+    navigation_tabs.setElideMode(Qt.TextElideMode.ElideNone)
+    for target,label in enumerate(sections):
+        tab_index=navigation_tabs.addTab(label)
+        navigation_tabs.setTabData(tab_index,target)
+        navigation_tabs.setTabToolTip(tab_index,label)
+    def navigate_from_tab(index):
+        target=navigation_tabs.tabData(index)
+        if isinstance(target,int): pages.setCurrentIndex(target)
+    navigation_tabs.currentChanged.connect(navigate_from_tab)
+    hv.addWidget(navigation_tabs)
+    layout.addWidget(header)
 
     command_bar=QFrame()
     command_bar.setObjectName("CommandRibbon")
@@ -815,11 +928,11 @@ def main()->int:
             add_command("📂 بازکردن پروژه", openb.click)
             add_command("📐 ساختار پروژه", lambda: pages.setCurrentIndex(idx_tools))
         elif index in discipline_pages.values():
-            add_command("📐 متره واقعی", lambda: pages.setCurrentIndex(index), True)
+            add_command("📐 متره واقعی", pages.widget(index).findChild(QPushButton, "PrimaryAction").click, True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_quick:
-            add_command("📐 متره سریع", lambda: pages.setCurrentIndex(idx_quick), True)
+            add_command("📐 محاسبه متره", calc.click, True)
             add_command("🗺 متره از نقشه", lambda: pages.setCurrentIndex(idx_drawing))
             add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
             add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
@@ -852,7 +965,7 @@ def main()->int:
             add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
         elif index == idx_ai:
             if current_edition != "light": add_command("🤖 بازبینی پروژه", review, True)
-            if current_edition in ("pro","enterprise"): add_command("🖼️ AI Takeoff", run_ai_image)
+            if current_edition in ("pro","enterprise"): add_command("🖼️ متره هوشمند", run_ai_image)
         elif index == idx_docs:
             add_command("📎 افزودن سند", add_doc, True)
             add_command("🗺 نقشه‌ها", lambda: pages.setCurrentIndex(idx_drawing))
@@ -872,24 +985,16 @@ def main()->int:
             add_command("📐 آموزش متره", lambda: pages.setCurrentIndex(idx_drawing))
         command_layout.addStretch()
 
-    def navigate_from_tree(item,column=0):
-        target=item.data(0,Qt.ItemDataRole.UserRole)
-        if isinstance(target,int): pages.setCurrentIndex(target)
-    nav_tree.itemClicked.connect(navigate_from_tree)
-    def sync_tree_to_page(index):
-        iterator=QTreeWidgetItemIterator(nav_tree)
-        while iterator.value():
-            item=iterator.value()
-            if item.data(0,Qt.ItemDataRole.UserRole)==index:
-                nav_tree.setCurrentItem(item); return
-            iterator+=1
+    def sync_tabs_to_page(index):
+        for tab_index in range(navigation_tabs.count()):
+            if navigation_tabs.tabData(tab_index)==index:
+                navigation_tabs.setCurrentIndex(tab_index)
+                return
     pages.currentChanged.connect(refresh_command_ribbon)
-    pages.currentChanged.connect(sync_tree_to_page)
-
+    pages.currentChanged.connect(sync_tabs_to_page)
     shell=QHBoxLayout()
     shell.setContentsMargins(0,0,0,0)
     shell.setSpacing(0)
-    shell.addWidget(nav_tree)
     content=QWidget(); content_layout=QVBoxLayout(content); content_layout.setContentsMargins(0,0,0,0); content_layout.setSpacing(0)
     content_layout.addWidget(command_bar)
     content_layout.addWidget(pages,1)
@@ -915,7 +1020,7 @@ def main()->int:
         w.statusBar().showMessage("StructuralPro | "+quick_status(project_name=project_name,offline=True))
 
     pages.currentChanged.connect(lambda _i: refresh_ux_status())
-    refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash); refresh_ux_status()
+    refresh_projects(); dashboard_page.refresh(); pages.setCurrentIndex(idx_dash); refresh_command_ribbon(idx_dash); refresh_ux_status()
     w.show()
     logger.info("StructuralPro UI initialized")
     if os.getenv("STRUCTURALPRO_SMOKE") == "1":

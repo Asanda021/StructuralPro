@@ -87,15 +87,13 @@ def test_pricebook_is_user_supplied_not_bundled():
     assert 'فهرست‌بهای واردشده توسط کاربر' in WORKSPACE
 
 
-def test_desktop_navigation_is_planswift_style_and_real():
-    assert "QTreeWidget" in MAIN
-    assert 'nav_tree.setObjectName("PlanSwiftNavigation")' in MAIN
-    assert 'nav_group("متره و Takeoff"' in MAIN
-    assert 'nav_group("برآورد و تجاری"' in MAIN
-    assert 'item.data(0,Qt.ItemDataRole.UserRole)' in MAIN
+def test_primary_navigation_is_horizontal_and_targets_real_pages():
+    assert 'navigation_tabs.setObjectName("MainNavigationTabs")' in MAIN
+    assert 'navigation_tabs.setTabData(tab_index,target)' in MAIN
     assert 'pages.setCurrentIndex(target)' in MAIN
-    assert '📐 متره واقعی' in MAIN
-    assert '📥 ورود Excel/CSV/PDF' in MAIN
+    assert 'navigation_tabs.currentChanged.connect(navigate_from_tab)' in MAIN
+    assert 'pages.currentChanged.connect(sync_tabs_to_page)' in MAIN
+    assert 'shell.addWidget(nav_tree)' not in MAIN
 
 
 def test_validated_assemblies_are_available_from_real_aec_workspace():

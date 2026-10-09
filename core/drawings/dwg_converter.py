@@ -99,6 +99,10 @@ class OfflineDWGConverter:
         if "odafileconverter" in name:
             odir = out / "oda"
             odir.mkdir(exist_ok=True)
+            # Remove only the expected artifact so a stale DXF cannot masquerade as
+            # a successful conversion after the converter exits without writing.
+            target = odir / (src.stem + ".dxf")
+            target.unlink(missing_ok=True)
             proc = subprocess.run(
                 [self.executable, str(src.parent), str(odir), "ACAD2018", "DXF", "0", "1", src.name],
                 capture_output=True,
@@ -111,10 +115,12 @@ class OfflineDWGConverter:
                     f"تبدیل DWG با ODAFileConverter شکست خورد "
                     f"(نسخه {header['version']}): {detail or 'خطای نامشخص مبدل'}"
                 )
-            matches = list(odir.glob("*.dxf"))
-            if matches:
-                target = matches[0]
+            if not target.is_file():
+                matches = [p for p in odir.glob("*.dxf") if p.stem.casefold() == src.stem.casefold()]
+                if len(matches) == 1:
+                    target = matches[0]
         else:
+            target.unlink(missing_ok=True)
             proc = subprocess.run(
                 [self.executable, str(src), str(target)],
                 capture_output=True,
@@ -128,8 +134,21 @@ class OfflineDWGConverter:
                     f"{detail or 'خطای نامشخص مبدل'}"
                 )
 
-        if not target.exists() or target.stat().st_size == 0:
+        if not target.is_file() or target.stat().st_size == 0:
             raise DWGConversionError(
                 "مبدل اجرا شد اما فایل DXF خروجی تولید نشد؛ فایل DWG یا تنظیمات مبدل را بررسی کنید."
             )
+
+        # A file on disk is not proof of a valid conversion. Parse it with the
+        # real DXF reader used by the takeoff pipeline before returning it.
+        try:
+            import ezdxf
+            converted_doc = ezdxf.readfile(str(target))
+            list(converted_doc.modelspace())
+        except Exception as exc:
+            target.unlink(missing_ok=True)
+            raise DWGConversionError(
+                "مبدل فایل DXF قابل‌خواندن تولید نکرد؛ خروجی نامعتبر است و برای متره پذیرفته نشد."
+            ) from exc
+
         return ConverterResult(src, target, str(self.executable))
