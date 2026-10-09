@@ -1,6 +1,9 @@
 import pytest
+
+from core.aec.disciplines import all_disciplines
 from core.takeoff.generic import measure
 from core.project.domains import normalize_discipline
+
 
 def test_phase9_multidiscipline_quantities():
     cases = (
@@ -13,6 +16,25 @@ def test_phase9_multidiscipline_quantities():
         result = measure(normalize_discipline(discipline), kind, **inputs)
         assert result.quantity == pytest.approx(expected)
         assert result.unit == unit
+
+
+def test_phase9_whole_building_discipline_registry():
+    keys = {discipline.key for discipline in all_disciplines()}
+    required = {
+        "architecture",
+        "structural_concrete",
+        "structural_steel",
+        "masonry",
+        "timber",
+        "composite",
+        "mechanical",
+        "electrical",
+        "renovation",
+        "historic",
+        "site_external",
+    }
+    assert required <= keys
+
 
 def test_phase9_invalid_quantity_fails_closed():
     with pytest.raises(ValueError):
