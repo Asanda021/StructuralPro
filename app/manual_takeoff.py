@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QTextEdit, QVBoxLayout, QHeaderView,
 )
 
+from core.takeoff.manual_input import parse_manual_batch
 from core.takeoff.manual_workbench import ManualTakeoffDraft, ManualTakeoffWorkbench
 
 _ENGINE_CODES = {
@@ -95,8 +96,12 @@ class ManualTakeoffDialog(QDialog):
             self._saved_ids.clear()
             self.table.setRowCount(0)
         try:
-            results = self.workbench.add_batch(
-                self.entry_text.toPlainText(), floor_id=floor_id
+            label = self.element_label.text().strip()
+            results = tuple(
+                self.workbench.add_text(
+                    entry.source_text, floor_id=floor_id, element_label=label
+                )
+                for entry in parse_manual_batch(self.entry_text.toPlainText())
             )
         except Exception as exc:
             QMessageBox.warning(self, "ورودی متره", str(exc))
