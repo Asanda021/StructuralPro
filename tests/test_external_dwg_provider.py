@@ -62,3 +62,21 @@ def test_dwg_takeoff_reads_polyline_vertex_sequence_from_real_dxf(tmp_path: Path
     assert polyline.data["length"] == pytest.approx(16.0)
     assert polyline.data["area"] == pytest.approx(12.0)
 
+def test_dwg_takeoff_keeps_open_polyline_area_zero(tmp_path: Path) -> None:
+    import ezdxf
+    from core.drawings.dwg_takeoff import DWGTakeoffEngine
+
+    source = tmp_path / "open-polyline.dxf"
+    doc = ezdxf.new("R2018")
+    doc.modelspace().add_polyline2d(
+        [(0, 0), (3, 4), (6, 0)],
+        close=False,
+        dxfattribs={"layer": "A-STRUCT"},
+    )
+    doc.saveas(source)
+
+    imported = DWGTakeoffEngine().import_file(source)
+    polyline = next(entity for entity in imported.entities if entity.entity_type == "POLYLINE")
+    assert polyline.data["length"] == pytest.approx(10.0)
+    assert polyline.data["area"] == pytest.approx(0.0)
+
