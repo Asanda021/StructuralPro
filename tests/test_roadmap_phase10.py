@@ -1,23 +1,57 @@
 import pytest
-from core.takeoff.boq import build_boq, boq_summary
-from core.takeoff.estimate import build_estimate
-from core.reports import build_report
 
-def test_phase10_takeoff_to_boq_estimate_and_report(tmp_path):
-    source_rows = [
-        {"source_id": "drawing:A:01", "source_type": "takeoff", "item_code": "CONC-001",
-         "price_code": "M-001", "chapter": "بتن", "category": "سازه", "group": "بتن",
-         "description": "بتن فونداسیون", "quantity": 10, "unit": "m3", "unit_price": 250},
-        {"source_id": "manual:02", "source_type": "takeoff", "item_code": "REBAR-001",
-         "price_code": "M-002", "chapter": "آرماتور", "category": "سازه", "group": "آرماتور",
-         "description": "میلگرد", "quantity": 100, "unit": "kg", "unit_price": 4},
-    ]
-    boq = build_boq(source_rows, aggregate=False)
-    assert boq_summary(boq)["grand_total"] == pytest.approx(2900)
-    assert all(row["source_id"] for row in boq)
-    estimate = build_estimate(boq, aggregate=False)
-    assert estimate["cost"]["base"] == pytest.approx(2900)
-    report = build_report("پروژه آزمون", boq, {"grand_total": 2900})
-    assert report.validate()["valid"] is True
-    exported = report.export(tmp_path / "phase10.csv", "csv")
-    assert exported.read_bytes().startswith(bytes.fromhex("efbbbf"))
+from core.platform.application import StructuralProApp
+from core.takeoff.estimate import build_estimate
+
+
+def test_phase10_takeoff_to_boq_estimate_statement_and_report(tmp_path):
+    app = StructuralProApp(tmp_path / "data")
+    app.create_project("پروژه آزمون فاز ۱۰", "phase10-001")
+    row = app.add_takeoff(
+        "phase10-001",
+        "architecture",
+        "wall",
+        length=5,
+        width=0,
+        height=3,
+        member_code="wall",
+        price_code="W001",
+        unit_price=1000,
+        source_id="drawing:A:01",
+    )
+    assert row["quantities"][0]["amount"] == pytest.approx(15)
+    assert row["quantities"][0]["source_id"] == "drawing:A:01"
+
+    project = app.open_project("phase10-001")
+    assert len(project["boq"]) == 1
+    assert project["boq"][0]["price_code"] == "W001"
+    assert project["boq"][0]["quantity"] == pytest.approx(15)
+
+    estimate = app.recalculate_estimate("phase10-001", factors={"بالاسری": 0.10})
+    assert estimate["finalizable"] is True
+    assert estimate["cost"]["base"] == pytest.approx(15000)
+    assert estimate["cost"]["grand_total"] == pytest.approx(16500)
+
+    period = app.save_statement_period(
+        "phase10-001",
+        period_no=1,
+        current_quantities={"W001": 2},
+        retention_rate=0.10,
+    )
+    assert period["number"] == 1
+    assert period["gross_current"] == pytest.approx(2000)
+    assert period["retention"] == pytest.approx(200)
+
+    output = tmp_path / "phase10.csv"
+    result = app.report("phase10-001", "csv", output, period_no=1)
+    assert output.exists()
+    assert output.stat().st_size > 0
+    assert result is not None
+
+
+def test_phase10_estimate_rejects_negative_factors():
+    with pytest.raises(ValueError):
+        build_estimate(
+            [{"description": "دیوار", "quantity": 1, "unit": "m", "price_code": "W001", "unit_price": 1000}],
+            factors={"بالاسری": -0.10},
+        )
