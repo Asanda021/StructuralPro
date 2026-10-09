@@ -56,3 +56,39 @@ def test_invalid_measurement_does_not_mutate_store_or_consume_id():
     assert store.all() == []
     valid = store.add_length([Point(0, 0), Point(1, 0)], scale)
     assert valid.id == "M00001"
+
+from core.takeoff.manual_input import parse_manual_entry
+from core.takeoff.manual_workbench import ManualTakeoffWorkbench
+
+
+@pytest.mark.parametrize("entry", [
+    "ستون: تعداد=-2، عرض=0.5، عمق=0.5، ارتفاع=3",
+    "ستون: تعداد=2، عرض=-0.5، عمق=0.5، ارتفاع=3",
+    "ستون: تعداد=2، عرض=0.5، عمق=0.5، ارتفاع=-3",
+    "-2 ستون 50x50 ارتفاع 3",
+])
+def test_manual_takeoff_rejects_negative_values_instead_of_reading_absolute_value(entry):
+    with pytest.raises(ValueError, match="منفی"):
+        parse_manual_entry(entry)
+
+
+def test_manual_workbench_does_not_save_invalid_negative_manual_entry():
+    workbench = ManualTakeoffWorkbench("project-phase-2")
+    with pytest.raises(ValueError):
+        workbench.add_text(
+            "ستون: تعداد=2، عرض=-0.5، عمق=0.5، ارتفاع=3",
+            floor_id="level-1",
+        )
+    assert workbench.records == ()
+
+
+def test_area_and_count_failures_do_not_mutate_measurement_store():
+    store = MeasurementStore()
+    scale = ScaleCalibration.parse(100)
+    with pytest.raises(ValueError):
+        store.add_area([Point(0, 0), Point(1, 0)], scale)
+    with pytest.raises(ValueError):
+        store.add_count(1.5)
+    assert store.all() == []
+    valid = store.add_count(2)
+    assert valid.id == "M00001"
