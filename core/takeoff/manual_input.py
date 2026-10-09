@@ -44,7 +44,8 @@ def _normalise(text: str) -> str:
 def _extract_named(text: str) -> dict[str, float]:
     aliases = {
         "تعداد":"count","عدد":"count","طول":"length","عرض":"width","عمق":"depth",
-        "ارتفاع":"height","ضخامت":"thickness","ضخامت رویه":"topping_thickness","ضخامت جان پله":"waist_thickness",\n        "طول شیبدار":"sloped_length","بازشو":"openings","فاصله تیرچه":"joist_spacing",
+        "ارتفاع":"height","ضخامت":"thickness","ضخامت رویه":"topping_thickness","ضخامت جان پله":"waist_thickness",
+        "طول شیبدار":"sloped_length","بازشو":"openings","فاصله تیرچه":"joist_spacing",
         "فاصله":"joist_spacing","عرض تیرچه":"joist_width","عمق تیرچه":"joist_depth",
         "وزن واحد":"unit_weight","وزن":"unit_weight",
     }
