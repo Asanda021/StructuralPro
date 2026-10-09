@@ -69,3 +69,19 @@ def test_bridge_rejects_reference_not_matching_drawing_page_and_item():
             [_item(source_ref="other.pdf#page=2&takeoff=TO-00001")],
             drawing_source="plan.pdf",
         )
+
+
+def test_versioned_export_payload_marks_all_rows_for_review():
+    from core.drawings.graphical_takeoff import Point
+    from core.drawings.takeoff_session import DrawingTakeoffSession
+    from core.drawings.takeoff_bridge import build_takeoff_export_payload
+
+    session = DrawingTakeoffSession("plan.pdf")
+    session.calibrate(page=1, reference_pixels=100, reference_meters=10)
+    session.add_length([Point(0, 0), Point(50, 0)], page=1, label="دیوار")
+    payload = build_takeoff_export_payload(session)
+    assert payload["schema"] == "structuralpro.drawing-takeoff.v1"
+    assert payload["approval_required"] is True
+    assert payload["summary"]["needs_review"] == 1
+    assert payload["items"][0]["status"] == "needs_review"
+    assert payload["items"][0]["source_ref"].startswith("plan.pdf#page=1&takeoff=")
