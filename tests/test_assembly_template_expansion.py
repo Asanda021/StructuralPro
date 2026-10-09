@@ -77,3 +77,17 @@ def test_template_library_search_and_duplicate_guard():
     library = AssemblyTemplateLibrary()
     assert library.get("concrete_column").title_fa == "ستون بتنی"
     assert len(library.list()) == len({x.code for x in library.list()})
+
+
+def test_assembly_engine_requires_explicit_counts_and_openings():
+    with pytest.raises(ValueError, match="count"):
+        calculate_assembly("concrete_slab", length=5, width=4, thickness=0.15, openings=0)
+    with pytest.raises(ValueError, match="openings"):
+        calculate_assembly("concrete_slab", count=1, length=5, width=4, thickness=0.15)
+    with pytest.raises(ValueError, match="count"):
+        calculate_assembly("excavation", length=5, width=4, depth=2, count=1.5)
+
+
+def test_assembly_engine_rejects_fractional_counts():
+    with pytest.raises(ValueError, match="integer"):
+        calculate_assembly("concrete_column", count=1.5, width=0.4, depth=0.4, height=3)
