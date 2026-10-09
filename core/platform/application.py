@@ -25,6 +25,7 @@ from core.performance.project_performance import paginate, project_performance_s
 from core.recovery.recovery import export_project, import_project
 from core.aec.disciplines import takeoff_domain
 from core.drawings.takeoff_bridge import session_to_boq_rows, validate_session_payload
+from core.takeoff.ai_output_guard import validate_ai_takeoff_proposal
 
 
 def _normalize_date_key(value: str) -> str | None:
@@ -380,6 +381,100 @@ class StructuralProApp:
         return {"session_id": sid, "revision": record["revision"],
                 "committed_item_ids": record["committed_item_ids"],
                 "takeoffs_added": deepcopy(new_takeoffs), "boq_count": len(project["boq"])}
+
+    def commit_ai_takeoff_proposal(self, project_id: str, proposal: dict[str, Any], *,
+                                   user_confirmed: bool = False,
+                                   minimum_confidence: float = 0.85) -> dict[str, Any]:
+        """Persist AI-suggested quantities only after evidence, session revision and user confirmation pass."""
+        pid = str(project_id or "").strip()
+        if not pid:
+            raise ValueError("شناسه پروژه الزامی است")
+        report = validate_ai_takeoff_proposal(
+            proposal, user_confirmed=user_confirmed, minimum_confidence=minimum_confidence
+        )
+        if not report["valid"]:
+            raise ValueError("پیشنهاد هوش مصنوعی رد شد: " + "؛ ".join(report["issues"]))
+        if not report["approved"]:
+            raise PermissionError("پیشنهاد هوش مصنوعی هنوز تأیید صریح کاربر را ندارد")
+        sid = str(proposal.get("drawing_id", "")).strip()
+        try:
+            expected_session_revision = int(proposal.get("revision_id"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("نسخه نشست نقشه در پیشنهاد معتبر نیست") from exc
+        digest = self.store.current_digest(pid)
+        self.store._cache.pop(pid, None)
+        project = self.store.get(pid)
+        if project is None:
+            raise KeyError(pid)
+        record = (project.get("drawing_sessions", {}) or {}).get(sid)
+        if not isinstance(record, dict):
+            raise ValueError("نشست نقشه مرجع پیشنهاد در پروژه ذخیره نشده است")
+        if int(record.get("revision", 1)) != expected_session_revision:
+            raise RuntimeError("نسخه نقشه/نشست با پیشنهاد هوش مصنوعی مطابقت ندارد؛ پیشنهاد را دوباره تولید کنید")
+        from core.drawings.takeoff_session import DrawingTakeoffSession
+        session = DrawingTakeoffSession.from_dict(record.get("session", {}))
+        existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
+        new_rows = []
+        for candidate in report["rows"]:
+            page = candidate["page"]
+            if page > max([1, *[int(x.get("page", 1)) for x in session.items]]):
+                raise ValueError(f"صفحه {page} در نشست نقشه مرجع وجود ندارد")
+            evidence = candidate["evidence"]
+            source_ref = str(evidence.get("source_ref", "")).strip()
+            expected_prefix = f"{session.drawing_source}#page={page}"
+            if not source_ref.startswith(expected_prefix):
+                raise ValueError("مرجع شواهد با منبع نقشه و صفحه نشست ذخیره‌شده مطابقت ندارد")
+            if candidate["kind"] in {"length", "area"}:
+                calibration = session.calibrations.get(page)
+                if calibration is None:
+                    raise ValueError(f"صفحه {page} کالیبراسیون معتبر ندارد")
+                try:
+                    evidence_factor = float(evidence.get("meters_per_pixel"))
+                except (TypeError, ValueError) as exc:
+                    raise ValueError("شواهد کالیبراسیون فاقد ضریب مقیاس معتبر است") from exc
+                if not math.isfinite(evidence_factor) or not math.isclose(
+                    evidence_factor, calibration.meters_per_pixel, rel_tol=1e-9, abs_tol=1e-12
+                ):
+                    raise ValueError("ضریب مقیاس پیشنهاد با کالیبراسیون ذخیره‌شده مطابقت ندارد")
+            source_id = f"ai-takeoff:{sid}:{expected_session_revision}:{candidate['source_id']}"
+            if source_id in existing_sources:
+                raise ValueError("پیشنهاد تکراری است و می‌تواند باعث دوباره‌شماری شود")
+            existing_sources.add(source_id)
+            title = candidate["label"]
+            new_rows.append({
+                "id": f"{len(project.get('takeoffs', [])) + len(new_rows) + 1}",
+                "member_code": candidate["source_id"], "source_id": source_id,
+                "domain": "drawing_ai", "item": candidate["kind"],
+                "params": {"drawing_session_id": sid, "drawing_revision": expected_session_revision,
+                           "evidence": deepcopy(candidate["evidence"]), "confidence": candidate["confidence"],
+                           "formula": candidate["formula"]},
+                "revision": 1, "drawing_session_id": sid, "ai_generated": True,
+                "description": title, "system": f"صفحه {page}",
+                "quantities": [{
+                    "code": candidate["source_id"], "title": title, "system": f"صفحه {page}",
+                    "unit": candidate["unit"], "amount": candidate["quantity"],
+                    "formula": candidate["formula"], "warning": "پیشنهاد هوش مصنوعی با تأیید انسانی ثبت شده است",
+                    "price_code": None, "unit_price": None, "source_ref": source_ref, "page": page,
+                }],
+            })
+        if not new_rows:
+            raise ValueError("پیشنهاد تأییدشده هیچ ردیف قابل ثبت ندارد")
+        project.setdefault("takeoffs", []).extend(new_rows)
+        boq_inputs = []
+        for takeoff in project.get("takeoffs", []):
+            for quantity in takeoff.get("quantities", []):
+                boq_inputs.append({
+                    "source": takeoff.get("source_id", "") or "manual",
+                    "source_id": takeoff.get("source_id", ""), "source_type": "takeoff",
+                    "description": quantity.get("title", ""), "quantity": quantity.get("amount", 0),
+                    "unit": quantity.get("unit", ""), "item_code": quantity.get("code", ""),
+                    "price_code": quantity.get("price_code"), "unit_price": quantity.get("unit_price"),
+                    "category": takeoff.get("domain", "manual"), "group": takeoff.get("domain", "manual"),
+                })
+        project["boq"] = build_boq(boq_inputs)
+        self.store.save(pid, project, expected_digest=digest)
+        return {"approved": True, "takeoffs_added": deepcopy(new_rows), "boq_count": len(project["boq"]),
+                "drawing_session_id": sid, "drawing_session_revision": expected_session_revision}
 
     def add_assembly_takeoff(self, project_id: str, assembly_code: str, inputs: dict[str, Any], *,
                              floor_id: str, description: str = "") -> dict[str, Any]:
