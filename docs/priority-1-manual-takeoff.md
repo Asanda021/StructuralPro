@@ -10,8 +10,9 @@
 - Current mappings: columns, beams, tie beams, footings, shear walls, solid slabs, joist-block/foam roofs, stairs, walls, excavation, rebar, and steel.
 
 ## Explicit limits
-- This is a backend workbench/register slice, not a claim that the entire Windows UI has been wired to every action.
-- Editing an existing row, clipboard paste from Excel, floor copy, assembly expansion, and a full audit timeline remain integration work.
+- The Persian Windows UI now exposes a project-linked manual takeoff dialog from Quick Takeoff. It previews complete entries and saves them through `StructuralProApp.add_takeoff`, preserving the floor as the system and a unique source ID.
+- Incomplete entries are shown as drafts and are not persisted. Saving is retry-safe within the dialog session: already saved rows are not submitted twice.
+- Editing an existing row, clipboard paste from Excel, floor copy, assembly expansion, persistent undo/redo, and a full audit timeline remain integration work.
 - Rebar/steel quantities are only valid when length and unit weight inputs are supplied; schedules are not inferred.
 - Unknown or incomplete fields are not fabricated.
 
