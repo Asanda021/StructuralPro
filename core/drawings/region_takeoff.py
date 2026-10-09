@@ -20,3 +20,19 @@ def rectangle_to_points(left: float, top: float, right: float, bottom: float) ->
         (x_max, y_max),
         (x_min, y_max),
     )
+
+
+def calibrated_rectangle_area(
+    left: float, top: float, right: float, bottom: float, meters_per_pixel: float
+) -> float:
+    """Preview a rectangle's area only with an explicit, finite calibration factor."""
+    rectangle_to_points(left, top, right, bottom)
+    factor = float(meters_per_pixel)
+    if not math.isfinite(factor) or factor <= 0:
+        raise ValueError("برای محاسبه مساحت، کالیبراسیون معتبر و مثبت لازم است")
+    width = abs(float(right) - float(left))
+    height = abs(float(bottom) - float(top))
+    area = width * height * factor * factor
+    if not math.isfinite(area) or area <= 0:
+        raise ValueError("مساحت پیش‌نمایش معتبر نیست")
+    return area
