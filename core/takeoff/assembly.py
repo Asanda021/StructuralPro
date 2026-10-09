@@ -51,8 +51,10 @@ def _n(p: Mapping[str, Any], name: str, minimum: float = 0.0) -> float:
     return value
 
 
-def _count(p: Mapping[str, Any], name: str, default: int = 1) -> int:
-    value = _n({name: p.get(name, default)}, name, 1)
+def _count(p: Mapping[str, Any], name: str) -> int:
+    if name not in p or p[name] in (None, ""):
+        raise ValueError(f"{name} must be supplied explicitly")
+    value = _n(p, name, 1)
     if not value.is_integer():
         raise ValueError(f"{name} must be an integer")
     return int(value)
