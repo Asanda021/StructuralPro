@@ -1,8 +1,8 @@
-"""Fail-closed adapter from calibrated drawing measurements to reviewable takeoff rows.
+"""Fail-closed adapter from DrawingTakeoffSession to reviewable takeoff rows.
 
-This module deliberately does not write to project storage. Callers must show the
-prepared rows to a user and persist them through the application's normal service,
-so source references and project-specific BOQ links remain under the owning service.
+This adapter does not write to project storage. The application must persist the
+returned rows through its owning project service to preserve BOQ/estimate links,
+revisions, and audit events.
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ class DrawingTakeoffRow:
     unit: str
     description: str
     formula: str
+    takeoff_code: str = ""
     status: str = "needs_review"
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,6 +34,7 @@ class DrawingTakeoffRow:
             "unit": self.unit,
             "description": self.description,
             "formula": self.formula,
+            "takeoff_code": self.takeoff_code,
             "status": self.status,
         }
 
@@ -41,12 +43,7 @@ _KIND_UNITS = {"length": "m", "area": "m2", "count": "عدد"}
 
 
 def prepare_drawing_takeoff_rows(items: Iterable[Any], *, drawing_source: str) -> tuple[DrawingTakeoffRow, ...]:
-    """Validate drawing measurements and map them to reviewable, traceable rows.
-
-    Does not infer missing scale, quantity, unit, drawing identity, or BOQ code.
-    Each item must have been calculated by the drawing session after any required
-    explicit page calibration. Duplicate source identities are rejected.
-    """
+    """Validate session measurements without inventing values or BOQ codes."""
     source = str(drawing_source or "").strip()
     if not source:
         raise ValueError("شناسه/مسیر نقشه برای ردیابی متره الزامی است")
@@ -58,11 +55,12 @@ def prepare_drawing_takeoff_rows(items: Iterable[Any], *, drawing_source: str) -
         item_source = str(get("source", "") or "").strip()
         source_ref = str(get("source_ref", "") or "").strip()
         kind = str(get("kind", "") or "").strip().casefold()
-        if not item_id or not item_source or not source_ref:
-            raise ValueError("هر ردیف نقشه باید شناسه، منبع و ارجاع منبع داشته باشد")
-        if item_source in seen:
-            raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {item_source}")
-        seen.add(item_source)
+        if not item_id or not source_ref:
+            raise ValueError("هر ردیف نقشه باید شناسه و ارجاع منبع داشته باشد")
+        identity = item_source or source_ref
+        if identity in seen:
+            raise ValueError(f"منبع متره تکراری و مستعد دوباره‌شماری: {identity}")
+        seen.add(identity)
         if kind not in _KIND_UNITS:
             raise ValueError(f"نوع متره نقشه پشتیبانی نمی‌شود: {kind or 'نامشخص'}")
         try:
@@ -77,7 +75,12 @@ def prepare_drawing_takeoff_rows(items: Iterable[Any], *, drawing_source: str) -
         formula = str(get("formula", "") or "").strip()
         if not formula:
             raise ValueError("فرمول/مبنای محاسبه برای ردیابی متره الزامی است")
+        # Session-generated refs include the source plus page and item identity.
+        expected_prefix = f"{source}#page={page}&takeoff={item_id}"
+        if source_ref != expected_prefix and not source_ref.startswith(expected_prefix + "&"):
+            raise ValueError("ارجاع ردیف با شناسه نقشه/صفحه/متره همخوانی ندارد")
         label = str(get("label", "") or "").strip()
+        takeoff_code = str(get("takeoff_code", "") or "").strip()
         rows.append(DrawingTakeoffRow(
             source_id=f"drawing:{source}:page:{page}:{item_id}",
             source_ref=source_ref,
@@ -87,5 +90,20 @@ def prepare_drawing_takeoff_rows(items: Iterable[Any], *, drawing_source: str) -
             unit=_KIND_UNITS[kind],
             description=label or f"متره {kind} از نقشه — نیازمند بازبینی کاربر",
             formula=formula,
+            takeoff_code=takeoff_code,
         ))
     return tuple(rows)
+
+
+def prepare_session_takeoff(session: Any) -> tuple[DrawingTakeoffRow, ...]:
+    """Adapt an actual DrawingTakeoffSession while enforcing per-page calibration."""
+    source = str(getattr(session, "drawing_source", "") or "").strip()
+    if not source:
+        raise ValueError("جلسه متره به نقشه منبع متصل نیست")
+    items = tuple(getattr(session, "items", ()))
+    calibrations = getattr(session, "calibrations", {})
+    for item in items:
+        if str(getattr(item, "kind", "")).casefold() in {"length", "area"}:
+            if int(getattr(item, "page", 0)) not in calibrations:
+                raise ValueError(f"کالیبراسیون صریح صفحه {getattr(item, 'page', '?')} یافت نشد")
+    return prepare_drawing_takeoff_rows(items, drawing_source=source)
