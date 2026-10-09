@@ -105,4 +105,14 @@ class ManualTakeoffWorkbench:
         if self._redo: self._undo.append(tuple(self._records)); self._records = list(self._redo.pop())
         return self.records
 
+    def remove_record(self, record_id: str) -> tuple[ManualTakeoffRecord, ...]:
+        """Remove one pending record with undo/redo support."""
+        key = str(record_id or "").strip()
+        index = next((i for i, row in enumerate(self._records) if row.record_id == key), None)
+        if index is None:
+            raise KeyError(f"manual takeoff record not found: {key}")
+        self._snapshot()
+        self._records.pop(index)
+        return self.records
+
     def export_rows(self) -> tuple[dict, ...]: return tuple(record.to_dict() for record in self._records)
