@@ -30,3 +30,12 @@ def test_incomplete_manual_entries_are_not_persisted():
     assert "isinstance(result, ManualTakeoffDraft)" in DIALOG
     assert '"نیازمند: "' in DIALOG
     assert "for record in self.workbench.records:" in DIALOG
+
+
+def test_manual_takeoff_workbench_exposes_phase_two_controls():
+    for control in ("چسباندن Excel", "ویرایش ردیف انتخابی", "کپی ردیف",
+                    "کپی به طبقه دیگر", "حذف ردیف انتخابی", "واگرد", "تکرار"):
+        assert control in DIALOG
+    assert "QApplication.clipboard().text()" in DIALOG
+    assert 'project.setdefault("_manual_takeoff_audit", [])' in DIALOG
+    assert 'self.service.store.save(project_id, project)' in DIALOG
