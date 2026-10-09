@@ -92,3 +92,26 @@ def test_area_and_count_failures_do_not_mutate_measurement_store():
     assert store.all() == []
     valid = store.add_count(2)
     assert valid.id == "M00001"
+
+def test_viewer_failed_open_preserves_the_previously_open_drawing(tmp_path):
+    fitz = pytest.importorskip("fitz")
+    from core.drawings.viewer_model import DrawingViewerModel
+
+    path = tmp_path / "valid.pdf"
+    document = fitz.open()
+    document.new_page(width=100, height=100)
+    document.save(path)
+    document.close()
+
+    viewer = DrawingViewerModel(path)
+    before = (viewer.path, viewer.kind, viewer.page_count, viewer.current_page)
+    unsupported = tmp_path / "unsupported.txt"
+    unsupported.write_text("not a drawing", encoding="utf-8")
+    with pytest.raises(ValueError):
+        viewer.open(unsupported)
+    assert (viewer.path, viewer.kind, viewer.page_count, viewer.current_page) == before
+
+
+def test_snap_with_empty_candidate_iterator_is_a_noop():
+    point = Point(2, 3)
+    assert snap_point(point, iter(()), 1) == point
