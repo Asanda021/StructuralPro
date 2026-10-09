@@ -448,6 +448,13 @@ def main()->int:
     tfv.addWidget(assembly_floor_id)
     tfv.addWidget(assembly_save_button)
     tfv.addWidget(assembly_output)
+    def invalidate_assembly_preview(*_):
+        assembly_preview_state.clear()
+        assembly_save_button.setEnabled(False)
+    assembly_inputs.textChanged.connect(invalidate_assembly_preview)
+    assembly_combo.currentIndexChanged.connect(invalidate_assembly_preview)
+    assembly_project_id.textChanged.connect(invalidate_assembly_preview)
+    assembly_floor_id.textChanged.connect(invalidate_assembly_preview)
     def do_assembly_preview():
         assembly_preview_state.clear()
         assembly_save_button.setEnabled(False)
