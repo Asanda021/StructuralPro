@@ -107,3 +107,31 @@ def test_bridge_requires_explicit_selection_and_valid_session():
     assert len(rows) == 1
     assert rows[0]["quantity"] == pytest.approx(12.0)
     assert rows[0]["unit"] == "عدد"
+
+
+def test_saving_new_session_edits_preserves_commit_ledger(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("دفتر ثبت متره", "commit-ledger-project")
+    session = DrawingTakeoffSession("golden://project/A103.pdf")
+    session.calibrate(1, 100, 10)
+    first = session.add_length([Point(0, 0), Point(100, 0)], page=1,
+                               label="طول اول", takeoff_code="LINE-1")
+    saved = app.save_drawing_takeoff_session("commit-ledger-project", session)
+    committed = app.commit_drawing_takeoff_to_boq(
+        "commit-ledger-project", saved["session_id"], [first.id],
+        expected_session_revision=saved["revision"],
+    )
+    session.add_length([Point(0, 0), Point(50, 0)], page=1,
+                       label="طول دوم", takeoff_code="LINE-2")
+    resaved = app.save_drawing_takeoff_session(
+        "commit-ledger-project", session, session_id=saved["session_id"],
+        expected_revision=committed["revision"],
+    )
+    assert resaved["revision"] == committed["revision"] + 1
+    assert first.id in resaved["committed_item_ids"]
+    with pytest.raises(ValueError, match="قبلاً"):
+        app.commit_drawing_takeoff_to_boq(
+            "commit-ledger-project", saved["session_id"], [first.id],
+            expected_session_revision=resaved["revision"],
+        )
+    assert len(app.open_project("commit-ledger-project")["takeoffs"]) == 1
