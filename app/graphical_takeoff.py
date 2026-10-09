@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QRectF, QByteArray
 from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF, QFont, QTextOption
@@ -19,6 +20,7 @@ from core.drawings.takeoff_session import DrawingTakeoffSession
 from core.drawings.viewer_model import DrawingViewerModel
 from core.drawings.viewport_tools import ViewportRect
 from core.drawings.region_takeoff import calibrated_rectangle_area, rectangle_to_points
+from core.drawings.takeoff_bridge import build_takeoff_export_payload
 
 
 class TakeoffCanvas(QGraphicsView):
@@ -284,6 +286,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.save_session_button.setEnabled(self.app_service is not None)
         self.load_session_button.setEnabled(self.app_service is not None)
         self.commit_boq_button.setEnabled(self.app_service is not None)
+        self.export_boq = QPushButton("خروجی متره برای بازبینی")
         self.finish = QPushButton("ثبت متره")
         self.undo = QPushButton("↶ واگرد")
         self.redo = QPushButton("↷ تکرار")
@@ -293,7 +296,7 @@ class GraphicalTakeoffDialog(QDialog):
             self.zoom_out, self.zoom_in, self.fit, self.zoom_window,
             self.select_region, self.cancel_selection, self.region_to_takeoff, self.undo, self.redo,
             self.delete, self.finish, self.project_id_input, self.save_session_button,
-            self.load_session_button, self.commit_boq_button
+            self.load_session_button, self.commit_boq_button, self.export_boq
         ]:
             header.addWidget(x)
         header.addWidget(self.source_label)
@@ -339,6 +342,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.cancel_selection.clicked.connect(lambda: self.canvas.cancel_interaction())
         self.region_to_takeoff.clicked.connect(self.register_selected_region)
         self.finish.clicked.connect(self.canvas.finish)
+        self.export_boq.clicked.connect(self.export_takeoff_for_boq)
         self.undo.clicked.connect(self.undo_session)
         self.redo.clicked.connect(self.redo_session)
         self.delete.clicked.connect(self.delete_selected)
@@ -741,6 +745,46 @@ class GraphicalTakeoffDialog(QDialog):
                 self.canvas._draw_measurement(item)
         else:
             self._render_cad()
+
+    def export_takeoff_for_boq(self):
+        """Export a reviewable, source-linked JSON handoff; never auto-approve BOQ rows."""
+        if not self.session.items:
+            QMessageBox.information(self, "خروجی متره", "هنوز هیچ ردیف متره‌ای برای خروجی ثبت نشده است.")
+            return
+        try:
+            payload = build_takeoff_export_payload(self.session)
+        except Exception as exc:
+            QMessageBox.warning(self, "خروجی متره", str(exc))
+            return
+        answer = QMessageBox.question(
+            self,
+            "تأیید خروجی متره",
+            f"{len(payload['items'])} ردیف متره با ارجاع نقشه آماده خروجی است.\n"
+            "همه ردیف‌ها نیازمند بازبینی و تأیید جداگانه‌اند؛ این عملیات آن‌ها را مستقیماً در BOQ ثبت نمی‌کند.\n\n"
+            "آیا فایل تبادل JSON ساخته شود؟",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        path = QFileDialog.getSaveFileName(
+            self, "ذخیره خروجی متره برای BOQ", "drawing-takeoff.json",
+            "StructuralPro Takeoff JSON (*.json)",
+        )[0]
+        if not path:
+            return
+        try:
+            Path(path).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            self.status.setText(f"خروجی قابل بازبینی ذخیره شد: {path}")
+            QMessageBox.information(
+                self, "خروجی متره",
+                "فایل تبادل ذخیره شد. ردیف‌ها هنوز تأییدنشده‌اند و باید در سرویس پروژه/BOQ بازبینی و ثبت شوند.",
+            )
+        except OSError as exc:
+            QMessageBox.critical(self, "خطای ذخیره خروجی", str(exc))
 
     def refresh(self):
         self.table.setRowCount(0)

@@ -100,3 +100,32 @@ def session_to_boq_rows(
     if not rows:
         raise ValueError("هیچ متره‌ای برای انتقال به BOQ انتخاب نشده است")
     return rows
+
+
+def build_takeoff_export_payload(session: DrawingTakeoffSession) -> dict[str, Any]:
+    """Export a review handoff through the same validator used by project storage."""
+    source = str(session.drawing_source).strip()
+    validated = session_to_boq_rows(
+        session.to_dict(), session_id=source,
+        selected_item_ids=[item.id for item in session.items],
+    )
+    items_by_id = {item.id: item for item in session.items}
+    rows = [{
+        "source_id": f"drawing:{source}:page:{row['page']}:{row['takeoff_id']}",
+        "source_ref": row["source"], "page": row["page"], "kind": row["kind"],
+        "quantity": row["quantity"], "unit": row["unit"],
+        "description": row["description"], "formula": row["formula"],
+        "takeoff_code": items_by_id[row["takeoff_id"]].takeoff_code,
+        "status": "needs_review",
+    } for row in validated]
+    return {
+        "schema": "structuralpro.drawing-takeoff.v1",
+        "drawing_source": source, "approval_required": True, "items": rows,
+        "summary": {
+            "items": len(rows), "needs_review": len(rows),
+            "by_unit": {
+                unit: sum(row["quantity"] for row in rows if row["unit"] == unit)
+                for unit in sorted({row["unit"] for row in rows})
+            },
+        },
+    }
