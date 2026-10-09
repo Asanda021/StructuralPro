@@ -30,6 +30,50 @@ class AnchorParser(HTMLParser):
         if t=="a" and self.href is not None:
             self.links.append((norm_text(" ".join(self.text)),self.href)); self.href=None; self.text=[]
 
+class ArchiveRowParser(HTMLParser):
+    """Capture each archive table row together with its link targets."""
+    def __init__(self):
+        super().__init__()
+        self.rows=[]
+        self.in_row=False
+        self.row_text=[]
+        self.row_links=[]
+        self.href=None
+        self.anchor_text=[]
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self.in_row=True
+            self.row_text=[]
+            self.row_links=[]
+        elif tag == "a" and self.in_row:
+            self.href=dict(attrs).get("href")
+            self.anchor_text=[]
+
+    def handle_data(self, data):
+        if not self.in_row:
+            return
+        self.row_text.append(data)
+        if self.href is not None:
+            self.anchor_text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "a" and self.in_row and self.href is not None:
+            self.row_links.append((norm_text(" ".join(self.anchor_text)), self.href))
+            self.href=None
+            self.anchor_text=[]
+        elif tag == "tr" and self.in_row:
+            self.rows.append((norm_text(" ".join(self.row_text)), list(self.row_links)))
+            self.in_row=False
+
+
+def archive_index_rows():
+    parser=ArchiveRowParser()
+    body,_=get(ARCHIVE_INDEX)
+    parser.feed(body.decode("utf-8","ignore"))
+    return parser.rows
+
+
 def get(url):
     req=Request(url,headers={"User-Agent":"StructuralPro-PricebookSync/8.0","Accept":"*/*"})
     with urlopen(req,timeout=120) as r: return r.read(),r.headers.get("Content-Type","")
@@ -68,15 +112,29 @@ def discover_archive_page(y,d):
             if candidates: return page,candidates
         except Exception as exc:
             errors.append(f"{page}: {exc}")
-    # Last-resort discovery from the public archive index. This avoids coupling
-    # the importer to one filename casing/naming convention.
+    # The public index puts the year/discipline in the table row, while the
+    # anchor text itself is often only "صفحه دانلود". Match row context rather
+    # than anchor text so valid archive pages are not missed.
     try:
-        for txt,href in page_links(ARCHIVE_INDEX):
-            label=norm_text(f"{txt} {href}")
-            if str(y) in label and d in label:
+        seen=set()
+        for label,links in archive_index_rows():
+            if str(y) not in label or d not in label:
+                continue
+            for txt,href in links:
+                if not href:
+                    continue
                 page=urljoin(ARCHIVE_INDEX,href)
-                candidates=download_links(page,d,y)
-                if candidates: return page,candidates
+                if page in seen:
+                    continue
+                seen.add(page)
+                if urlparse(page).path.lower().endswith((".xlsx",".xls")):
+                    return page,[page]
+                try:
+                    candidates=download_links(page,d,y)
+                    if candidates:
+                        return page,candidates
+                except Exception as exc:
+                    errors.append(f"{page}: {exc}")
     except Exception as exc:
         errors.append(f"index discovery: {exc}")
     raise RuntimeError("pricebook archive page not found; " + " | ".join(errors))
