@@ -17,7 +17,7 @@ def main()->int:
             QComboBox,QFormLayout,QMessageBox,QTextEdit,QFileDialog,QTableWidget,
             QTableWidgetItem,QHeaderView,QGroupBox,QTabWidget,QTabBar,QFrame,QTreeWidget,QTreeWidgetItem,QTreeWidgetItemIterator
         )
-        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtCore import Qt, QTimer, QEvent
         from PySide6.QtGui import QShortcut, QKeySequence
         from core.platform.application import StructuralProApp
         from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
@@ -916,13 +916,17 @@ def main()->int:
         # CI smoke must validate full desktop construction without relying on
         # platform-specific event-loop shutdown semantics.
         app.processEvents()
-        # Close the top-level window before QApplication teardown. This keeps
-        # the frozen Windows runtime on the same orderly widget-destruction
-        # path as an interactive shutdown instead of exiting with live widgets.
+        # Explicitly destroy the top-level Qt widget and flush deferred-delete
+        # events before QApplication teardown. Closing alone leaves the window
+        # and its native child widgets alive; frozen Windows builds have then
+        # exited with access violation 0xC0000005 after successful initialization.
+        w.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         w.close()
         app.processEvents()
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.processEvents()
         app.quit()
-        logger.info("StructuralPro smoke initialization completed")
+        logger.info("StructuralPro smoke initialization and Qt cleanup completed")
         return 0
     result = app.exec()
     logger.info("StructuralPro shutdown with exit code %s", result)
