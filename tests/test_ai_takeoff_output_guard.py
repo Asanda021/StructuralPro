@@ -22,6 +22,7 @@ def valid_proposal():
                 "evidence": {
                     "source_ref": "drawing-a101.pdf#page=2&region=7",
                     "scale_ref": "calibration:page-2:rev-1",
+                    "meters_per_pixel": 0.025,
                 },
             }
         ],
