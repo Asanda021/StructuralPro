@@ -298,11 +298,16 @@ def calculate_assembly(code: str, **p: Any) -> AssemblyResult:
                                         "تعداد×طول×عرض−مساحت بازشوها", net_area)]
         used = ["length", "width", "count", "openings"]
         consumption = _optional(p, "consumption_per_m2")
+        consumption_unit = str(p.get("consumption_unit", "") or "").strip()
         if consumption is not None:
-            components.append(AssemblyComponent("finish_material", "مصرف مصالح طبق نرخ ورودی", "unit",
+            if not consumption_unit:
+                raise ValueError("برای مصرف مصالح، واحد صریح مانند kg یا L الزامی است")
+            components.append(AssemblyComponent("finish_material", "مصرف مصالح طبق مشخصات ورودی", consumption_unit,
                                                 "مساحت خالص×مصرف واردشده بر m²", net_area * consumption,
-                                                warning="واحد مصرف باید توسط کاربر/مشخصات تعیین شود."))
-            used.append("consumption_per_m2")
+                                                warning="نرخ مصرف و واحد آن باید از مشخصات/دیتاشیت معتبر وارد شود."))
+            used.extend(("consumption_per_m2", "consumption_unit"))
+        elif consumption_unit:
+            raise ValueError("واحد مصرف بدون مقدار مصرف وارد شده است")
         waste = _optional(p, "waste_factor")
         if waste is not None:
             components.append(AssemblyComponent("finish_procurement_area", "مقدار تهیه با پرت صریح", "m²",
