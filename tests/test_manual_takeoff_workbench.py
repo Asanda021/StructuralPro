@@ -34,3 +34,11 @@ def test_manual_workbench_requires_project_and_floor():
     with pytest.raises(ValueError, match="project_id"): ManualTakeoffWorkbench("")
     wb = ManualTakeoffWorkbench("project-1")
     with pytest.raises(ValueError, match="floor_id"): wb.add_text("ستون: تعداد=1، عرض=0.4، عمق=0.4، ارتفاع=3", floor_id="")
+
+
+def test_wall_can_explicitly_have_zero_openings():
+    wb = ManualTakeoffWorkbench("project-1")
+    row = wb.add_text("دیوار: تعداد=1، طول=4، ارتفاع=3، بازشو=0", floor_id="level-1")
+    assert isinstance(row, ManualTakeoffRecord)
+    assert row.quantity == pytest.approx(12.0)
+    assert row.unit == "m2"
