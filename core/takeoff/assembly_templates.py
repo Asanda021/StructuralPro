@@ -67,6 +67,9 @@ class AssemblyTemplateLibrary:
 
     def expand(self, code: str, inputs: Mapping[str, Any]) -> AssemblyResult:
         template = self.get(code)
+        unknown = tuple(sorted(set(inputs) - set(template.required_inputs) - set(template.optional_inputs)))
+        if unknown:
+            raise ValueError("ورودی ناشناخته برای قالب متره: " + "، ".join(unknown))
         missing = tuple(name for name in template.required_inputs
                         if name not in inputs or inputs[name] in (None, ""))
         if missing:
