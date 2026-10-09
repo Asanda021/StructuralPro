@@ -81,7 +81,7 @@ class ManualTakeoffWorkbench:
             "stair_concrete": ("count", "sloped_length", "width", "waist_thickness"), "wall": ("count", "length", "height", "openings"),
             "excavation": ("length", "width", "depth"), "rebar": ("count", "length", "unit_weight"), "steel": ("count", "length", "unit_weight"),
         }.get(entry.code, ())
-        missing = tuple(k for k in fields if k not in params or params[k] <= 0)
+        missing = tuple(k for k in fields if k not in params or (params[k] < 0 if k == "openings" else params[k] <= 0))
         if missing:
             updated = ManualEntry(entry.code, params, missing, entry.source_text)
             return ManualTakeoffDraft(self.project_id, str(floor_id).strip(), updated, missing)
