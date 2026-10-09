@@ -50,6 +50,13 @@ def test_ai_takeoff_requires_human_confirmation_and_saved_drawing_evidence(tmp_p
     assert len(project["takeoffs"]) == 1
     assert len(project["boq"]) == 1
     assert project["takeoffs"][0]["ai_generated"] is True
+    refreshed = app.load_drawing_takeoff_session("ai-project", saved["session_id"])
+    with pytest.raises(ValueError, match="هوشمند"):
+        app.commit_drawing_takeoff_to_boq(
+            "ai-project", saved["session_id"], [session.items[0].id],
+            expected_session_revision=refreshed["revision"],
+        )
+    assert len(app.open_project("ai-project")["takeoffs"]) == 1
 
 
 def test_ai_takeoff_rejects_stale_revision_wrong_scale_and_duplicate_sources(tmp_path):
