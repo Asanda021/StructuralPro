@@ -916,6 +916,11 @@ def main()->int:
         # CI smoke must validate full desktop construction without relying on
         # platform-specific event-loop shutdown semantics.
         app.processEvents()
+        # Close the top-level window before QApplication teardown. This keeps
+        # the frozen Windows runtime on the same orderly widget-destruction
+        # path as an interactive shutdown instead of exiting with live widgets.
+        w.close()
+        app.processEvents()
         app.quit()
         logger.info("StructuralPro smoke initialization completed")
         return 0
