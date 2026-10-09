@@ -1,0 +1,22 @@
+# Priority 1 — Professional Manual Takeoff
+
+## Implemented in this slice
+- Project-scoped and floor-scoped manual takeoff register.
+- Reuses the deterministic TakeoffEngine; no separate quantity formula is introduced.
+- Preserves original input text, normalized parameters, item identity, formula, unit, quantity, and draft status for traceability.
+- Returns a draft with exact missing fields when geometry is incomplete.
+- Project defaults are applied only when the caller explicitly lists each field in confirmed_default_fields; there is no silent default guessing.
+- Supports semicolon batch entry and undo/redo of register changes.
+- Current mappings: columns, beams, tie beams, footings, shear walls, solid slabs, joist-block/foam roofs, stairs, walls, excavation, rebar, and steel.
+
+## Explicit limits
+- This is a backend workbench/register slice, not a claim that the entire Windows UI has been wired to every action.
+- Editing an existing row, clipboard paste from Excel, floor copy, assembly expansion, and a full audit timeline remain integration work.
+- Rebar/steel quantities are only valid when length and unit weight inputs are supplied; schedules are not inferred.
+- Unknown or incomplete fields are not fabricated.
+
+## Acceptance checks
+1. A complete entry calculates with the existing deterministic engine.
+2. Incomplete entry returns a draft and does not create a quantity record.
+3. Project defaults require explicit per-field confirmation.
+4. Batch entry, undo, redo, and source traceability are covered by tests.
