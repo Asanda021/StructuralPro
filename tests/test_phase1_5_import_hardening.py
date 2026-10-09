@@ -98,3 +98,72 @@ def test_converter_requires_expected_oda_output_not_unrelated_dxf(monkeypatch, t
     monkeypatch.setattr("core.drawings.dwg_converter.subprocess.run", fake_run)
     with pytest.raises(DWGConversionError, match="خروجی تولید نشد"):
         converter.convert(source, output)
+
+
+from core.drawings.dwg_converter import ConverterResult
+from core.drawings.dwg_takeoff import DWGTakeoffEngine
+
+
+def _valid_dxf(path: Path) -> Path:
+    doc = ezdxf.new("R2018")
+    doc.header["$INSUNITS"] = 6
+    doc.modelspace().add_line((0, 0), (3, 4), dxfattribs={"layer": "A-STRUCT"})
+    doc.saveas(path)
+    return path
+
+
+def test_product_dwg_import_prefers_acadsharp_bridge_and_cleans_temporary_output(monkeypatch, tmp_path):
+    source = _source(tmp_path)
+    converted = _valid_dxf(tmp_path / "converted.dxf")
+
+    class Bridge:
+        available = True
+        def convert(self, _source):
+            return converted
+
+    monkeypatch.setattr("core.cad.external_dwg_provider_v1.ACadSharpDWGProvider", Bridge)
+    doc = DWGTakeoffEngine().import_file(source)
+
+    assert doc.format == "DWG→DXF (ACadSharp)"
+    assert doc.source == str(source)
+    assert len(doc.entities) == 1
+    assert not converted.exists()
+
+
+def test_product_dwg_import_uses_offline_converter_only_when_bridge_unavailable(monkeypatch, tmp_path):
+    source = _source(tmp_path)
+    converted = _valid_dxf(tmp_path / "fallback.dxf")
+
+    class Bridge:
+        available = False
+
+    class Offline:
+        def convert(self, _source):
+            return ConverterResult(source, converted, "oda")
+
+    monkeypatch.setattr("core.cad.external_dwg_provider_v1.ACadSharpDWGProvider", Bridge)
+    monkeypatch.setattr("core.drawings.dwg_converter.OfflineDWGConverter", Offline)
+    doc = DWGTakeoffEngine().import_file(source)
+
+    assert doc.format == "DWG→DXF (offline converter)"
+    assert doc.source == str(source)
+    assert len(doc.entities) == 1
+    assert not converted.exists()
+
+
+def test_product_dwg_import_does_not_hide_failure_of_available_acadsharp_bridge(monkeypatch, tmp_path):
+    source = _source(tmp_path)
+
+    class Bridge:
+        available = True
+        def convert(self, _source):
+            raise RuntimeError("real conversion failure")
+
+    class MustNotRunOffline:
+        def __init__(self):
+            raise AssertionError("fallback must not hide an available bridge failure")
+
+    monkeypatch.setattr("core.cad.external_dwg_provider_v1.ACadSharpDWGProvider", Bridge)
+    monkeypatch.setattr("core.drawings.dwg_converter.OfflineDWGConverter", MustNotRunOffline)
+    with pytest.raises(RuntimeError, match="real conversion failure"):
+        DWGTakeoffEngine().import_file(source)
