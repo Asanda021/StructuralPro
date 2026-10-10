@@ -211,3 +211,20 @@ def test_pricebook_modified_after_inspection_fails_without_mutation(tmp_path, mo
         service.import_file(path, year=1404, replace_year=True)
     assert catalog.get("100", 1404).unit_price == 10
     assert catalog.get("200", 1404) is None
+
+
+def test_direct_catalog_add_rejects_cross_discipline_code_collision():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    with pytest.raises(ValueError, match="cross-discipline"):
+        catalog.add(_item("برق", "100", 20))
+    assert catalog.get("100", 1404).group == "ابنیه"
+    assert catalog.get("100", 1404).unit_price == 10
+
+
+def test_direct_catalog_add_does_not_detach_custom_price():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    catalog.set_custom_price("100", 1404, 77)
+    with pytest.raises(ValueError, match="custom prices"):
+        catalog.add(_item("ابنیه", "100", 30))
+    assert catalog.get("100", 1404).unit_price == 77
+    assert catalog._items[(1404, "100")].unit_price == 10
