@@ -150,6 +150,12 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
         if is_assembly and not floor.text().strip():
             QMessageBox.warning(root,"متره اسمبلی","طبقه یا تراز اسمبلی باید صریح مشخص شود.")
             return
+        if is_assembly:
+            # Zero in the form is an unset optional mesh specification. Do not
+            # manufacture a zero-kg reinforcement component for an unprovided
+            # reinforcement specification.
+            if params.get("mesh_unit_weight") == 0:
+                params.pop("mesh_unit_weight", None)
         if not is_assembly:
             params["member_code"]=code
             if pc:
