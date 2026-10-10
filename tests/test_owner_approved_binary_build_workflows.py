@@ -40,11 +40,30 @@ def test_every_binary_producer_has_an_owner_approval_gate():
         "ISCC.exe",
         ":app:assembleRelease",
         "softprops/action-gh-release@",
+        "dotnet publish",
     )
-    approved = set(BUILD_WORKFLOWS)
+    approved = set(BUILD_WORKFLOWS) | {".github/workflows/acadsharp-dwg-smoke.yml"}
     for path in sorted(workflow_dir.glob("*.yml")):
         content = path.read_text(encoding="utf-8")
         if any(command in content for command in production_commands):
             assert path.relative_to(ROOT).as_posix() in approved, (
                 f"Unapproved binary/release producer: {path.name}"
             )
+
+
+def test_automatic_cad_smoke_runs_only_unit_tests_without_compiling_exe():
+    path = ROOT / ".github" / "workflows" / "acadsharp-dwg-smoke.yml"
+    source = path.read_text(encoding="utf-8")
+    assert "  pull_request:" in source and "  push:" in source
+    assert "  workflow_dispatch:" in source
+    assert "      build_approved:" in source
+    assert "        default: false" in source
+    assert "  cad-unit-tests:" in source
+    before_binary, binary_job = source.split("  real-dwg-smoke:", 1)
+    assert "python -m pytest tests/test_external_dwg_provider.py" in before_binary
+    assert "dotnet publish" not in before_binary
+    assert "dotnet publish" in binary_job
+    assert "github.event_name == 'workflow_dispatch'" in binary_job
+    assert "github.actor == 'Asanda021'" in binary_job
+    assert "inputs.build_approved == true" in binary_job
+    assert re.match(r"\s*if: .*github.actor.*build_approved", binary_job)
