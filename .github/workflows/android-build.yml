@@ -1,12 +1,15 @@
 name: StructuralPro Android
 on:
-  pull_request:
-    paths: ["android/**","mobile/**",".github/workflows/android-build.yml"]
-  push:
-    branches: [main]
-    paths: ["android/**","mobile/**",".github/workflows/android-build.yml"]
+  workflow_dispatch:
+    inputs:
+      build_approved:
+        description: "Owner explicitly approved producing Android build artifacts"
+        required: true
+        type: boolean
+        default: false
 jobs:
   build:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.actor == 'Asanda021' && inputs.build_approved == true }}
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: android } }
     steps:
