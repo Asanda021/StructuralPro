@@ -72,3 +72,25 @@ def test_remove_record_is_undoable_and_redoable():
     assert wb.can_undo and not wb.can_redo
     with pytest.raises(KeyError):
         wb.remove_record("not-a-record")
+
+
+def test_batch_with_incomplete_draft_rolls_back_all_other_records_and_identity():
+    wb = ManualTakeoffWorkbench("project-1", project_defaults={"height": 3})
+    valid = "ستون: تعداد=2، عرض=0.4، عمق=0.4، ارتفاع=3"
+    incomplete = "ستون: تعداد=2، عرض=0.4، عمق=0.4"
+    with pytest.raises(ValueError, match="ناقص"):
+        wb.add_batch(valid + "; " + incomplete, floor_id="level-1")
+    assert wb.records == ()
+    assert wb.can_undo is False
+    # A failed batch never consumes the next stable record identity.
+    assert wb.add_text(valid, floor_id="level-1").record_id == "MT-000001"
+
+
+def test_incomplete_manual_batch_does_not_erase_existing_records():
+    wb = ManualTakeoffWorkbench("project-1")
+    valid = "ستون: تعداد=1، عرض=0.4، عمق=0.4، ارتفاع=3"
+    first = wb.add_text(valid, floor_id="level-1")
+    with pytest.raises(ValueError, match="ناقص"):
+        wb.add_batch(valid + "; ستون: تعداد=1، عرض=0.4", floor_id="level-1")
+    assert wb.records == (first,)
+    assert wb.add_text(valid, floor_id="level-1").record_id == "MT-000002"
