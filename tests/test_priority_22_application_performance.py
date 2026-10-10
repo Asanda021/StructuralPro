@@ -35,3 +35,31 @@ def test_second_sqlite_connection_invalidates_stale_cached_project(tmp_path):
     assert first.get("P22")["name"] == "updated elsewhere"
     first.close()
     second.close()
+
+
+def test_failed_optimistic_update_from_second_store_rolls_back_and_preserves_latest(tmp_path):
+    import pytest
+
+    database = tmp_path / "projects.db"
+    first = ProjectStore(database)
+    second = ProjectStore(database)
+    first.save("P22", {"id": "P22", "name": "original", "boq": []})
+    old_digest = first.begin_write("P22")
+    updated = second.get("P22")
+    updated["name"] = "newer"
+    second.save("P22", updated)
+
+    stale = first.get("P22")
+    stale["name"] = "rejected stale edit"
+    with pytest.raises(RuntimeError):
+        first.save("P22", stale, expected_digest=old_digest)
+    assert second.get("P22")["name"] == "newer"
+    versions = [item["version"] for item in second.revisions("P22")]
+    assert versions == [1, 2]  # no partial third revision on rejected write
+
+    newer_digest = first.begin_write("P22")
+    stale["name"] = "confirmed next revision"
+    first.save("P22", stale, expected_digest=newer_digest)
+    assert second.get("P22")["name"] == "confirmed next revision"
+    first.close()
+    second.close()
