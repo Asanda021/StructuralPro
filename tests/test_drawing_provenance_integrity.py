@@ -117,3 +117,22 @@ def test_area_openings_and_provenance_are_kept_in_persisted_takeoff(tmp_path):
     assert row["params"]["holes"] == [[[10, 10], [20, 10], [20, 20], [10, 20]]]
     assert row["params"]["source_ref"] == "plan.pdf#page=1&takeoff=TO-00001"
     assert row["quantities"][0]["amount"] == pytest.approx(99)
+
+
+def test_committed_drawing_scale_reference_change_is_blocked_even_if_ratio_matches(tmp_path):
+    app = _project(tmp_path)
+    session, item = _session()
+    saved = app.save_drawing_takeoff_session("p1", session)
+    commit = app.commit_drawing_takeoff_to_boq(
+        "p1", saved["session_id"], [item.id], expected_session_revision=1
+    )
+    # The numeric scale stays 0.1 m/pixel; its traceable user reference changes.
+    session.calibrate(1, 200, 20)
+    assert session.validate()["valid"] is True
+    with pytest.raises(ValueError, match="کالیبراسیون"):
+        app.save_drawing_takeoff_session(
+            "p1", session, session_id=saved["session_id"],
+            expected_revision=commit["revision"],
+        )
+    original = app.load_drawing_takeoff_session("p1", saved["session_id"])
+    assert original["session"]["calibrations"]["1"]["reference_pixels"] == 100
