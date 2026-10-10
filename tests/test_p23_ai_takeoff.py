@@ -53,7 +53,7 @@ def test_p23_payload_is_deterministic_and_fingerprinted():
     entity = DWGEntity("LWPOLYLINE", "SLAB", "s1", {"area": 20, "source_id": "A-101:s1"})
     row = propose_takeoff([entity])[0]
     assert candidate_fingerprint(row) == candidate_fingerprint(row)
-    payload = build_takeoff_payload([row], source_fingerprint="sha256:test")
+    payload = build_takeoff_payload([row], source_fingerprint="a".repeat(64))
     assert payload["kind"] == "ai_takeoff_v1"
     assert payload["fail_closed"] is True
     assert payload["review_required"] == 1
@@ -64,3 +64,20 @@ def test_p23_bim_global_id_is_valid_evidence_source():
     entity = DWGEntity("IFCWALL", "IFCWALL", "global-1", {"length": 5, "global_id": "3x-global"})
     row = propose_takeoff([entity])[0]
     assert row.source_ids == ("3x-global",)
+
+
+
+def test_p23_payload_rejects_non_sha256_source_fingerprint():
+    entity = DWGEntity("LINE", "WALL", "wall-01", {"length": 4, "source_id": "A-101:wall-01"})
+    row = propose_takeoff([entity])[0]
+    import pytest
+    for fingerprint in ("", "sha256:" + "a" * 64, "a" * 63, "g" * 64):
+        with pytest.raises(ValueError, match="64-character SHA-256"):
+            build_takeoff_payload([row], source_fingerprint=fingerprint)
+
+
+def test_p23_payload_normalizes_valid_sha256_to_lowercase():
+    entity = DWGEntity("LINE", "WALL", "wall-01", {"length": 4, "source_id": "A-101:wall-01"})
+    row = propose_takeoff([entity])[0]
+    payload = build_takeoff_payload([row], source_fingerprint="A" * 64)
+    assert payload["source_fingerprint"] == "a" * 64
