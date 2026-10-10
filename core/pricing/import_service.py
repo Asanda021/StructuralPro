@@ -258,13 +258,18 @@ class PricebookImportService:
                     "کد یکسان در رشته‌های متفاوت وجود دارد؛ ورود برای جلوگیری از جایگزینی ناخواسته متوقف شد."
                 )
             existing[key] = item
-        # Overrides and history from replaced rows must not survive with stale
-        # values; retain them for untouched rows and discard only changed keys.
+        # Never silently discard or detach a user's custom prices. Require
+        # explicit resolution before replacing a row with an override.
         changed_keys = {key for key in set(self.catalog._items) | set(existing)
                         if self.catalog._items.get(key) != existing.get(key)}
+        protected = changed_keys.intersection(self.catalog._overrides)
+        if protected:
+            raise ValueError(
+                "ردیف دارای قیمت سفارشی است؛ پیش از جایگزینی، تعارض قیمت سفارشی را تعیین تکلیف کنید."
+            )
+        # Only after all validations succeed is the catalog updated.
         self.catalog._items = existing
         for key in changed_keys:
-            self.catalog._overrides.pop(key, None)
             self.catalog._history.pop(key, None)
         return ImportReceipt(
             source_id=source_id, year=year, discipline=discipline, filename=p.name,
