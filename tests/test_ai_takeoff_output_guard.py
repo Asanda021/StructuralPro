@@ -88,3 +88,41 @@ def test_ai_proposal_rejects_invalid_threshold_and_non_mapping():
     result = validate_ai_takeoff_proposal(valid_proposal(), minimum_confidence=float("nan"))
     assert result["valid"] is False
     assert result["approved"] is False
+
+
+@pytest.mark.parametrize("replacement, expected", [
+    ({"source_id": "entity-123"}, "ناپایدار"),
+    ({"quantity": True}, "مقدار"),
+    ({"quantity": False}, "مقدار"),
+    ({"confidence": True}, "اطمینان"),
+])
+def test_ai_review_rejects_positional_identity_or_boolean_numeric_inputs(replacement, expected):
+    proposal = copy.deepcopy(valid_proposal())
+    proposal["candidates"][0].update(replacement)
+    validation = validate_ai_takeoff_proposal(proposal, user_confirmed=True)
+    assert validation["valid"] is False
+    assert validation["approved"] is False
+    assert validation["rows"] == []
+    assert any(expected in issue for issue in validation["issues"])
+
+
+def test_ai_review_rejects_multiple_sources_for_the_same_session_item():
+    proposal = copy.deepcopy(valid_proposal())
+    duplicate = copy.deepcopy(proposal["candidates"][0])
+    duplicate["source_id"] = "other-stable-cad-source"
+    proposal["candidates"].append(duplicate)
+    validation = validate_ai_takeoff_proposal(proposal, user_confirmed=True)
+    assert validation["valid"] is False
+    assert any("متره هندسی تکراری" in issue for issue in validation["issues"])
+
+
+@pytest.mark.parametrize("invalid", [True, False])
+def test_ai_review_rejects_boolean_scale_and_confidence_threshold(invalid):
+    proposal = copy.deepcopy(valid_proposal())
+    proposal["candidates"][0]["evidence"]["meters_per_pixel"] = invalid
+    result = validate_ai_takeoff_proposal(proposal, user_confirmed=True)
+    assert result["approved"] is False
+    assert any("ضریب مقیاس" in issue for issue in result["issues"])
+    result = validate_ai_takeoff_proposal(valid_proposal(), minimum_confidence=invalid, user_confirmed=True)
+    assert result["approved"] is False
+    assert any("حد اطمینان" in issue for issue in result["issues"])

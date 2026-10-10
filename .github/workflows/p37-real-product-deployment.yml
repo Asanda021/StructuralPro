@@ -1,10 +1,13 @@
 name: P37 Real Product Deployment
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
+      build_approved:
+        description: "Repository owner explicitly approves executable, installer, and release production"
+        required: true
+        type: boolean
+        default: false
       release_version:
         description: "Version to deploy; must exactly match VERSION"
         required: true
@@ -15,6 +18,7 @@ permissions:
 
 jobs:
   deploy-production:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.actor == 'Asanda021' && inputs.build_approved == true }}
     runs-on: windows-latest
     steps:
       - name: Checkout
