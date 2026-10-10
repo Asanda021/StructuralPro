@@ -243,9 +243,8 @@ class PricebookImportService:
             raise ValueError("کد تکراری در فهرست‌بهای ورودی برای یک سال وجود دارد.")
         existing = dict(self.catalog._items)
         if replace_year:
-            # Replacing an imported discipline must not erase other disciplines
-            # from the same year. The legacy catalog key is (year, code),
-            # so cross-discipline collisions must fail closed until migration.
+            # A single import must not erase unrelated disciplines in the same
+            # year. Legacy catalog keys are only (year, code).
             scopes = {(item.year, item.group) for item in validated}
             existing = {
                 key: item for key, item in existing.items()
@@ -259,8 +258,14 @@ class PricebookImportService:
                     "کد یکسان در رشته‌های متفاوت وجود دارد؛ ورود برای جلوگیری از جایگزینی ناخواسته متوقف شد."
                 )
             existing[key] = item
-        # Commit atomically after every row and cross-discipline conflict passes.
+        # Overrides and history from replaced rows must not survive with stale
+        # values; retain them for untouched rows and discard only changed keys.
+        changed_keys = {key for key in set(self.catalog._items) | set(existing)
+                        if self.catalog._items.get(key) != existing.get(key)}
         self.catalog._items = existing
+        for key in changed_keys:
+            self.catalog._overrides.pop(key, None)
+            self.catalog._history.pop(key, None)
         return ImportReceipt(
             source_id=source_id, year=year, discipline=discipline, filename=p.name,
             sha256=info["sha256"], rows=len(normalized),
