@@ -15,7 +15,7 @@ permissions:
   contents: read
 jobs:
   contract:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_approved == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.actor == 'Asanda021' && inputs.build_approved == true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
