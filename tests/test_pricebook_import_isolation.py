@@ -136,3 +136,55 @@ def test_replace_protects_custom_prices():
     with pytest.raises(ValueError, match="custom prices"):
         catalog.replace([_item("ابنیه", "100", 30)])
     assert catalog.get("100", 1404).unit_price == 77
+
+
+def test_missing_csv_price_does_not_turn_into_zero_or_modify_catalog(tmp_path):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    path = tmp_path / "prices.csv"
+    path.write_text(
+        "year,group,chapter,code,description,unit,unit_price\n"
+        "1404,ابنیه,01,100,test,m2,\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="بهای واحد خالی"):
+        PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.get("100", 1404).unit_price == 10
+
+
+def test_explicit_zero_csv_price_is_not_treated_as_missing(tmp_path):
+    catalog = PriceCatalog()
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "100", 0)])
+    PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.resolve("100", 1404)["status"] == "zero_price"
+
+
+def test_missing_excel_price_is_rejected_without_partial_import(tmp_path):
+    from openpyxl import Workbook
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    path = tmp_path / "prices.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["year", "group", "chapter", "code", "description", "unit", "unit_price"])
+    ws.append([1404, "ابنیه", "01", "200", "valid", "m2", 20])
+    ws.append([1404, "ابنیه", "01", "300", "missing", "m2", None])
+    wb.save(path)
+    with pytest.raises(ValueError, match="بهای واحد خالی"):
+        PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.get("100", 1404).unit_price == 10
+    assert catalog.get("200", 1404) is None
+
+
+def test_excel_incomplete_row_is_not_silently_dropped(tmp_path):
+    from openpyxl import Workbook
+    catalog = PriceCatalog()
+    path = tmp_path / "incomplete.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["year", "group", "chapter", "code", "description", "unit", "unit_price"])
+    ws.append([1404, "ابنیه", "01", "100", "test", "m2", 10])
+    ws.append([1404, "ابنیه", "01", "200", "", "m2", 20])
+    wb.save(path)
+    with pytest.raises(ValueError, match="ردیف ناقص Excel"):
+        PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.get("100", 1404) is None
