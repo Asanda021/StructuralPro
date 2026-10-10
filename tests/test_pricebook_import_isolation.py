@@ -188,3 +188,26 @@ def test_excel_incomplete_row_is_not_silently_dropped(tmp_path):
     with pytest.raises(ValueError, match="ردیف ناقص Excel"):
         PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
     assert catalog.get("100", 1404) is None
+
+
+def test_pricebook_modified_after_inspection_fails_without_mutation(tmp_path, monkeypatch):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "200", 20)])
+    service = PricebookImportService(catalog)
+    loader = service._load_items
+    calls = 0
+
+    def changed_after_loading(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        result = loader(*args, **kwargs)
+        if calls == 2:
+            _write(path, [_item("ابنیه", "200", 999)])
+        return result
+
+    monkeypatch.setattr(service, "_load_items", changed_after_loading)
+    with pytest.raises(ValueError, match="تغییر کرده است"):
+        service.import_file(path, year=1404, replace_year=True)
+    assert catalog.get("100", 1404).unit_price == 10
+    assert catalog.get("200", 1404) is None
