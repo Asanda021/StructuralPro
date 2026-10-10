@@ -47,3 +47,24 @@ def test_duplicate_import_codes_rejected_without_mutation(tmp_path):
         PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
     assert catalog.get("200", 1404).unit_price == 20
     assert catalog.get("100", 1404) is None
+
+
+def test_custom_price_conflict_rejected_without_losing_override(tmp_path):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    catalog.set_custom_price("100", 1404, 77, reason="approved by user")
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "100", 30)])
+    with pytest.raises(ValueError, match="قیمت سفارشی"):
+        PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.get("100", 1404).unit_price == 77
+    assert catalog._items[(1404, "100")].unit_price == 10
+
+
+def test_unrelated_custom_price_survives_other_discipline_import(tmp_path):
+    catalog = PriceCatalog([_item("برق", "200", 20)])
+    catalog.set_custom_price("200", 1404, 55)
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "100", 30)])
+    PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.get("200", 1404).unit_price == 55
+    assert catalog.get("100", 1404).unit_price == 30
