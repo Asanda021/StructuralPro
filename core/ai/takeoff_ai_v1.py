@@ -177,12 +177,14 @@ def build_takeoff_payload(
     source_fingerprint: str,
 ) -> dict[str, Any]:
     """Create a deterministic payload for the existing quantity/BOQ pipeline."""
-    if not _text(source_fingerprint):
-        raise ValueError("source_fingerprint is required")
+    fingerprint = _text(source_fingerprint)
+    if len(fingerprint) != 64 or any(ch not in "0123456789abcdefABCDEF" for ch in fingerprint):
+        raise ValueError("source_fingerprint must be a 64-character SHA-256 hex digest")
+    fingerprint = fingerprint.lower()
     rows = [asdict(c) for c in candidates]
     return {
         "kind": "ai_takeoff_v1",
-        "source_fingerprint": source_fingerprint,
+        "source_fingerprint": fingerprint,
         "candidates": rows,
         "accepted_count": 0,
         "review_required": len(rows),
