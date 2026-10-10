@@ -29,6 +29,13 @@ jobs:
           if ("${{ github.ref_type }}" -eq "tag" -and "v$v" -ne "${{ github.ref_name }}") { throw "Tag/version mismatch" }
           $requested="${{ inputs.release_version }}"
           if ($requested -and $requested -ne $v) { throw "Requested version does not match VERSION" }
+      - name: Verify native build failures stop release
+        shell: pwsh
+        run: |
+          python -m pip install pytest
+          if ($LASTEXITCODE -ne 0) { throw "Could not install build regression test runner" }
+          python -m pytest -q tests/test_windows_build_native_failures.py
+          if ($LASTEXITCODE -ne 0) { throw "Native build failure regressions failed" }
       - name: Build payload
         shell: pwsh
         run: ./packaging/build_windows.ps1 -Version (Get-Content VERSION -Raw).Trim()
