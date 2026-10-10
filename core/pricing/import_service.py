@@ -267,9 +267,18 @@ class PricebookImportService:
             raise ValueError(
                 "ردیف دارای قیمت سفارشی است؛ پیش از جایگزینی، تعارض قیمت سفارشی را تعیین تکلیف کنید."
             )
-        # Keep the audit history for existing rows; an import must never
-        # silently erase provenance or past price-change records.
+        # Preserve earlier audit records and append changes only after the
+        # entire import has passed validation and conflict checks.
+        previous = self.catalog._items
         self.catalog._items = existing
+        for item in validated:
+            key = (item.year, item.code)
+            old = previous.get(key)
+            if old is not None and old.unit_price != item.unit_price:
+                self.catalog._history.setdefault(key, []).append({
+                    "year": item.year, "code": item.code,
+                    "old_price": old.unit_price, "new_price": item.unit_price,
+                })
         return ImportReceipt(
             source_id=source_id, year=year, discipline=discipline, filename=p.name,
             sha256=info["sha256"], rows=len(normalized),
