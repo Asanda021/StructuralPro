@@ -61,3 +61,44 @@ def test_source_and_destination_cannot_be_same_database(tmp_path):
         backup_database(db, db)
     assert verify_database(db)["ok"] is True
     store.close()
+
+
+def test_versioned_project_export_detects_tampering_and_preserves_existing_file(tmp_path):
+    project = {"id": "P23", "name": "پروژه فارسی", "boq": [{"quantity": 10}]}
+    target = tmp_path / "project.json"
+    export_project(project, target)
+    saved = json.loads(target.read_text(encoding="utf-8"))
+    assert saved["schema_version"] == 2
+    assert len(saved["project_sha256"]) == 64
+    assert import_project(target) == project
+    saved["project"]["boq"][0]["quantity"] = 999
+    target.write_text(json.dumps(saved, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(RecoveryError, match="checksum mismatch"):
+        import_project(target)
+
+
+def test_new_export_failure_does_not_truncate_prior_backup(tmp_path):
+    target = tmp_path / "project.json"
+    export_project({"id": "P23", "name": "old"}, target)
+    previous = target.read_bytes()
+    with pytest.raises(TypeError):
+        export_project({"id": "P23", "name": "new", "bad": {1, 2, 3}}, target)
+    assert target.read_bytes() == previous
+    assert not list(tmp_path.glob(".project.json.*.tmp"))
+
+
+def test_legacy_project_export_is_readable_without_false_integrity_claim(tmp_path):
+    target = tmp_path / "legacy.json"
+    project = {"id": "legacy", "name": "legacy-before-checksum"}
+    target.write_text(json.dumps({
+        "format": "StructuralPro Project Backup", "schema_version": 1,
+        "project": project,
+    }), encoding="utf-8")
+    assert import_project(target) == project
+
+
+def test_invalid_json_backup_envelope_is_rejected_cleanly(tmp_path):
+    target = tmp_path / "bad.json"
+    target.write_text('[]', encoding="utf-8")
+    with pytest.raises(RecoveryError, match="envelope"):
+        import_project(target)
