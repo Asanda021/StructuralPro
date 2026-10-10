@@ -98,3 +98,13 @@ def test_direct_csv_import_rejects_conflicting_override_atomically():
         catalog.import_csv(csv_text, replace_year=True)
     assert catalog.get("100", 1404).unit_price == 77
     assert catalog._items[(1404, "100")].unit_price == 10
+
+
+def test_service_import_appends_price_change_to_audit_history(tmp_path):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "100", 30)])
+    PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.price_history("100", 1404)[-1] == {
+        "year": 1404, "code": "100", "old_price": 10, "new_price": 30,
+    }
