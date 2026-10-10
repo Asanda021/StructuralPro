@@ -246,6 +246,10 @@ class PricebookImportService:
                 "ورود رسمی/تأییدشده نیازمند منبع ثبت‌شده و SHA-256 منطبق است؛ حالت ورود فایل کاربر آزاد است."
             )
         items, file_format = self._load_items(p, fallback_year=year)
+        if sha256(p.read_bytes()).hexdigest() != info["sha256"]:
+            raise ValueError(
+                "فایل فهرست‌بها پس از بررسی اولیه تغییر کرده است؛ ورود باید دوباره آغاز شود."
+            )
         normalized = [
             PriceItem(
                 year=item.year or int(year), group=item.group, chapter=item.chapter,
