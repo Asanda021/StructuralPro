@@ -1,6 +1,7 @@
 from core.drawings.dwg_takeoff import DWGDocument, DWGEntity, infer_takeoff_from_layers
 from core.drawings.bim_quantities import classify_objects, extract_quantities, link_2d_3d
 from core.drawings.pdf_takeoff import PDFPageInfo, PDFTakeoffAdapter
+import pytest
 
 
 def test_dwg_layer_quantity():
@@ -68,7 +69,35 @@ def test_bim_link_and_quantities():
     assert linked[0]["linked"] is True
     assert linked[1]["linked"] is False
 
-import pytest
+
+@pytest.mark.parametrize("value", [-1, float("nan"), float("inf"), "invalid", True])
+def test_bim_quantity_adapter_rejects_invalid_values(value):
+    class O:
+        ifc_type = "IfcWall"
+        global_id = "G1"
+        name = "Wall"
+        properties = {"Length": value}
+
+    with pytest.raises(ValueError, match="کمیت IFC"):
+        extract_quantities([O()])
+
+
+def test_bim_quantity_adapter_rejects_duplicate_identity_at_extract_and_link():
+    class O:
+        ifc_type = "IfcWall"
+        global_id = "G1"
+        name = "Wall"
+        properties = {"Length": 5}
+
+    with pytest.raises(ValueError, match="GlobalId تکراری"):
+        extract_quantities([O(), O()])
+    duplicate_rows = [
+        {"global_id": "G1", "quantities": {"Length": 5}},
+        {"global_id": "G1", "quantities": {"Length": 6}},
+    ]
+    with pytest.raises(ValueError, match="GlobalId تکراری"):
+        link_2d_3d([], duplicate_rows)
+
 from core.drawings.unified_takeoff import UnifiedDrawingTakeoff
 from core.takeoff.drawing_pipeline import DrawingTakeoffPipeline
 
@@ -156,4 +185,5 @@ def test_unified_confirmation_can_explicitly_reject_safe_candidate():
         {"source":"dwg:1","description":"beam","quantity":5,"unit":"m","needs_confirmation":False},
     ]}
     assert u.candidates_to_rows(inspection, {1: False}) == []
+
 
