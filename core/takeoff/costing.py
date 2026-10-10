@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Iterable, Any
 import math
 def _finite_nonnegative(value, field):
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric, not boolean")
     number=float(value)
     if not math.isfinite(number) or number<0: raise ValueError(f"{field} must be finite and non-negative")
     return number
