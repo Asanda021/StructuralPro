@@ -112,3 +112,27 @@ def test_service_import_appends_price_change_to_audit_history(tmp_path):
     assert catalog.price_history("100", 1404)[-1] == {
         "year": 1404, "code": "100", "old_price": 10, "new_price": 30,
     }
+
+
+def test_replace_rejects_duplicate_legacy_keys_without_mutation():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    with pytest.raises(ValueError, match="duplicate year/code"):
+        catalog.replace([_item("ابنیه", "200", 20), _item("برق", "200", 30)])
+    assert catalog.get("100", 1404).unit_price == 10
+    assert catalog.get("200", 1404) is None
+
+
+def test_replace_rejects_invalid_row_atomically():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    with pytest.raises(ValueError, match="finite"):
+        catalog.replace([_item("ابنیه", "200", 20), _item("ابنیه", "300", float("nan"))])
+    assert catalog.get("100", 1404).unit_price == 10
+    assert catalog.get("200", 1404) is None
+
+
+def test_replace_protects_custom_prices():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    catalog.set_custom_price("100", 1404, 77)
+    with pytest.raises(ValueError, match="custom prices"):
+        catalog.replace([_item("ابنیه", "100", 30)])
+    assert catalog.get("100", 1404).unit_price == 77
