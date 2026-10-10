@@ -122,7 +122,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
                 vals=[q.get("id",""),q.get("title",""),q.get("amount",""),q.get("unit",""),q.get("formula",""),q.get("price_code","") or "—",q.get("source","manual"),q.get("warning","") or "—"]
                 for j,v in enumerate(vals): table.setItem(i,j,QTableWidgetItem(str(v)))
         except Exception as exc:
-            QMessageBox.warning(root,"خطای بارگذاری متره",f"اطلاعات پروژه بارگذاری نشد و جدول پاک شد:\\n{exc}")
+            QMessageBox.warning(root,"خطای بارگذاری متره",f"اطلاعات پروژه بارگذاری نشد و جدول پاک شد:\n{exc}")
     pending_operation_id = None
     def calculate():
         nonlocal pending_operation_id
