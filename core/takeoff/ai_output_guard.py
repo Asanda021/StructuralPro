@@ -53,7 +53,7 @@ def validate_ai_takeoff_proposal(
             seen.add(source_id)
             # List-order placeholders are not stable identities across CAD
             # revisions and must never be promoted to a priced takeoff.
-            if re.fullmatch(r"entity-\\d+", source_id, flags=re.IGNORECASE):
+            if re.fullmatch(r"entity-\d+", source_id, flags=re.IGNORECASE):
                 issues.append(f"{prefix}: شناسه منبع ترتیبی و ناپایدار است")
         if not session_item_id:
             issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
