@@ -18,7 +18,10 @@ def _validate_factors(factors):
 def build_estimate(rows:Iterable[Any],*,factors=None,aggregate=True)->dict[str,Any]:
     normalized=_validate_factors(factors); boq=build_boq(rows,aggregate=aggregate); validation=validate_boq_structure(boq)
     cost=cost_breakdown(boq,normalized)
-    return {"boq":boq,"summary":boq_summary(boq),"validation":validation,"cost":cost,"factors":normalized,"finalizable":bool(validation["valid"])}
+    unpriced = [row["item_no"] for row in boq
+                if row.get("status", "active") == "active" and row.get("unit_price") is None]
+    return {"boq":boq,"summary":boq_summary(boq),"validation":validation,"cost":cost,"factors":normalized,
+            "unpriced_item_numbers": unpriced, "finalizable":bool(validation["valid"] and not unpriced)}
 
 def compare_estimates(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     """Compare two estimate snapshots without mutating either input."""

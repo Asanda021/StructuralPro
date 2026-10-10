@@ -52,7 +52,10 @@ class GGUFProductionRuntime:
 
     def verify_artifact(self)->GGUFVerification:
         model=self.load_manifest()
-        path=self.model_root/model.path
+        root = self.model_root.resolve()
+        path = (root / model.path).resolve()
+        if not path.is_relative_to(root):
+            return GGUFVerification(False, model, None, "model_path_outside_root")
         if not path.is_file(): return GGUFVerification(False,model,None,"model_artifact_missing")
         digest=sha256()
         with path.open("rb") as fh:
@@ -60,6 +63,11 @@ class GGUFProductionRuntime:
         actual=digest.hexdigest()
         if actual!=model.sha256: return GGUFVerification(False,model,actual,"model_sha256_mismatch")
         if not model.commercial_use: return GGUFVerification(False,model,actual,"commercial_use_not_verified")
+        with path.open("rb") as fh:
+            header = fh.read(24)
+        if len(header) < 24 or header[:4] != b"GGUF" or int.from_bytes(header[4:8], "little") not in (2, 3):
+            return GGUFVerification(False,model,actual,"invalid_gguf_header")
+        # Integrity/header verification is not proof of a successful inference.
         return GGUFVerification(True,model,actual,"verified")
 
     def create_engine(self, **kwargs:Any):

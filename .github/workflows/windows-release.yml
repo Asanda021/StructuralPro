@@ -2,6 +2,11 @@ name: StructuralPro Windows Release
 on:
   workflow_dispatch:
     inputs:
+      build_approved:
+        description: "Explicit approval to produce executable/installer artifacts"
+        type: boolean
+        required: true
+        default: false
       release_version:
         description: "Optional version to validate against VERSION"
         required: false
@@ -14,6 +19,7 @@ permissions:
   contents: read
 jobs:
   build-windows:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_approved == true
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

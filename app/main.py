@@ -209,7 +209,7 @@ def main()->int:
     # Drawing takeoff — phase 1 human confirmation + provenance/audit gate
     p,v=page("متره از نقشه","ورود PDF/DWG/DXF/IFC و تولید کاندیدهای متره؛ موارد نیازمند بررسی تا تأیید صریح وارد BOQ نمی‌شوند.")
     file_edit=QLineEdit(); browse=QPushButton("انتخاب فایل"); inspect=QPushButton("🔎 بررسی نقشه")
-    graphical=QPushButton("📐 متره گرافیکی"); confirm=QPushButton("✅ ثبت تأیید نهایی")
+    graphical=QPushButton("📐 متره گرافیکی"); confirm=QPushButton("✅ بازبینی نامزدها")
     audit_label=QLabel("وضعیت: هنوز نقشه‌ای بررسی نشده است."); audit_label.setWordWrap(True)
     dtable=QTableWidget(0,8)
     dtable.setHorizontalHeaderLabels(["تصمیم","شرح","مقدار","واحد","اعتماد","صفحه/شیت","منبع","وضعیت"])
@@ -217,7 +217,7 @@ def main()->int:
     v.addWidget(file_edit); v.addWidget(browse); v.addWidget(inspect); v.addWidget(graphical); v.addWidget(confirm)
     v.addWidget(audit_label); v.addWidget(dtable)
     drawing_state={}; drawing_service=UnifiedDrawingTakeoff()
-    browse.clicked.connect(lambda: file_edit.setText(QFileDialog.getOpenFileName(w,"انتخاب نقشه","","Plans (*.pdf *.dwg *.dxf *.ifc *.ifczip);;All files (*)")[0]))
+    browse.clicked.connect(lambda: file_edit.setText(QFileDialog.getOpenFileName(w,"انتخاب نقشه","","نقشه‌ها (*.pdf *.dwg *.dxf *.ifc *.ifczip);;همه فایل‌ها (*)")[0]))
 
     def inspect_drawing():
         try:
@@ -272,12 +272,12 @@ def main()->int:
             pending=sum(1 for event in audit if event["decision"]=="rejected_pending_confirmation")
             rejected=sum(1 for event in audit if event["decision"]=="rejected")
             audit_label.setText(
-                f"🟢 تأیید ثبت شد | نهایی: {approved} | در انتظار بررسی: {pending} | ردشده: {rejected} | "
+                f"🟢 بازبینی در این نشست | تأییدشده: {approved} | در انتظار بررسی: {pending} | ردشده: {rejected} | "
                 f"رویدادهای Audit: {len(audit)}"
             )
             drawing_state["approved_rows"]=rows
             drawing_state["audit_trail"]=audit
-            status.setText("🟢 تأیید انسانی ثبت شد | فقط ردیف‌های تأییدشده مجاز به ورود به BOQ هستند")
+            status.setText("🟠 بازبینی نامزدها انجام شد؛ برای ثبت در پروژه از «متره گرافیکی» استفاده کنید.")
         except Exception as e:
             QMessageBox.critical(w,"خطای تأیید متره",str(e))
 
@@ -598,7 +598,7 @@ def main()->int:
         image_run=QPushButton("تحلیل تصویر")
         v.addWidget(image_path); v.addWidget(image_btn); v.addWidget(image_run)
         def choose_ai_image():
-            image_path.setText(QFileDialog.getOpenFileName(w,"انتخاب تصویر نقشه","","Images (*.png *.jpg *.jpeg *.webp);;All files (*)")[0])
+            image_path.setText(QFileDialog.getOpenFileName(w,"انتخاب تصویر نقشه","","تصاویر (*.png *.jpg *.jpeg *.webp);;همه فایل‌ها (*)")[0])
         def run_ai_image():
             if not image_path.text().strip(): return
             result=assistant.engine.answer_with_image(image_path.text().strip(),"این تصویر نقشه را برای آیتم‌های قابل متره بررسی کن؛ مقادیر قطعی را فقط در صورت وجود شواهد کافی اعلام کن.")
@@ -937,9 +937,10 @@ def main()->int:
             add_command("💰 فهرست‌بها", lambda: pages.setCurrentIndex(idx_prices))
             add_command("📋 ارسال به برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_drawing:
-            add_command("📄 انتخاب/بررسی نقشه", browse.click, True)
+            add_command("📄 انتخاب نقشه", browse.click, True)
+            add_command("🔎 بررسی نقشه", inspect.click)
             add_command("📐 متره گرافیکی", graphical.click)
-            add_command("✅ تأیید و ثبت", confirm.click)
+            add_command("✅ بازبینی نامزدها", confirm.click)
             add_command("📋 برآورد", lambda: pages.setCurrentIndex(idx_boq))
         elif index == idx_prices:
             add_command("📥 ورود Excel/CSV/PDF", load_prices, True)
@@ -960,7 +961,6 @@ def main()->int:
             add_command("📊 گزارش پروژه", make_report, True)
             add_command("💰 گزارش هزینه", make_cost_report)
         elif index == idx_tools:
-            add_command("🛠 ابزارهای حرفه‌ای", lambda: pages.setCurrentIndex(idx_tools), True)
             add_command("✓ کنترل کیفیت", lambda: pages.setCurrentIndex(idx_quality))
             add_command("📎 اسناد", lambda: pages.setCurrentIndex(idx_docs))
         elif index == idx_ai:
@@ -979,9 +979,8 @@ def main()->int:
             add_command("🔎 اجرای کنترل کیفیت", qc_refresh.click, True)
             add_command("📊 گزارش", lambda: pages.setCurrentIndex(idx_reports))
         elif index == idx_settings:
-            add_command("⚙ تنظیمات", lambda: pages.setCurrentIndex(idx_settings), True)
+            add_command("📎 اسناد پروژه", lambda: pages.setCurrentIndex(idx_docs), True)
         elif index == idx_help:
-            add_command("❔ راهنما", lambda: pages.setCurrentIndex(idx_help), True)
             add_command("📐 آموزش متره", lambda: pages.setCurrentIndex(idx_drawing))
         command_layout.addStretch()
 

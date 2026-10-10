@@ -1,0 +1,2 @@
+# Optional BIM payload, installed only for an explicitly approved IFC build.
+ifcopenshell==0.9.0

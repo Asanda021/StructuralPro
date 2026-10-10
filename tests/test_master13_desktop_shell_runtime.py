@@ -46,6 +46,12 @@ def inspect_shell(app):
     for target in reversed(targets):
         pages.setCurrentIndex(target)
         assert tabs.tabData(tabs.currentIndex()) == target
+    drawing_tab = next(i for i in range(tabs.count()) if 'متره از نقشه' in tabs.tabText(i))
+    tabs.setCurrentIndex(drawing_tab)
+    labels = [b.text() for b in window.findChildren(QPushButton)]
+    assert '📄 انتخاب نقشه' in labels and '🔎 بررسی نقشه' in labels
+    assert '✅ بازبینی نامزدها' in labels
+    assert '✅ تأیید و ثبت' not in labels
     date = window.findChild(QPushButton, 'SystemPersianDate')
     locale = QLocale(QLocale.Language.Persian, QLocale.Country.Iran)
     assert date.text() == locale.toString(QDate.currentDate(), QLocale.FormatType.LongFormat, QCalendar(QCalendar.System.Jalali))

@@ -5,6 +5,11 @@ on:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
+      build_approved:
+        description: "Explicit approval to produce executable/installer artifacts"
+        type: boolean
+        required: true
+        default: false
       release_version:
         description: "Version to deploy; must exactly match VERSION"
         required: true
@@ -15,6 +20,7 @@ permissions:
 
 jobs:
   deploy-production:
+    if: github.event_name == 'workflow_dispatch' && inputs.build_approved == true
     runs-on: windows-latest
     steps:
       - name: Checkout
