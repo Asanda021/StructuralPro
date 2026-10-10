@@ -82,6 +82,29 @@ def test_quantity_bridge_rejects_duplicate_quantity_names():
         element_to_takeoff(replace(model, elements=(element,)))
 
 
+def test_quantity_totals_reject_same_name_with_conflicting_kinds():
+    model = extract_ifc(sample_ifc())
+    volume = model.elements[0]
+    length = replace(
+        volume,
+        global_id="3fJ8$beam123456789012",
+        quantities=(("NetVolume", 12.5),),
+        quantity_kinds=(("NetVolume", "LENGTH"),),
+    )
+    ambiguous = replace(model, elements=(volume, length))
+
+    with pytest.raises(IFCError, match="Conflicting IFC quantity kinds"):
+        ambiguous.quantity_totals()
+
+
+def test_export_payload_validates_quantities_before_aggregation():
+    model = extract_ifc(sample_ifc())
+    invalid = replace(model.elements[0], quantities=(("NetVolume", float("nan")),))
+
+    with pytest.raises(IFCError, match="finite and non-negative"):
+        replace(model, elements=(invalid,)).export_payload()
+
+
 def test_ambiguous_duplicate_unit_types_fail_closed():
     model = ifc.file.from_string(sample_ifc().decode())
     project = model.by_type("IfcProject")[0]
@@ -89,3 +112,4 @@ def test_ambiguous_duplicate_unit_types_fail_closed():
     project.UnitsInContext.Units = tuple(project.UnitsInContext.Units) + (second,)
     with pytest.raises(IFCError, match="Duplicate IFC unit type"):
         extract_ifc(model.to_string().encode())
+

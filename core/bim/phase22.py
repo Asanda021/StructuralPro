@@ -45,8 +45,19 @@ class IFCModel:
 
     def quantity_totals(self) -> dict[str, float]:
         totals: dict[str, float] = {}
+        kinds: dict[str, str] = {}
         for element in self.elements:
+            _validate_quantities(element.quantities)
+            _validate_quantity_kinds(element)
+            element_kinds = dict(element.quantity_kinds)
             for key, value in element.quantities:
+                kind = element_kinds[key]
+                prior_kind = kinds.setdefault(key, kind)
+                if prior_kind != kind:
+                    raise IFCError(
+                        f"Conflicting IFC quantity kinds for {key}: "
+                        f"{prior_kind} and {kind}"
+                    )
                 totals[key] = totals.get(key, 0.0) + value
         return {k: round(v, 12) for k, v in sorted(totals.items())}
 
@@ -213,3 +224,4 @@ def element_to_takeoff(model: IFCModel) -> list[dict[str, Any]]:
         }
         for e in model.elements
     ]
+
