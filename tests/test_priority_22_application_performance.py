@@ -21,3 +21,17 @@ def test_application_performance_snapshot_and_bounded_page(tmp_path):
     assert snap["collection_counts"]["takeoffs"]==250
     page=app.project_collection_page("P22","takeoffs",page=2,page_size=100)
     assert len(page["items"])==100 and page["items"][0]["id"]=="100"
+
+
+def test_second_sqlite_connection_invalidates_stale_cached_project(tmp_path):
+    database = tmp_path / "projects.db"
+    first = ProjectStore(database)
+    second = ProjectStore(database)
+    first.save("P22", {"id": "P22", "name": "old", "boq": []})
+    assert first.get("P22")["name"] == "old"  # fills the first cache
+    latest = second.get("P22")
+    latest["name"] = "updated elsewhere"
+    second.save("P22", latest)
+    assert first.get("P22")["name"] == "updated elsewhere"
+    first.close()
+    second.close()
