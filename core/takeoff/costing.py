@@ -13,8 +13,10 @@ def cost_breakdown(rows:Iterable[Any], factors:dict[str,float]|None=None)->dict[
     for r in rows:
         d=r if isinstance(r,dict) else vars(r)
         if str(d.get("status") or "active").strip().lower()=="cancelled": continue
-        quantity=_finite_nonnegative(d.get("effective_quantity",d.get("quantity",0)) or 0,"quantity")
-        unit_price=_finite_nonnegative(d.get("unit_price",0) or 0,"unit_price")
+        raw_quantity = d.get("effective_quantity", d.get("quantity", 0))
+        raw_price = d.get("unit_price", 0)
+        quantity = _finite_nonnegative(0 if raw_quantity is None else raw_quantity, "quantity")
+        unit_price = _finite_nonnegative(0 if raw_price is None else raw_price, "unit_price")
         raw_total=d.get("total"); amount=_finite_nonnegative(raw_total if raw_total is not None else quantity*unit_price,"total")
         group=str(d.get("group") or d.get("category") or "سایر"); code=str(d.get("price_code") or d.get("item_code") or "بدون کد")
         base+=amount
