@@ -5,7 +5,7 @@ from core.takeoff.manual_input import parse_manual_batch
 
 from PySide6.QtWidgets import (
     QCheckBox,QComboBox,QDoubleSpinBox,QFormLayout,QGroupBox,QLabel,QLineEdit,QMessageBox,
-    QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout,QWidget,QHeaderView
+    QPushButton,QTableWidget,QTableWidgetItem,QVBoxLayout,QWidget,QHeaderView,QScrollArea
 )
 
 ITEMS={
@@ -79,7 +79,8 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     outer.addWidget(quick)
     box=QGroupBox("ریزمتره و محاسبه واقعی"); grid=QFormLayout(box)
     project=QLineEdit(); project.setPlaceholderText("شناسه پروژه موجود")
-    item=QComboBox(); price=QLineEdit(); price.setPlaceholderText("اختیاری؛ کد فهرست‌بهای واردشده توسط کاربر")
+    project.setObjectName("TakeoffProject")
+    item=QComboBox(); item.setObjectName("TakeoffItem"); price=QLineEdit(); price.setPlaceholderText("اختیاری؛ کد فهرست‌بهای واردشده توسط کاربر")
     specs={c:f for c,_,f in ITEMS[key]}; labels={c:l for c,l,_ in ITEMS[key]}
     for c,l,_ in ITEMS[key]: item.addItem(l,c)
     grid.addRow("پروژه",project); grid.addRow("آیتم / نوع سقف",item); grid.addRow("کد فهرست‌بها (اختیاری)",price)
@@ -88,8 +89,11 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     fields={}
     for name,label in FIELDS.items():
         w=QDoubleSpinBox(); w.setDecimals(4); w.setRange(0,1000000000); w.setSingleStep(.1)
+        w.setObjectName("TakeoffField_"+name)
         w.setValue(1 if name in {"count","layers","waste"} else 0); fields[name]=w; grid.addRow(label,w)
-    calc=QPushButton("محاسبه و ثبت واقعی"); calc.setObjectName("PrimaryAction"); grid.addRow(calc); outer.addWidget(box)
+    calc=QPushButton("محاسبه و ثبت واقعی"); calc.setObjectName("PrimaryAction"); grid.addRow(calc)
+    form_scroll=QScrollArea(); form_scroll.setObjectName("TakeoffFormScroll")
+    form_scroll.setWidgetResizable(True); form_scroll.setWidget(box); outer.addWidget(form_scroll,2)
     note=QLabel("هیچ ضریب یا مقدار ثابت برای سقف‌های غیر یکنواخت اعمال نمی‌شود؛ ابعاد واقعی نقشه/مشخصات فنی باید وارد شود.")
     note.setObjectName("DashboardNotice"); note.setWordWrap(True); outer.addWidget(note)
     result=QLabel("نتیجه پس از محاسبه در پروژه و BOQ ثبت می‌شود."); result.setWordWrap(True); outer.addWidget(result)
@@ -101,6 +105,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             active.update({"foam_length","foam_width","foam_height","mesh_unit_weight"})
         for n,w in fields.items():
             w.setEnabled(n in active)
+            grid.setRowVisible(w,n in active)
             if n not in active: w.setValue(0)
             elif n in {"count","layers","waste"} and w.value()==0: w.setValue(1)
     def refresh():
@@ -153,13 +158,21 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     def apply_quick():
         try:
             entries=parse_manual_batch(quick_input.text())
+            if len(entries)!=1:
+                raise ValueError("در ورودی سریع این فرم، هر بار فقط یک ردیف وارد کنید؛ برای چند ردیف از متره دستی حرفه‌ای استفاده کنید.")
             first=entries[0]
             idx=item.findData(first.code)
-            if idx < 0: raise ValueError("این عملیات در Workspace فعلی وجود ندارد.")
+            if idx < 0: raise ValueError("این عملیات در بخش فعلی وجود ندارد.")
             item.setCurrentIndex(idx)
+            # A new draft must not inherit dimensions from the previous item.
+            for name,field in fields.items():
+                field.setValue(1 if name in {"count","layers","waste"} and field.isEnabled() else 0)
             for name,value in first.params.items():
                 if name in fields:
                     fields[name].setValue(value)
+            for name in first.missing:
+                if name in fields:
+                    fields[name].setValue(0)
             missing=", ".join(first.missing)
             quick_hint.setText("🟢 ورودی سریع اعمال شد" + (f" | موارد لازم: {missing}" if missing else " | کامل و آماده محاسبه"))
         except Exception as exc:
