@@ -3,9 +3,11 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-pytest.importorskip("PySide6")
-from PySide6.QtWidgets import QApplication, QComboBox, QDoubleSpinBox, QLineEdit, QPushButton, QScrollArea
-from PySide6.QtCore import QRect
+try:
+    from PySide6.QtWidgets import QApplication, QComboBox, QDoubleSpinBox, QLineEdit, QPushButton, QScrollArea
+    from PySide6.QtCore import QRect
+except (ImportError, OSError) as exc:
+    pytest.skip(f"Qt runtime is unavailable: {exc}", allow_module_level=True)
 from app.aec_workspace import build_aec_workspace, ITEMS
 
 
