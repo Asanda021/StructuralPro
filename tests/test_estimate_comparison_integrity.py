@@ -123,3 +123,17 @@ def test_direct_costing_rejects_false_boolean_as_price_or_quantity():
         cost_breakdown([{"quantity": False, "unit_price": 10}])
     with pytest.raises(ValueError, match="boolean"):
         cost_breakdown([{"quantity": 1, "unit_price": False}])
+
+
+def test_verified_catalog_zero_price_preserves_provenance_but_needs_review():
+    catalog = PriceCatalog([PriceItem(1404, "ابنیه", "01", "C-01", "بتن", "m3", 0)])
+    row = _row("floor-1", 1, price=999)
+    mapping = map_prices([row], catalog, year=1404)
+    mapped = mapping["rows"][0]
+    assert mapped["price_status"] == "zero_price"
+    assert mapped["unit_price"] == 0
+    assert mapped["price_source"]["year"] == 1404
+    assert mapping["unresolved"][0]["status"] == "zero_price"
+    estimate = build_professional_estimate([row], catalog=catalog, year=1404)
+    assert estimate["finalizable"] is False
+    assert estimate["boq"][0]["unit_price"] == 0
