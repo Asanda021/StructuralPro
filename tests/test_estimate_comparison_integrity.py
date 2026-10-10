@@ -80,3 +80,24 @@ def test_comparison_rejects_nonfinite_quantity_and_prices():
     new = {"cost": {"grand_total": 10}, "boq": [_row("floor-1", 1, price=float("inf"))]}
     with pytest.raises(ValueError, match="finite"):
         compare_estimates(old, new)
+
+
+@pytest.mark.parametrize("builder", [build_estimate, build_professional_estimate])
+def test_pending_human_review_blocks_finalization_even_with_explicit_price(builder):
+    candidate = _row("drawing-A101-item1", 3, price=50)
+    candidate["status"] = "needs_review"
+    result = builder([candidate], aggregate=False)
+    assert result["finalizable"] is False
+    assert result["pending_item_numbers"] == [1]
+    assert result["unpriced_item_numbers"] == []
+
+
+@pytest.mark.parametrize("builder", [build_estimate, build_professional_estimate])
+def test_cancelled_unpriced_row_does_not_block_priced_active_row(builder):
+    cancelled = _row("old", 5, code="C-OLD")
+    cancelled["status"] = "cancelled"
+    active = _row("new", 2, price=50)
+    result = builder([cancelled, active], aggregate=False)
+    assert result["finalizable"] is True
+    assert result["pending_item_numbers"] == []
+    assert result["unpriced_item_numbers"] == []
