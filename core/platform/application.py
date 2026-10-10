@@ -292,6 +292,32 @@ class StructuralProApp:
             revision = current_revision + 1
             committed = list(previous.get("committed_item_ids", []))
             ai_committed = list(previous.get("ai_committed_item_ids", []))
+            protected_ids = set(committed) | set(ai_committed)
+            if protected_ids:
+                original_session = previous.get("session", {})
+                original_items = {
+                    str(item.get("id", "")): item
+                    for item in original_session.get("items", [])
+                }
+                current_items = {
+                    str(item.get("id", "")): item
+                    for item in payload.get("items", [])
+                }
+                for item_id in protected_ids:
+                    if item_id not in original_items or current_items.get(item_id) != original_items[item_id]:
+                        raise ValueError(
+                            "متره منتقل‌شده به BOQ نباید حذف یا ویرایش شود؛ ابتدا فرآیند بازنگری رسمی را انجام دهید."
+                        )
+                if payload.get("drawing_source") != original_session.get("drawing_source"):
+                    raise ValueError("منبع نقشه دارای متره ثبت‌شده قابل تغییر نیست")
+                protected_pages = {
+                    str(item["page"]) for item_id, item in original_items.items()
+                    if item_id in protected_ids and item.get("kind") in {"length", "area"}
+                }
+                old_scales = original_session.get("calibrations", {})
+                new_scales = payload.get("calibrations", {})
+                if any(new_scales.get(page) != old_scales.get(page) for page in protected_pages):
+                    raise ValueError("کالیبراسیون متره منتقل‌شده به BOQ قابل تغییر نیست")
         sessions[sid] = {
             "id": sid, "revision": revision, "drawing_source": str(payload.get("drawing_source", "")),
             "session": deepcopy(payload), "committed_item_ids": committed,
@@ -336,16 +362,26 @@ class StructuralProApp:
         current_revision = int(record.get("revision", 1))
         if int(expected_session_revision) != current_revision:
             raise RuntimeError(f"تعارض نسخه نشست نقشه؛ نسخه فعلی {current_revision} است")
-        selected = list(dict.fromkeys(str(x) for x in selected_item_ids))
+        selected = [str(x).strip() for x in selected_item_ids]
+        if len(set(selected)) != len(selected):
+            raise ValueError("شناسه متره انتخاب‌شده تکراری است؛ انتقال رد شد")
         already = set(record.get("committed_item_ids", []))
         ai_already = set(record.get("ai_committed_item_ids", []))
         if already.intersection(selected) or ai_already.intersection(selected):
             raise ValueError("برخی متره‌های انتخاب‌شده قبلاً از مسیر دستی یا هوشمند وارد BOQ شده‌اند؛ انتقال تکراری رد شد")
         rows = session_to_boq_rows(record.get("session", {}), session_id=sid, selected_item_ids=selected)
         existing_sources = {str(row.get("source_id", "")).strip() for row in project.get("takeoffs", [])}
+        existing_refs = {
+            str(quantity.get("source_ref", "")).strip()
+            for takeoff in project.get("takeoffs", [])
+            for quantity in takeoff.get("quantities", [])
+            if str(quantity.get("source_ref", "")).strip()
+        }
         duplicate_sources = [row["source_id"] for row in rows if row["source_id"] in existing_sources]
-        if duplicate_sources:
-            raise ValueError("منبع متره قبلاً ثبت شده است: " + "، ".join(duplicate_sources))
+        duplicate_refs = [row["source"] for row in rows if row["source"] in existing_refs]
+        if duplicate_sources or duplicate_refs:
+            raise ValueError("منبع متره قبلاً ثبت شده است: " +
+                             "، ".join(duplicate_sources + duplicate_refs))
         new_takeoffs = []
         for row in rows:
             source_id = row["source_id"]
@@ -355,6 +391,7 @@ class StructuralProApp:
                 "domain": "drawing", "item": row["kind"],
                 "params": {"drawing_session_id": sid, "drawing_source": row["drawing_source"],
                            "page": row["page"], "geometry": row["geometry"],
+                           "holes": row["holes"], "source_ref": row["source"],
                            "confidence": row["confidence"], "formula": row["formula"]},
                 "revision": 1, "drawing_session_id": sid, "drawing_takeoff_id": row["takeoff_id"],
                 "description": row["description"], "system": f"صفحه {row['page']}",
