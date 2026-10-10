@@ -156,8 +156,25 @@ class PriceCatalog:
                 year=int(raw["year"]), group=raw["group"].strip(), chapter=raw["chapter"].strip(),
                 code=raw["code"].strip(), description=raw["description"].strip(), unit=raw["unit"].strip(),
                 unit_price=float(raw["unit_price"]), analysis=raw.get("analysis",""), notes=raw.get("notes","")))
+        # Validate the entire CSV before changing any catalog state.
+        validated = [self._validate_item(item) for item in rows]
+        keys = [(item.year, item.code) for item in validated]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate year/code in imported CSV")
+        candidate = dict(self._items)
         if replace_year:
-            years={x.year for x in rows}
-            self._items={k:v for k,v in self._items.items() if k[0] not in years}
-        for x in rows: self.add(x)
-        return len(rows)
+            scopes = {(item.year, item.group) for item in validated}
+            candidate = {key: item for key, item in candidate.items()
+                         if (item.year, item.group) not in scopes}
+        for item in validated:
+            key = (item.year, item.code)
+            prior = candidate.get(key)
+            if prior is not None and prior.group != item.group:
+                raise ValueError("cross-discipline price code collision")
+            candidate[key] = item
+        changed = {key for key in set(self._items) | set(candidate)
+                   if self._items.get(key) != candidate.get(key)}
+        if changed.intersection(self._overrides):
+            raise ValueError("import conflicts with existing custom prices")
+        self._items = candidate
+        return len(validated)
