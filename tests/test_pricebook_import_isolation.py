@@ -68,3 +68,14 @@ def test_unrelated_custom_price_survives_other_discipline_import(tmp_path):
     PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
     assert catalog.get("200", 1404).unit_price == 55
     assert catalog.get("100", 1404).unit_price == 30
+
+
+def test_import_preserves_existing_price_history(tmp_path):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    catalog.add(_item("ابنیه", "100", 15))
+    assert catalog.price_history("100", 1404)
+    previous = catalog.price_history("100", 1404)
+    path = tmp_path / "prices.csv"
+    _write(path, [_item("ابنیه", "100", 30)])
+    PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
+    assert catalog.price_history("100", 1404) == previous
