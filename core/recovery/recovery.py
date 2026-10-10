@@ -68,23 +68,63 @@ def verify_database(db_path: str | Path) -> dict[str, Any]:
         return {"ok":result.lower()=="ok","integrity_check":result,"counts":counts}
     finally: con.close()
 
+def _canonical_project_payload(project: dict[str, Any]) -> str:
+    return json.dumps(project, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
 def export_project(project: dict[str, Any], path: str | Path) -> dict[str, Any]:
-    if not isinstance(project,dict) or not project.get("id"):
+    """Atomically export a checksummed, versioned offline project snapshot."""
+    import os
+    import tempfile
+
+    if not isinstance(project, dict) or not str(project.get("id", "")).strip():
         raise RecoveryError("project must contain an id")
-    target=Path(path); target.parent.mkdir(parents=True,exist_ok=True)
-    envelope={"format":"StructuralPro Project Backup","schema_version":1,
-              "exported_at":time.time(),"project":project}
-    raw=json.dumps(envelope,ensure_ascii=False,sort_keys=True,indent=2)
-    target.write_text(raw,encoding="utf-8")
-    return {"path":str(target),"sha256":payload_checksum(raw),"bytes":len(raw.encode("utf-8"))}
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    envelope = {
+        "format": "StructuralPro Project Backup",
+        "schema_version": 2,
+        "exported_at": time.time(),
+        "project": project,
+        "project_sha256": payload_checksum(_canonical_project_payload(project)),
+    }
+    raw = json.dumps(envelope, ensure_ascii=False, sort_keys=True, indent=2)
+    fd, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(raw)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {"path": str(target), "sha256": payload_checksum(raw), "bytes": len(raw.encode("utf-8"))}
+
 
 def import_project(path: str | Path) -> dict[str, Any]:
-    raw=Path(path).read_text(encoding="utf-8")
-    try: envelope=json.loads(raw)
-    except json.JSONDecodeError as exc: raise RecoveryError("invalid backup JSON") from exc
-    if envelope.get("format")!="StructuralPro Project Backup" or envelope.get("schema_version")!=1:
+    raw = Path(path).read_text(encoding="utf-8")
+    try:
+        envelope = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RecoveryError("invalid backup JSON") from exc
+    if not isinstance(envelope, dict):
+        raise RecoveryError("invalid backup envelope")
+    if envelope.get("format") != "StructuralPro Project Backup":
         raise RecoveryError("unsupported project backup format")
-    project=envelope.get("project")
-    if not isinstance(project,dict) or not str(project.get("id","")).strip():
+    version = envelope.get("schema_version")
+    if type(version) is not int or version not in (1, 2):
+        raise RecoveryError("unsupported project backup version")
+    project = envelope.get("project")
+    if not isinstance(project, dict) or not str(project.get("id", "")).strip():
         raise RecoveryError("backup does not contain a valid project")
+    if version == 2:
+        expected = envelope.get("project_sha256")
+        if not isinstance(expected, str) or len(expected) != 64:
+            raise RecoveryError("backup integrity checksum is missing or invalid")
+        actual = payload_checksum(_canonical_project_payload(project))
+        if not __import__("hmac").compare_digest(actual, expected):
+            raise RecoveryError("project backup integrity checksum mismatch")
+    # Version 1 remains readable for backward compatibility but did not have
+    # cryptographic integrity evidence; only version 2 can detect payload edits.
     return project
