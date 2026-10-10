@@ -27,13 +27,28 @@ class PriceCatalog:
         self.replace(items)
 
     def replace(self, items: Iterable[PriceItem]) -> None:
-        self._items = {}
-        for item in items:
-            self.add(item, record_history=False)
+        # Validate before committing; reject legacy key collisions instead of
+        # silently replacing a different discipline with the same code.
+        candidate: dict[tuple[int, str], PriceItem] = {}
+        for raw in items:
+            item = self._validate_item(raw)
+            key = self._key(item.year, item.code)
+            if key in candidate:
+                raise ValueError("duplicate year/code in price catalog replacement")
+            candidate[key] = item
+        changed = {key for key in set(self._items) | set(candidate)
+                   if self._items.get(key) != candidate.get(key)}
+        if changed.intersection(self._overrides):
+            raise ValueError("replacement conflicts with existing custom prices")
+        self._items = candidate
 
     @staticmethod
     def _validate_item(item: PriceItem) -> PriceItem:
+        if isinstance(item.year, bool) or isinstance(item.unit_price, bool):
+            raise ValueError("pricebook year and unit price must be numeric, not boolean")
         year = int(item.year)
+        if year <= 0 or float(item.year) != year:
+            raise ValueError("pricebook year must be a positive integer")
         code = str(item.code).strip()
         unit = str(item.unit).strip()
         price = float(item.unit_price)
@@ -55,6 +70,10 @@ class PriceCatalog:
         item = self._validate_item(item)
         key = self._key(item.year, item.code)
         old = self._items.get(key)
+        if old is not None and old.group != item.group:
+            raise ValueError("cross-discipline price code collision")
+        if key in self._overrides and old != item:
+            raise ValueError("price change conflicts with existing custom prices")
         self._items[key] = item
         if record_history and old is not None and old.unit_price != item.unit_price:
             self._history.setdefault(key, []).append({
@@ -67,6 +86,8 @@ class PriceCatalog:
         base = self.get(code, year)
         if base is None:
             raise KeyError(code)
+        if isinstance(unit_price, bool):
+            raise ValueError("custom price must be numeric, not boolean")
         price = float(unit_price)
         if not math.isfinite(price) or price < 0:
             raise ValueError("custom price must be finite and non-negative")
@@ -156,8 +177,34 @@ class PriceCatalog:
                 year=int(raw["year"]), group=raw["group"].strip(), chapter=raw["chapter"].strip(),
                 code=raw["code"].strip(), description=raw["description"].strip(), unit=raw["unit"].strip(),
                 unit_price=float(raw["unit_price"]), analysis=raw.get("analysis",""), notes=raw.get("notes","")))
+        # Validate the entire CSV before changing any catalog state.
+        validated = [self._validate_item(item) for item in rows]
+        keys = [(item.year, item.code) for item in validated]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate year/code in imported CSV")
+        candidate = dict(self._items)
         if replace_year:
-            years={x.year for x in rows}
-            self._items={k:v for k,v in self._items.items() if k[0] not in years}
-        for x in rows: self.add(x)
-        return len(rows)
+            scopes = {(item.year, item.group) for item in validated}
+            candidate = {key: item for key, item in candidate.items()
+                         if (item.year, item.group) not in scopes}
+        for item in validated:
+            key = (item.year, item.code)
+            prior = candidate.get(key)
+            if prior is not None and prior.group != item.group:
+                raise ValueError("cross-discipline price code collision")
+            candidate[key] = item
+        changed = {key for key in set(self._items) | set(candidate)
+                   if self._items.get(key) != candidate.get(key)}
+        if changed.intersection(self._overrides):
+            raise ValueError("import conflicts with existing custom prices")
+        previous = self._items
+        self._items = candidate
+        for item in validated:
+            key = (item.year, item.code)
+            old = previous.get(key)
+            if old is not None and old.unit_price != item.unit_price:
+                self._history.setdefault(key, []).append({
+                    "year": item.year, "code": item.code,
+                    "old_price": old.unit_price, "new_price": item.unit_price,
+                })
+        return len(validated)

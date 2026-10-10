@@ -78,6 +78,16 @@ class PricebookImportService:
         return float(raw)
 
     @classmethod
+    def _unit_price(cls, value: Any) -> float:
+        # Blank price is missing data, not an explicitly recorded zero price.
+        # Zero is permitted but must be present in the source cell.
+        if value is None or isinstance(value, bool) or (
+            isinstance(value, str) and not value.strip()
+        ):
+            raise ValueError("بهای واحد خالی یا نامعتبر است؛ قیمت صفر باید صریح ثبت شود.")
+        return cls._number(value)
+
+    @classmethod
     def _rows_from_excel(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
         try:
             from openpyxl import load_workbook
@@ -100,17 +110,21 @@ class PricebookImportService:
                     def val(field: str, default: Any = ""):
                         idx = mapping.get(field)
                         return values[idx] if idx is not None and idx < len(values) else default
-                    code = str(val("code")).strip()
-                    desc = str(val("description")).strip()
-                    unit = str(val("unit")).strip()
+                    code = str(val("code") or "").strip()
+                    desc = str(val("description") or "").strip()
+                    unit = str(val("unit") or "").strip()
+                    price_value = val("unit_price")
+                    if (not code and not desc and not unit and
+                            (price_value is None or str(price_value).strip() == "")):
+                        continue  # genuinely empty spreadsheet row
                     if not code or not desc or not unit:
-                        continue
+                        raise ValueError("ردیف ناقص Excel: کد، شرح و واحد باید مشخص باشند.")
                     year_value = val("year", fallback_year)
                     group = str(val("group", "")).strip()
                     chapter = str(val("chapter", "")).strip()
-                    price = cls._number(val("unit_price"))
+                    price = cls._unit_price(price_value)
                     out.append(PriceItem(
-                        year=int(cls._number(year_value)) if year_value else 0,
+                        year=int(cls._number(year_value)) if year_value else int(fallback_year),
                         group=group, chapter=chapter, code=code,
                         description=desc, unit=unit, unit_price=price,
                         analysis=str(val("analysis", "") or ""),
@@ -142,7 +156,7 @@ class PricebookImportService:
             cols=[x.strip() for x in line.split("|") if x.strip()]
             if len(cols)<4: continue
             code,desc,unit,raw_price=cols[0],cols[1],cols[2],cols[3]
-            try: price=cls._number(raw_price)
+            try: price=cls._unit_price(raw_price)
             except ValueError: continue
             if code and desc and unit and price>=0:
                 out.append(PriceItem(year=fallback_year,group="",chapter="",code=code,description=desc,unit=unit,unit_price=price))
@@ -174,7 +188,7 @@ class PricebookImportService:
                 code=str(val("code", "") or "").strip(),
                 description=str(val("description", "") or "").strip(),
                 unit=str(val("unit", "") or "").strip(),
-                unit_price=cls._number(val("unit_price")),
+                unit_price=cls._unit_price(val("unit_price")),
                 analysis=str(val("analysis", "") or ""),
                 notes=str(val("notes", "") or ""),
             ))
@@ -198,9 +212,18 @@ class PricebookImportService:
         raw_bytes = p.read_bytes()
         items, file_format = self._load_items(p, fallback_year=year)
         errors: list[str] = []
+        seen_keys: set[tuple[int, str]] = set()
         for item in items:
             try:
-                self.catalog._validate_item(item)
+                validated = self.catalog._validate_item(item)
+                if validated.year != int(year):
+                    errors.append(
+                        f"{validated.code}: سال ردیف {validated.year} با سال انتخاب‌شده {year} یکسان نیست."
+                    )
+                key = (validated.year, validated.code)
+                if key in seen_keys:
+                    errors.append(f"{validated.code}: کد تکراری برای سال {validated.year}")
+                seen_keys.add(key)
             except (ValueError, TypeError) as exc:
                 errors.append(f"{item.code or '?'}: {exc}")
         if not items:
@@ -228,6 +251,10 @@ class PricebookImportService:
                 "ورود رسمی/تأییدشده نیازمند منبع ثبت‌شده و SHA-256 منطبق است؛ حالت ورود فایل کاربر آزاد است."
             )
         items, file_format = self._load_items(p, fallback_year=year)
+        if sha256(p.read_bytes()).hexdigest() != info["sha256"]:
+            raise ValueError(
+                "فایل فهرست‌بها پس از بررسی اولیه تغییر کرده است؛ ورود باید دوباره آغاز شود."
+            )
         normalized = [
             PriceItem(
                 year=item.year or int(year), group=item.group, chapter=item.chapter,
@@ -235,13 +262,50 @@ class PricebookImportService:
                 unit_price=item.unit_price, analysis=item.analysis, notes=item.notes,
             ) for item in items
         ]
+        # Validate the complete incoming batch before mutating the catalog.
+        # A rejected row must not partially replace existing pricebook data.
+        validated = [self.catalog._validate_item(item) for item in normalized]
+        incoming_keys = [(item.year, item.code) for item in validated]
+        if len(set(incoming_keys)) != len(incoming_keys):
+            raise ValueError("کد تکراری در فهرست‌بهای ورودی برای یک سال وجود دارد.")
+        existing = dict(self.catalog._items)
         if replace_year:
-            years = {x.year for x in normalized}
-            self.catalog._items = {
-                k: v for k, v in self.catalog._items.items() if k[0] not in years
+            # A single import must not erase unrelated disciplines in the same
+            # year. Legacy catalog keys are only (year, code).
+            scopes = {(item.year, item.group) for item in validated}
+            existing = {
+                key: item for key, item in existing.items()
+                if (item.year, item.group) not in scopes
             }
-        for item in normalized:
-            self.catalog.add(item)
+        for item in validated:
+            key = (item.year, item.code)
+            prior = existing.get(key)
+            if prior is not None and prior.group != item.group:
+                raise ValueError(
+                    "کد یکسان در رشته‌های متفاوت وجود دارد؛ ورود برای جلوگیری از جایگزینی ناخواسته متوقف شد."
+                )
+            existing[key] = item
+        # Never silently discard or detach a user's custom prices. Require
+        # explicit resolution before replacing a row with an override.
+        changed_keys = {key for key in set(self.catalog._items) | set(existing)
+                        if self.catalog._items.get(key) != existing.get(key)}
+        protected = changed_keys.intersection(self.catalog._overrides)
+        if protected:
+            raise ValueError(
+                "ردیف دارای قیمت سفارشی است؛ پیش از جایگزینی، تعارض قیمت سفارشی را تعیین تکلیف کنید."
+            )
+        # Preserve earlier audit records and append changes only after the
+        # entire import has passed validation and conflict checks.
+        previous = self.catalog._items
+        self.catalog._items = existing
+        for item in validated:
+            key = (item.year, item.code)
+            old = previous.get(key)
+            if old is not None and old.unit_price != item.unit_price:
+                self.catalog._history.setdefault(key, []).append({
+                    "year": item.year, "code": item.code,
+                    "old_price": old.unit_price, "new_price": item.unit_price,
+                })
         return ImportReceipt(
             source_id=source_id, year=year, discipline=discipline, filename=p.name,
             sha256=info["sha256"], rows=len(normalized),
