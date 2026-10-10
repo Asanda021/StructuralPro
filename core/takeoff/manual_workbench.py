@@ -110,7 +110,16 @@ class ManualTakeoffWorkbench:
     def add_batch(self, text: str, *, floor_id: str) -> tuple[ManualTakeoffRecord | ManualTakeoffDraft, ...]:
         previous = (list(self._records), list(self._undo), list(self._redo), self._next_id)
         try:
-            return tuple(self.add_text(entry.source_text, floor_id=floor_id) for entry in parse_manual_batch(text))
+            results = []
+            for entry in parse_manual_batch(text):
+                result = self.add_text(entry.source_text, floor_id=floor_id)
+                if isinstance(result, ManualTakeoffDraft):
+                    missing = "، ".join(result.missing)
+                    raise ValueError(
+                        f"ورود گروهی متره ناقص است ({result.entry.code}: {missing})؛ هیچ ردیفی ثبت نشد"
+                    )
+                results.append(result)
+            return tuple(results)
         except Exception:
             self._records, self._undo, self._redo, self._next_id = previous
             raise
