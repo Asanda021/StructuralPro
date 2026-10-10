@@ -1,4 +1,5 @@
 from pathlib import Path
+import pytest
 
 from core.reports import build_report
 from core.reports.exporters import _pdf_text
@@ -74,4 +75,19 @@ def test_csv_export_keeps_persian_bom_and_named_headers(tmp_path):
     data = path.read_bytes()
     assert data.startswith(b"\xef\xbb\xbf")
     assert "شرح".encode("utf-8") in data
+
+
+@pytest.mark.parametrize("field", ["quantity", "unit_price", "total", "مقدار", "بهای واحد", "مبلغ"])
+@pytest.mark.parametrize("value", [True, -1, float("nan"), float("inf"), "نامعتبر"])
+def test_report_rejects_invalid_numbers_in_both_schemas(tmp_path, field, value):
+    report = build_report("پروژه", [{"description": "بتن", field: value}])
+    assert not report.validate()["valid"]
+    with pytest.raises(ValueError):
+        report.export(tmp_path / "invalid.csv", "csv")
+    assert not (tmp_path / "invalid.csv").exists()
+
+
+def test_persian_report_rejects_empty_description_and_duplicate_row_numbers():
+    report = build_report("پروژه", [{"ردیف": 1, "شرح": ""}, {"ردیف": 1, "شرح": "بتن"}])
+    assert report.validate()["errors"] == ["row_1:missing_description", "row_2:duplicate_item_no:1"]
 

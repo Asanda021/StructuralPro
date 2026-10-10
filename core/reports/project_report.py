@@ -60,19 +60,25 @@ class ProjectReport:
                 if not str(row.get("description") or "").strip():
                     errors.append(f"row_{index}:missing_description")
             elif "شرح" in row:
-                pass
+                if any(key in row for key in ("ردیف", "مقدار", "واحد", "کد فهرست‌بها")) and not str(row.get("شرح") or "").strip():
+                    errors.append(f"row_{index}:missing_description")
             elif any(key in row for key in ("item_no", "item_code", "price_code", "quantity", "unit", "total")):
                 errors.append(f"row_{index}:missing_description")
-            if "item_no" in row and row.get("item_no") is not None:
-                item_no = str(row.get("item_no")).strip()
+            number_key = "item_no" if "item_no" in row else "ردیف"
+            if number_key in row and row.get(number_key) is not None:
+                item_no = str(row.get(number_key)).strip()
+                if not item_no:
+                    errors.append(f"row_{index}:missing_item_no")
                 if item_no in seen_item_numbers:
                     errors.append(f"row_{index}:duplicate_item_no:{item_no}")
                 seen_item_numbers.add(item_no)
-            for field in ("quantity", "unit_price", "total"):
+            for field in ("quantity", "unit_price", "total", "مقدار", "بهای واحد", "مبلغ"):
                 if field in row and row.get(field) is not None:
                     try:
+                        if isinstance(row[field], bool):
+                            raise ValueError("boolean is not a report number")
                         value = float(row[field])
-                    except (TypeError, ValueError):
+                    except (TypeError, ValueError, OverflowError):
                         errors.append(f"row_{index}:invalid_{field}")
                         continue
                     if not math.isfinite(value) or value < 0:
