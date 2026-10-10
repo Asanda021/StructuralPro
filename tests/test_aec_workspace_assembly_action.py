@@ -107,3 +107,44 @@ def test_assembly_requires_explicit_floor_and_rejects_reused_price_code(ui):
     _click(widget)
     assert any("همه اجزا" in message for _, message in alerts)
     assert service.open_project("test-p1")["boq"] == []
+
+
+def test_joist_roof_assembly_uses_real_template_without_unrequested_mesh(tmp_path, monkeypatch):
+    qt = QApplication.instance() or QApplication([])
+    service = StructuralProApp(tmp_path)
+    service.create_project("پروژه سقف تیرچه‌فوم", "roof-p1")
+    widget = build_aec_workspace(
+        service, PriceCatalog(), title="سازه بتن", description="متره",
+        domain="building", key="structural_concrete",
+    )
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warnings.append(a[2]))
+    monkeypatch.setattr(QMessageBox, "critical", lambda *a, **k: warnings.append(a[2]))
+    widget.show()
+    qt.processEvents()
+    combo = widget.findChild(QComboBox, "TakeoffItem")
+    combo.setCurrentIndex(combo.findData("joist_foam_roof"))
+    next(x for x in widget.findChildren(QCheckBox) if "Assembly" in x.text()).setChecked(True)
+    widget.findChild(QLineEdit, "TakeoffProject").setText("roof-p1")
+    widget.findChild(QLineEdit, "TakeoffFloor").setText("طبقه دوم")
+    for field, val in {
+        "count": 1, "length": 6, "width": 4,
+        "topping_thickness": 0.05, "joist_spacing": 0.5,
+        "joist_width": 0.1, "joist_depth": 0.2,
+        "foam_length": 1, "foam_width": 0.5, "foam_height": 0.2,
+    }.items():
+        _set(widget, field, val)
+    assert widget.findChild(QDoubleSpinBox, "TakeoffField_mesh_unit_weight").value() == 0
+    _click(widget)
+    assert warnings == []
+    saved = service.open_project("roof-p1")
+    assert len(saved["takeoff_assemblies"]) == 1
+    assert saved["takeoff_assemblies"][0]["assembly_code"] == "joist_foam_roof_assembly"
+    codes = {row["quantities"][0]["code"] for row in saved["takeoffs"]}
+    assert codes == {"concrete", "joist", "foam"}
+    assert "reinforcement_mesh" not in codes
+    assert len(saved["boq"]) == 3
+    widget.close()
+    widget.deleteLater()
+    qt.processEvents()
+    service.store.close()
