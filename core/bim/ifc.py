@@ -1,6 +1,9 @@
 """Deep IFC adapter: identity, properties, materials, levels, types and quantities."""
 from __future__ import annotations
 from pathlib import Path
+from dataclasses import dataclass
+import hashlib
+import math
 from .model import BIMElement
 
 _TYPE_MAP={"IFCBEAM":("structural","beam"),"IFCCOLUMN":("structural","column"),
@@ -43,6 +46,62 @@ def _level(obj):
 
 class DeepIFCAdapter:
     extensions=(".ifc",)
+    def read_display_meshes(self, path, *, max_triangles=100_000):
+        """World-coordinate meshes for display only; never quantity evidence."""
+        if type(max_triangles) is not int or max_triangles <= 0:
+            raise ValueError("ظرفیت نمایش باید عدد صحیح مثبت باشد.")
+        p = Path(path)
+        if not p.is_file():
+            raise FileNotFoundError(p)
+        try:
+            import ifcopenshell
+            import ifcopenshell.geom
+        except ImportError as exc:
+            raise RuntimeError("برای نمایش مدل، وابستگی محلی ifcopenshell لازم است.") from exc
+        raw = p.read_bytes()
+        model = ifcopenshell.file.from_string(raw.decode("utf-8-sig"))
+        projects = model.by_type("IfcProject")
+        units = getattr(projects[0], "UnitsInContext", None) if len(projects) == 1 else None
+        length_units = [u for u in getattr(units, "Units", ()) if getattr(u, "UnitType", None) == "LENGTHUNIT"]
+        if len(length_units) != 1:
+            raise ValueError("واحد طول مدل باید صریح و یکتا باشد.")
+        settings = ifcopenshell.geom.settings()
+        settings.set("use-world-coords", True)
+        meshes, omitted, identities = [], [], set()
+        triangle_count = 0
+        for obj in model.by_type("IfcProduct"):
+            if not getattr(obj, "Representation", None):
+                continue
+            identity = str(getattr(obj, "GlobalId", "") or "").strip()
+            if not identity or identity in identities:
+                raise ValueError("شناسه عنصر مدل خالی یا تکراری است.")
+            identities.add(identity)
+            try:
+                shape = ifcopenshell.geom.create_shape(settings, obj)
+            except RuntimeError:
+                omitted.append(identity)
+                continue
+            verts = tuple(shape.geometry.verts)
+            faces = tuple(shape.geometry.faces)
+            if not verts or len(verts) % 3 or not faces or len(faces) % 3:
+                raise ValueError("هندسه مدل فاقد شبکه مثلثی معتبر است.")
+            if any(not math.isfinite(v) for v in verts):
+                raise ValueError("مختصات مدل باید متناهی باشند.")
+            if any(not math.isfinite(x+y+z) or not math.isfinite(x-y)
+                   for x,y,z in zip(verts[::3], verts[1::3], verts[2::3])):
+                raise ValueError("مختصات مدل برای نمایش بیش از حد بزرگ است.")
+            if any(type(i) is not int or i < 0 or i >= len(verts) // 3 for i in faces):
+                raise ValueError("ارجاع رأس در شبکه مدل نامعتبر است.")
+            triangle_count += len(faces) // 3
+            if triangle_count > max_triangles:
+                raise ValueError("مدل از ظرفیت نمایش مثلث‌ها بزرگ‌تر است؛ مدل کوچک‌تری باز کنید.")
+            meshes.append(IFCDisplayMesh(identity, str(getattr(obj, "Name", "") or ""),
+                                         tuple(zip(verts[::3], verts[1::3], verts[2::3])),
+                                         tuple(zip(faces[::3], faces[1::3], faces[2::3]))))
+        if not meshes:
+            raise ValueError("مدل فاقد هندسه قابل نمایش است.")
+        return IFCDisplayDocument(str(p), hashlib.sha256(raw).hexdigest(), tuple(meshes), tuple(omitted))
+
     def read(self,path):
         p=Path(path)
         if not p.exists() or not p.is_file(): raise FileNotFoundError(p)
@@ -86,3 +145,19 @@ class DeepIFCAdapter:
                 material_names=_materials(obj),properties=props,geometry=geometry,
                 source_id=f"ifc:{p.name}:{obj.GlobalId}"))
         return tuple(rows)
+
+
+@dataclass(frozen=True)
+class IFCDisplayMesh:
+    global_id: str
+    name: str
+    vertices: tuple
+    triangles: tuple
+
+
+@dataclass(frozen=True)
+class IFCDisplayDocument:
+    source: str
+    source_sha256: str
+    meshes: tuple[IFCDisplayMesh, ...]
+    omitted_ids: tuple[str, ...]

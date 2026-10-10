@@ -53,7 +53,7 @@ def test_end_to_end_workflow_is_reviewable():
 def test_phase_three_to_five_viewer_zoom_and_persian_cad_are_wired():
     from pathlib import Path
     source = Path("app/graphical_takeoff.py").read_text(encoding="utf-8")
-    assert '"نقشه‌ها (*.pdf *.dwg *.dxf)' in source
+    assert '"نقشه‌ها (*.pdf *.dwg *.dxf *.ifc)' in source
     assert 'self.zoom_window = QPushButton("بزرگ‌نمایی ناحیه")' in source
     assert 'self.select_region = QPushButton("انتخاب ناحیه")' in source
     assert 'self.region_to_takeoff = QPushButton("ثبت ناحیه در متره")' in source
