@@ -101,3 +101,17 @@ def test_cancelled_unpriced_row_does_not_block_priced_active_row(builder):
     assert result["finalizable"] is True
     assert result["pending_item_numbers"] == []
     assert result["unpriced_item_numbers"] == []
+
+
+@pytest.mark.parametrize("field", ["quantity", "unit_price", "factor", "waste_percent", "allowance_quantity"])
+def test_engineering_boolean_inputs_are_rejected_in_boq(field):
+    row = _row("floor-1", 3, price=10)
+    row[field] = True
+    with pytest.raises(ValueError, match="boolean"):
+        build_estimate([row], aggregate=False)
+
+
+@pytest.mark.parametrize("builder", [build_estimate, build_professional_estimate])
+def test_boolean_financial_factors_are_rejected(builder):
+    with pytest.raises(ValueError, match="boolean"):
+        builder([_row("floor-1", 3, price=10)], factors={"ضریب": True})
