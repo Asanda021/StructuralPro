@@ -1,5 +1,6 @@
 """Functional AEC takeoff workspaces: concrete/steel/architecture and real roof quantity rules."""
 from __future__ import annotations
+from uuid import uuid4
 from core.takeoff.assembly import calculate_assembly
 from core.takeoff.manual_input import parse_manual_batch
 
@@ -90,7 +91,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     for name,label in FIELDS.items():
         w=QDoubleSpinBox(); w.setDecimals(4); w.setRange(0,1000000000); w.setSingleStep(.1)
         w.setObjectName("TakeoffField_"+name)
-        w.setValue(1 if name in {"count","layers","waste"} else 0); fields[name]=w; grid.addRow(label,w)
+        w.setValue(0); fields[name]=w; grid.addRow(label,w)
     calc=QPushButton("محاسبه و ثبت واقعی"); calc.setObjectName("PrimaryAction"); grid.addRow(calc)
     form_scroll=QScrollArea(); form_scroll.setObjectName("TakeoffFormScroll")
     form_scroll.setWidgetResizable(True); form_scroll.setWidget(box); outer.addWidget(form_scroll,2)
@@ -107,21 +108,24 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             w.setEnabled(n in active)
             grid.setRowVisible(w,n in active)
             if n not in active: w.setValue(0)
-            elif n in {"count","layers","waste"} and w.value()==0: w.setValue(1)
     def refresh():
         pid=project.text().strip()
+        table.setRowCount(0)
         if not pid:return
         try:
             p=service.open_project(pid)
-            if not p:return
+            if p is None:
+                raise KeyError(f"پروژه پیدا نشد: {pid}")
             rows=[q for t in p.get("takeoffs",[]) for q in t.get("quantities",[]) if q.get("code")==item.currentData()]
-            table.setRowCount(0)
             for i,q in enumerate(rows[-100:]):
                 table.insertRow(i)
                 vals=[q.get("id",""),q.get("title",""),q.get("amount",""),q.get("unit",""),q.get("formula",""),q.get("price_code","") or "—",q.get("source","manual"),q.get("warning","") or "—"]
                 for j,v in enumerate(vals): table.setItem(i,j,QTableWidgetItem(str(v)))
-        except Exception: pass
+        except Exception as exc:
+            QMessageBox.warning(root,"خطای بارگذاری متره",f"اطلاعات پروژه بارگذاری نشد و جدول پاک شد:\\n{exc}")
+    pending_operation_id = None
     def calculate():
+        nonlocal pending_operation_id
         pid=project.text().strip()
         if not pid: QMessageBox.warning(root,"متره","ابتدا شناسه پروژه را وارد کنید."); return
         code=item.currentData(); params={n:float(w.value()) for n,w in fields.items() if w.isEnabled()}; params["member_code"]=code
@@ -133,7 +137,10 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             params["price_code"]=pc; params["unit_price"]=resolved["unit_price"]
         else: params["price_code"]=None
         try:
-            p=service.open_project(pid); source_id=f"manual:{key}:{code}:{len(p.get('takeoffs',[]))+1}"
+            p=service.open_project(pid)
+            if p is None: raise KeyError(f"پروژه پیدا نشد: {pid}")
+            if pending_operation_id is None: pending_operation_id = uuid4().hex
+            source_id=f"manual:{key}:{code}:{pending_operation_id}"
             if assembly_mode.isChecked() and code in ASSEMBLY_CODES:
                 ar=calculate_assembly(code, **params)
                 if not ar.complete:
@@ -141,7 +148,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
                     return
                 saved=[]
                 for component in ar.components:
-                    row=service.add_takeoff(pid,domain,component.code,source_id=source_id,
+                    row=service.add_takeoff(pid,domain,component.code,source_id=f"{source_id}:{component.code}",
                                             description=component.title,amount=component.quantity,unit=component.unit,
                                             formula=component.formula,warning=component.warning or "",assembly_code=ar.code,
                                             price_code=params.get("price_code"),unit_price=params.get("unit_price"),inputs_used=ar.inputs_used)
@@ -152,6 +159,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
                 row=service.add_takeoff(pid,effective_domain,code,source_id=source_id,description=labels[code],**params)
                 q=row["quantities"][0]
                 result.setText(f"🟢 ثبت شد | {labels[code]} | {q['amount']:,.4f} {q['unit']} | فرمول: {q['formula']}")
+            pending_operation_id = None
             refresh()
             if status_callback: status_callback(f"متره {title} ثبت شد")
         except Exception as exc: QMessageBox.critical(root,"خطای متره",str(exc))
@@ -166,7 +174,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             item.setCurrentIndex(idx)
             # A new draft must not inherit dimensions from the previous item.
             for name,field in fields.items():
-                field.setValue(1 if name in {"count","layers","waste"} and field.isEnabled() else 0)
+                field.setValue(0)
             for name,value in first.params.items():
                 if name in fields:
                     fields[name].setValue(value)
