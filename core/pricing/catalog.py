@@ -66,6 +66,10 @@ class PriceCatalog:
         item = self._validate_item(item)
         key = self._key(item.year, item.code)
         old = self._items.get(key)
+        if old is not None and old.group != item.group:
+            raise ValueError("cross-discipline price code collision")
+        if key in self._overrides and old != item:
+            raise ValueError("price change conflicts with existing custom prices")
         self._items[key] = item
         if record_history and old is not None and old.unit_price != item.unit_price:
             self._history.setdefault(key, []).append({
