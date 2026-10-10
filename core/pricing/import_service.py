@@ -123,7 +123,7 @@ class PricebookImportService:
                     chapter = str(val("chapter", "")).strip()
                     price = cls._unit_price(price_value)
                     out.append(PriceItem(
-                        year=int(cls._number(year_value)) if year_value else 0,
+                        year=int(cls._number(year_value)) if year_value else int(fallback_year),
                         group=group, chapter=chapter, code=code,
                         description=desc, unit=unit, unit_price=price,
                         analysis=str(val("analysis", "") or ""),
@@ -215,6 +215,10 @@ class PricebookImportService:
         for item in items:
             try:
                 validated = self.catalog._validate_item(item)
+                if validated.year != int(year):
+                    errors.append(
+                        f"{validated.code}: سال ردیف {validated.year} با سال انتخاب‌شده {year} یکسان نیست."
+                    )
                 key = (validated.year, validated.code)
                 if key in seen_keys:
                     errors.append(f"{validated.code}: کد تکراری برای سال {validated.year}")
