@@ -130,6 +130,8 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
     unpriced = [row["item_no"] for row in boq
                 if row.get("status", "active") == "active"
                 and row.get("unit_price") is None]
+    pending = [row["item_no"] for row in boq
+               if row.get("status", "active") not in {"active", "cancelled"}]
     return {
         "boq": boq,
         "summary": boq_summary(boq),
@@ -138,7 +140,8 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
         "price_mapping": price_result,
         "duplicate_review": duplicates,
         "unpriced_item_numbers": unpriced,
+        "pending_item_numbers": pending,
         "finalizable": bool(validation["valid"] and not price_result["unresolved"]
-                            and not duplicates and not unpriced),
+                            and not duplicates and not unpriced and not pending),
         "factors": factors,
     }
