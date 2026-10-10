@@ -10,19 +10,50 @@ def payload_checksum(payload: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 def backup_database(db_path: str | Path, backup_path: str | Path) -> dict[str, Any]:
-    source_path=Path(db_path)
-    if not source_path.is_file(): raise RecoveryError("source database does not exist")
-    if source_path.resolve() == Path(backup_path).resolve():
+    """Create a consistent backup atomically; preserve prior backups on failure."""
+    import os
+    import tempfile
+
+    source_path = Path(db_path)
+    target_path = Path(backup_path)
+    if not source_path.is_file():
+        raise RecoveryError("source database does not exist")
+    if source_path.resolve() == target_path.resolve():
         raise RecoveryError("backup must not overwrite its source database")
-    source=sqlite3.connect(source_path.resolve().as_uri()+"?mode=ro", uri=True)
-    target_path=Path(backup_path); target_path.parent.mkdir(parents=True,exist_ok=True)
-    target=sqlite3.connect(str(target_path))
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_fd, temp_name = tempfile.mkstemp(
+        prefix=f".{target_path.name}.", suffix=".tmp", dir=target_path.parent
+    )
+    os.close(temp_fd)
+    temporary = Path(temp_name)
+    source = None
+    target = None
     try:
+        source = sqlite3.connect(source_path.resolve().as_uri() + "?mode=ro", uri=True)
+        target = sqlite3.connect(str(temporary))
         source.backup(target)
         target.commit()
+        integrity = target.execute("PRAGMA integrity_check").fetchone()
+        if not integrity or str(integrity[0]).lower() != "ok":
+            raise RecoveryError("backup database failed SQLite integrity check")
+        target.close()
+        target = None
+        source.close()
+        source = None
+        # Both connections are closed before replacing the backup. A failed
+        # operation cannot truncate an existing recovery point.
+        os.replace(temporary, target_path)
+        return {
+            "path": str(target_path), "size": target_path.stat().st_size,
+            "created_at": time.time(),
+        }
     finally:
-        target.close(); source.close()
-    return {"path":str(target_path),"size":target_path.stat().st_size,"created_at":time.time()}
+        if target is not None:
+            target.close()
+        if source is not None:
+            source.close()
+        temporary.unlink(missing_ok=True)
 
 def verify_database(db_path: str | Path) -> dict[str, Any]:
     source_path=Path(db_path)
