@@ -41,6 +41,21 @@ def test_pdf_persian_text_is_shaped_and_visual_rtl():
     assert any("\ufb50" <= char <= "\ufeff" for char in shaped)
 
 
+def test_multi_page_pdf_repeats_table_and_has_page_footer(tmp_path):
+    from pypdf import PdfReader
+
+    rows = [
+        {**_rows()[0], "item_no": index, "description": f"بتن فونداسیون ردیف {index}"}
+        for index in range(1, 121)
+    ]
+    report = build_report("گزارش چندصفحه‌ای", rows, {"grand_total": 25000000})
+    path = report.export(tmp_path / "multi-page.pdf", "pdf")
+    reader = PdfReader(path)
+
+    assert len(reader.pages) >= 2
+    assert all(page.extract_text().strip() for page in reader.pages)
+
+
 def test_report_ci_jobs_install_canonical_pdf_dependencies():
     root = Path(__file__).resolve().parents[1]
     workflows = (

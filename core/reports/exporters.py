@@ -203,6 +203,7 @@ def _pdf_font():
 
 
 _PERSIAN_TEXT = re.compile(r"[\u0600-\u06ff]")
+_PERSIAN_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
 
 
 def _pdf_text(value):
@@ -218,6 +219,14 @@ def _pdf_text(value):
             ) from exc
         text = get_display(arabic_reshaper.reshape(text), base_dir="R")
     return escape(text)
+
+
+def _pdf_page_footer(canvas, doc, font):
+    canvas.saveState()
+    canvas.setFont(font, 8)
+    label = f"صفحه {doc.page}".translate(_PERSIAN_DIGITS)
+    canvas.drawRightString(doc.pagesize[0] - doc.rightMargin, 16, _pdf_text(label))
+    canvas.restoreState()
 
 
 def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, columns=None):
@@ -240,7 +249,7 @@ def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, c
                                  alignment=TA_RIGHT)
     # Landscape keeps professional BOQ tables readable while remaining printable on A4.
     doc = SimpleDocTemplate(str(path), pagesize=landscape(A4),
-                            rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
+                            rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=34)
     story = [Paragraph(_pdf_text(title), title_style), Spacer(1, 10),
              Paragraph(_pdf_text("خلاصه تجاری"), heading)]
     summary_rows = _summary_items(summary)
@@ -266,6 +275,7 @@ def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, c
                                ("ALIGN", (0,0), (-1,-1), "RIGHT"),
                                ("VALIGN", (0,0), (-1,-1), "TOP")]))
     story.append(table)
-    doc.build(story)
+    footer = lambda canvas, current_doc: _pdf_page_footer(canvas, current_doc, font)
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return path
 
