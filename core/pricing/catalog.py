@@ -27,9 +27,20 @@ class PriceCatalog:
         self.replace(items)
 
     def replace(self, items: Iterable[PriceItem]) -> None:
-        self._items = {}
-        for item in items:
-            self.add(item, record_history=False)
+        # Validate before committing; reject legacy key collisions instead of
+        # silently replacing a different discipline with the same code.
+        candidate: dict[tuple[int, str], PriceItem] = {}
+        for raw in items:
+            item = self._validate_item(raw)
+            key = self._key(item.year, item.code)
+            if key in candidate:
+                raise ValueError("duplicate year/code in price catalog replacement")
+            candidate[key] = item
+        changed = {key for key in set(self._items) | set(candidate)
+                   if self._items.get(key) != candidate.get(key)}
+        if changed.intersection(self._overrides):
+            raise ValueError("replacement conflicts with existing custom prices")
+        self._items = candidate
 
     @staticmethod
     def _validate_item(item: PriceItem) -> PriceItem:
