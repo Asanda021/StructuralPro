@@ -86,6 +86,24 @@ def _validate_quantities(quantities: tuple[tuple[str, float], ...]) -> None:
             raise IFCError(f"IFC quantity must be finite and non-negative: {name}")
 
 
+def _extract_units(project: Any) -> str:
+    assignments = getattr(project, "UnitsInContext", None)
+    assigned = getattr(assignments, "Units", None) if assignments else None
+    if not assigned:
+        return "unresolved"
+    resolved: dict[str, str] = {}
+    for unit in assigned:
+        unit_type = str(getattr(unit, "UnitType", "") or "").strip()
+        name = str(getattr(unit, "Name", "") or "").strip()
+        prefix = str(getattr(unit, "Prefix", "") or "").strip()
+        if not unit_type or not name:
+            raise IFCError("IFC unit definition unresolved")
+        if unit_type in resolved:
+            raise IFCError(f"Duplicate IFC unit type: {unit_type}")
+        resolved[unit_type] = f"{prefix}{name}"
+    return ",".join(f"{kind}:{resolved[kind]}" for kind in sorted(resolved))
+
+
 def _extract_element(entity: Any) -> IFCElement:
     gid = str(getattr(entity, "GlobalId", "") or "")
     if not gid.strip():
@@ -136,12 +154,7 @@ def extract_ifc(payload: bytes) -> IFCModel:
         raise IFCError("IFC decoding failed") from exc
 
     project = next(iter(projects), None)
-    units = "unresolved"
-    if project is not None:
-        assignments = getattr(project, "UnitsInContext", None)
-        if assignments and getattr(assignments, "Units", None):
-            names = [str(getattr(u, "Name", "")) for u in assignments.Units]
-            units = ",".join(sorted(x for x in names if x)) or "unresolved"
+    units = _extract_units(project) if project is not None else "unresolved"
     elements = []
     for entity in products:
         if entity.is_a("IfcProject") or entity.is_a("IfcSite"):
@@ -179,6 +192,7 @@ def element_to_takeoff(model: IFCModel) -> list[dict[str, Any]]:
             "element_type": e.ifc_type,
             "name": e.name,
             "quantities": dict(e.quantities),
+            "unit_basis": model.units,
             "source": "IFC",
         }
         for e in model.elements

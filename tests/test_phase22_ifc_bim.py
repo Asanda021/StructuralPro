@@ -31,6 +31,7 @@ def test_ifc_extracts_elements_properties_quantities():
     assert result.element_count == 1
     assert result.elements[0].ifc_type == "IfcWall"
     assert dict(result.elements[0].quantities)["NetVolume"] == 12.5
+    assert result.units == "LENGTHUNIT:MILLIMETRE"
 
 
 def test_quantity_bridge_and_fingerprint():
@@ -40,6 +41,7 @@ def test_quantity_bridge_and_fingerprint():
     takeoff = element_to_takeoff(result)
     assert takeoff[0]["element_id"]
     assert takeoff[0]["quantities"]["NetVolume"] == 12.5
+    assert takeoff[0]["unit_basis"] == "LENGTHUNIT:MILLIMETRE"
     assert result.export_payload()["source_fingerprint"] == fingerprint(raw)
 
 
@@ -76,3 +78,12 @@ def test_quantity_bridge_rejects_duplicate_quantity_names():
     element = replace(model.elements[0], quantities=(("NetVolume", 1.0), ("NetVolume", 2.0)))
     with pytest.raises(IFCError, match="Duplicate IFC quantity"):
         element_to_takeoff(replace(model, elements=(element,)))
+
+
+def test_ambiguous_duplicate_unit_types_fail_closed():
+    model = ifc.file.from_string(sample_ifc().decode())
+    project = model.by_type("IfcProject")[0]
+    second = model.create_entity("IfcSIUnit", UnitType="LENGTHUNIT", Name="METRE")
+    project.UnitsInContext.Units = tuple(project.UnitsInContext.Units) + (second,)
+    with pytest.raises(IFCError, match="Duplicate IFC unit type"):
+        extract_ifc(model.to_string().encode())
