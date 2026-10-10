@@ -78,6 +78,16 @@ class PricebookImportService:
         return float(raw)
 
     @classmethod
+    def _unit_price(cls, value: Any) -> float:
+        # Blank price is missing data, not an explicitly recorded zero price.
+        # Zero is permitted but must be present in the source cell.
+        if value is None or isinstance(value, bool) or (
+            isinstance(value, str) and not value.strip()
+        ):
+            raise ValueError("بهای واحد خالی یا نامعتبر است؛ قیمت صفر باید صریح ثبت شود.")
+        return cls._number(value)
+
+    @classmethod
     def _rows_from_excel(cls, path: Path, *, fallback_year: int) -> list[PriceItem]:
         try:
             from openpyxl import load_workbook
@@ -100,15 +110,18 @@ class PricebookImportService:
                     def val(field: str, default: Any = ""):
                         idx = mapping.get(field)
                         return values[idx] if idx is not None and idx < len(values) else default
-                    code = str(val("code")).strip()
-                    desc = str(val("description")).strip()
-                    unit = str(val("unit")).strip()
+                    code = str(val("code") or "").strip()
+                    desc = str(val("description") or "").strip()
+                    unit = str(val("unit") or "").strip()
+                    price_value = val("unit_price")
+                    if not any(str(value or "").strip() for value in (code, desc, unit, price_value)):
+                        continue  # genuinely empty spreadsheet row
                     if not code or not desc or not unit:
-                        continue
+                        raise ValueError("ردیف ناقص Excel: کد، شرح و واحد باید مشخص باشند.")
                     year_value = val("year", fallback_year)
                     group = str(val("group", "")).strip()
                     chapter = str(val("chapter", "")).strip()
-                    price = cls._number(val("unit_price"))
+                    price = cls._unit_price(price_value)
                     out.append(PriceItem(
                         year=int(cls._number(year_value)) if year_value else 0,
                         group=group, chapter=chapter, code=code,
@@ -142,7 +155,7 @@ class PricebookImportService:
             cols=[x.strip() for x in line.split("|") if x.strip()]
             if len(cols)<4: continue
             code,desc,unit,raw_price=cols[0],cols[1],cols[2],cols[3]
-            try: price=cls._number(raw_price)
+            try: price=cls._unit_price(raw_price)
             except ValueError: continue
             if code and desc and unit and price>=0:
                 out.append(PriceItem(year=fallback_year,group="",chapter="",code=code,description=desc,unit=unit,unit_price=price))
@@ -174,7 +187,7 @@ class PricebookImportService:
                 code=str(val("code", "") or "").strip(),
                 description=str(val("description", "") or "").strip(),
                 unit=str(val("unit", "") or "").strip(),
-                unit_price=cls._number(val("unit_price")),
+                unit_price=cls._unit_price(val("unit_price")),
                 analysis=str(val("analysis", "") or ""),
                 notes=str(val("notes", "") or ""),
             ))
