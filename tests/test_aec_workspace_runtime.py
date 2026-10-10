@@ -71,3 +71,69 @@ def test_batch_is_rejected_without_partially_applying_first_row(workspace):
     apply_quick(workspace, "ستون: تعداد=2، عرض=0.5، عمق=0.5، ارتفاع=3; تیر: تعداد=1، طول=6، عرض=0.3، عمق=0.5")
     assert combo.currentData() == previous
     assert field(workspace, "length").value() == 8
+
+
+class _TakeoffService:
+    def __init__(self, *, fail_first=False, fail_open=False):
+        self.sources = []
+        self.fail_first = fail_first
+        self.fail_open = fail_open
+
+    def open_project(self, project_id):
+        if self.fail_open:
+            raise OSError("database unavailable")
+        return {"takeoffs": []}
+
+    def add_takeoff(self, project_id, domain, code, **params):
+        self.sources.append(params["source_id"])
+        if self.fail_first and len(self.sources) == 1:
+            raise OSError("write failed")
+        return {"quantities": [{"amount": 1.0, "unit": "m3", "formula": "test"}]}
+
+
+def _calculation_workspace(service):
+    return build_aec_workspace(
+        service, None, title="بتن", description="متره",
+        domain="building", key="structural_concrete",
+    )
+
+
+def _prepare_column(widget):
+    combo = widget.findChild(QComboBox, "TakeoffItem")
+    combo.setCurrentIndex(combo.findData("column"))
+    field(widget, "width").setValue(.4)
+    field(widget, "depth").setValue(.4)
+    field(widget, "height").setValue(3)
+    field(widget, "count").setValue(1)
+    widget.findChild(QLineEdit, "TakeoffProject").setText("project-1")
+
+
+def test_calculation_retry_reuses_source_identity_after_failed_write(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    service = _TakeoffService(fail_first=True)
+    widget = _calculation_workspace(service)
+    _prepare_column(widget)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *args: None)
+    button = widget.findChild(QPushButton, "PrimaryAction")
+    button.click()
+    button.click()
+    assert len(service.sources) == 2
+    assert service.sources[0] == service.sources[1]
+    widget.close()
+
+
+def test_refresh_clears_stale_rows_and_reports_read_error(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox, QTableWidget, QTableWidgetItem
+    service = _TakeoffService(fail_open=True)
+    widget = _calculation_workspace(service)
+    project = widget.findChild(QLineEdit, "TakeoffProject")
+    project.setText("project-1")
+    table = widget.findChild(QTableWidget)
+    table.setRowCount(1)
+    table.setItem(0, 0, QTableWidgetItem("stale"))
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args))
+    project.editingFinished.emit()
+    assert table.rowCount() == 0
+    assert warnings and "بارگذاری" in warnings[0][2]
+    widget.close()
