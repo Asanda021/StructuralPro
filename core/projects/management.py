@@ -144,6 +144,22 @@ class ProjectManagement:
                 if predecessor not in task_ids:
                     raise ValueError(f"unknown predecessor task: {predecessor}")
 
+        successors = {key: [] for key in task_ids}
+        degree = {task.id: len(set(task.predecessor_ids)) for task in self.tasks}
+        for task in self.tasks:
+            for predecessor in set(task.predecessor_ids):
+                successors[predecessor].append(task.id)
+        ready = [key for key, value in degree.items() if value == 0]
+        visited = 0
+        while ready:
+            key = ready.pop()
+            visited += 1
+            for successor in successors[key]:
+                degree[successor] -= 1
+                if degree[successor] == 0: ready.append(successor)
+        if visited != len(task_ids):
+            raise ValueError("وابستگی دوری در برنامه پروژه مجاز نیست")
+
         for x in self.daily_reports:
             _pct(x.progress, "daily report progress")
             _nonneg(x.workforce, "daily report workforce")
