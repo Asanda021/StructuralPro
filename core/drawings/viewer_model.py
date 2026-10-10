@@ -32,6 +32,7 @@ class DrawingViewerModel:
         self.kind: str = ""
         self.page_count = 0
         self.cad_document: Any = None
+        self.ifc_document: Any = None
         self.current_page = 1
         if path:
             self.open(path)
@@ -44,6 +45,7 @@ class DrawingViewerModel:
         new_kind = ""
         new_page_count = 0
         new_cad_document = None
+        new_ifc_document = None
         if ext == ".pdf":
             from core.drawings.pdf_engine import PDFDrawingEngine
             # Close the underlying PDF handle after validating the file and page count.
@@ -57,14 +59,20 @@ class DrawingViewerModel:
             new_cad_document = DWGTakeoffEngine().import_file(p)
             new_kind = "cad"
             new_page_count = 1
+        elif ext == ".ifc":
+            from core.bim.ifc import DeepIFCAdapter
+            new_ifc_document = DeepIFCAdapter().read_display_meshes(p)
+            new_kind = "ifc"
+            new_page_count = 1
         else:
-            raise ValueError("فرمت نقشه باید PDF، DWG یا DXF باشد.")
+            raise ValueError("فرمت نقشه باید PDF، DWG، DXF یا IFC باشد.")
 
         # Commit viewer state only after the complete import/validation succeeds.
         self.path = p
         self.kind = new_kind
         self.page_count = new_page_count
         self.cad_document = new_cad_document
+        self.ifc_document = new_ifc_document
         self.current_page = 1
         return self
 

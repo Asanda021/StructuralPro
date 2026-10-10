@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox,
     QLabel, QGraphicsView, QGraphicsScene, QDialog, QTableWidget,
     QTableWidgetItem, QSpinBox, QFileDialog, QMessageBox, QFrame,
-    QDoubleSpinBox, QInputDialog, QHeaderView, QRubberBand
+    QDoubleSpinBox, QInputDialog, QHeaderView, QRubberBand, QGridLayout
 )
 
 from core.drawings.graphical_takeoff import Point
@@ -33,6 +33,7 @@ class TakeoffCanvas(QGraphicsView):
         self.setScene(self.scene)
         self.points: list[Point] = []
         self.mode = "length"
+        self.read_only_model = False
         self._previous_mode = "length"
         self._selection_origin = None
         self._rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, self.viewport())
@@ -44,6 +45,8 @@ class TakeoffCanvas(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
 
     def set_mode(self, mode: str):
+        if self.read_only_model and mode not in {"pan", "zoom_window", "region_select"}:
+            mode = "pan"
         if mode in {"zoom_window", "region_select"} and self.mode not in {"zoom_window", "region_select"}:
             self._previous_mode = self.mode
         self.cancel_interaction(reset_tool=False, announce=False)
@@ -107,6 +110,8 @@ class TakeoffCanvas(QGraphicsView):
             self._rubber_band.show()
             self.setFocus()
             return
+        if self.read_only_model:
+            return super().mousePressEvent(event)
         p = self.mapToScene(event.position().toPoint())
         page = self.session.current_page
 
@@ -188,6 +193,8 @@ class TakeoffCanvas(QGraphicsView):
             QMessageBox.warning(self, "متره", str(exc))
 
     def finish(self):
+        if self.read_only_model:
+            return
         try:
             if self.mode == "length" and len(self.points) >= 2:
                 self.session.add_length(
@@ -246,7 +253,9 @@ class GraphicalTakeoffDialog(QDialog):
         root = QVBoxLayout(self)
         toolbar = QFrame()
         toolbar.setObjectName("DashboardCard")
-        header = QHBoxLayout(toolbar)
+        toolbar_rows = QVBoxLayout(toolbar)
+        header = QHBoxLayout()
+        toolbar_rows.addLayout(header)
         header.setContentsMargins(12, 10, 12, 10)
 
         header.addWidget(QLabel("ابزار:"))
@@ -254,7 +263,7 @@ class GraphicalTakeoffDialog(QDialog):
         self.mode.addItems(["طول", "مساحت", "شمارش", "یادداشت"])
         header.addWidget(self.mode)
 
-        self.scale_label = QLabel("مقیاس: 0.010000 m/px")
+        self.scale_label = QLabel("مقیاس: هنوز کالیبره نشده")
         self.calibrate = QPushButton("کالیبراسیون")
         self.calibrate.setObjectName("SecondaryAction")
         header.addWidget(self.scale_label)
@@ -291,15 +300,17 @@ class GraphicalTakeoffDialog(QDialog):
         self.undo = QPushButton("↶ واگرد")
         self.redo = QPushButton("↷ تکرار")
         self.delete = QPushButton("حذف انتخاب")
-        for x in [
+        actions = QGridLayout()
+        toolbar_rows.addLayout(actions)
+        for index, x in enumerate([
             self.open_pdf, self.prev, self.next, self.page_no,
             self.zoom_out, self.zoom_in, self.fit, self.zoom_window,
             self.select_region, self.cancel_selection, self.region_to_takeoff, self.undo, self.redo,
             self.delete, self.finish, self.project_id_input, self.save_session_button,
             self.load_session_button, self.commit_boq_button, self.export_boq
-        ]:
-            header.addWidget(x)
-        header.addWidget(self.source_label)
+        ]):
+            actions.addWidget(x, index // 6, index % 6)
+        toolbar_rows.addWidget(self.source_label)
         root.addWidget(toolbar)
 
         self.canvas = TakeoffCanvas(self.session, self.refresh, self.add_note)
@@ -424,6 +435,9 @@ class GraphicalTakeoffDialog(QDialog):
             QMessageBox.critical(self, "بارگذاری نشست", "بازیابی انجام نشد؛ نشست ذخیره‌شده تغییر نکرد.\n" + str(exc))
 
     def commit_selected_to_boq(self):
+        if self.viewer.kind == "ifc":
+            self._ifc_status()
+            return
         if self.app_service is None:
             QMessageBox.warning(self, "انتقال به BOQ", "سرویس پروژه در این پنجره در دسترس نیست.")
             return
@@ -463,7 +477,7 @@ class GraphicalTakeoffDialog(QDialog):
 
     def select_drawing(self):
         path = QFileDialog.getOpenFileName(
-            self, "انتخاب نقشه", "", "نقشه‌ها (*.pdf *.dwg *.dxf);;PDF (*.pdf);;CAD (*.dwg *.dxf);;همه فایل‌ها (*)"
+            self, "انتخاب نقشه", "", "نقشه‌ها (*.pdf *.dwg *.dxf *.ifc);;PDF (*.pdf);;CAD (*.dwg *.dxf);;مدل ساختمان (*.ifc);;همه فایل‌ها (*)"
         )[0]
         if not path:
             return
@@ -519,6 +533,21 @@ class GraphicalTakeoffDialog(QDialog):
             self.canvas._region_overlay = None
             self.canvas._selected_region_rect = None
             self.canvas.points = []
+            model_view = self.viewer.kind == "ifc"
+            calibration = self.session.calibration
+            self.scale_label.setText(
+                "نمای مدل؛ متره از تصویر غیرفعال است" if model_view else
+                (f"مقیاس: {calibration.meters_per_pixel:.6f} متر بر واحد نمایش"
+                 if calibration else "مقیاس: هنوز کالیبره نشده")
+            )
+            self.canvas.read_only_model = model_view
+            for control in (self.mode, self.calibrate, self.region_to_takeoff, self.finish):
+                control.setEnabled(not model_view)
+            self.commit_boq_button.setEnabled(not model_view and self.app_service is not None)
+            self.export_boq.setEnabled(not model_view)
+            self.canvas.set_mode("pan" if model_view else {
+                "طول": "length", "مساحت": "area", "شمارش": "count", "یادداشت": "note"
+            }[self.mode.currentText()])
             if self.viewer.kind == "pdf":
                 data = self.engine.render(self.page, 150)
                 pix = QPixmap()
@@ -528,9 +557,13 @@ class GraphicalTakeoffDialog(QDialog):
                 self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
                 for item in self.session.for_page(self.page):
                     self.canvas._draw_measurement(item)
+            elif model_view:
+                self._render_ifc()
             else:
                 self._render_cad()
             self.refresh()
+            if model_view:
+                self._ifc_status()
             self.reset_zoom()
         except Exception as exc:
             QMessageBox.critical(self, "خطای نمایش PDF", str(exc))
@@ -599,6 +632,36 @@ class GraphicalTakeoffDialog(QDialog):
         self.canvas.setSceneRect(0,0,max_x-min_x,max_y-min_y)
         self.status.setText(f"🟢 CAD نمایش داده شد | {len(doc.entities)} المان | لایه‌ها: {len(doc.layers)} | واحد: {doc.units}")
 
+    def _ifc_status(self):
+        doc = self.viewer.ifc_document
+        self.status.setText(
+            f"نمای ایزومتریک مدل | {len(doc.meshes)} عنصر | "
+            f"نمایش‌داده‌نشده: {len(doc.omitted_ids)} عنصر | "
+            "متره از تصویر مدل مجاز نیست؛ کمیت‌های مدل در بخش بررسی نقشه بازبینی می‌شوند."
+        )
+
+    def _render_ifc(self):
+        """Project actual mesh triangles; display coordinates are never takeoff input."""
+        doc = self.viewer.ifc_document
+        if doc is None:
+            raise RuntimeError("مدل برای نمایش آماده نیست.")
+        triangles = []
+        for mesh in doc.meshes:
+            for indices in mesh.triangles:
+                points = [mesh.vertices[i] for i in indices]
+                projected = [QPointF((x-y)*0.866025403784, (x+y)*0.5-z) for x,y,z in points]
+                depth = sum(x+y+z for x,y,z in points) / 3
+                triangles.append((depth, mesh, projected))
+        pen = QPen(QColor(42, 75, 110), 0)
+        for _, mesh, points in sorted(triangles, key=lambda row: row[0]):
+            item = self.canvas.scene.addPolygon(QPolygonF(points), pen, QBrush(QColor(155, 190, 215)))
+            item.setToolTip(f"{mesh.name}\nشناسه: {mesh.global_id}\nاثر انگشت: {doc.source_sha256}")
+            item.setAcceptedMouseButtons(Qt.MouseButton.NoButton)
+        bounds = self.canvas.scene.itemsBoundingRect()
+        margin = max(bounds.width(), bounds.height(), 1.0) * 0.05
+        self.canvas.setSceneRect(bounds.adjusted(-margin, -margin, margin, margin))
+        self._ifc_status()
+
     def _activate_view_tool(self, mode: str, instruction: str):
         self.canvas.set_mode(mode)
         self.status.setText(instruction)
@@ -615,6 +678,9 @@ class GraphicalTakeoffDialog(QDialog):
 
     def register_selected_region(self):
         """Convert the highlighted rectangle into a traceable area takeoff item."""
+        if self.viewer.kind == "ifc":
+            self._ifc_status()
+            return
         rect = self.canvas._selected_region_rect
         if rect is None or not rect.isValid() or rect.width() <= 0 or rect.height() <= 0:
             QMessageBox.information(self, "ثبت ناحیه", "ابتدا با «انتخاب ناحیه» یا «Zoom Window» یک ناحیه معتبر مشخص کنید.")
@@ -679,6 +745,9 @@ class GraphicalTakeoffDialog(QDialog):
         )
 
     def calibrate_scale(self):
+        if self.viewer.kind == "ifc":
+            self._ifc_status()
+            return
         px, ok = QInputDialog.getDouble(
             self, "کالیبراسیون مقیاس",
             "فاصله روی نقشه (پیکسل):", 1000.0, 0.001, 100000000.0, 3
@@ -750,11 +819,16 @@ class GraphicalTakeoffDialog(QDialog):
             self.canvas.setSceneRect(0, 0, pix.width(), pix.height())
             for item in self.session.for_page(self.page):
                 self.canvas._draw_measurement(item)
+        elif self.viewer.kind == "ifc":
+            self._render_ifc()
         else:
             self._render_cad()
 
     def export_takeoff_for_boq(self):
         """Export a reviewable, source-linked JSON handoff; never auto-approve BOQ rows."""
+        if self.viewer.kind == "ifc":
+            self._ifc_status()
+            return
         if not self.session.items:
             QMessageBox.information(self, "خروجی متره", "هنوز هیچ ردیف متره‌ای برای خروجی ثبت نشده است.")
             return
