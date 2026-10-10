@@ -89,3 +89,36 @@ def test_ai_takeoff_rejects_stale_revision_wrong_scale_and_duplicate_sources(tmp
     with pytest.raises(ValueError, match="دوباره‌شماری"):
         app.commit_ai_takeoff_proposal("ai-evidence-project", copy.deepcopy(proposal), user_confirmed=True)
     assert len(app.open_project("ai-evidence-project")["takeoffs"]) == 1
+
+
+def test_persisted_ai_commit_rejects_unstable_positional_source_before_state_changes(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه آزمون شناسه AI", "ai-identity")
+    session = DrawingTakeoffSession("project/A101.pdf")
+    session.calibrate(1, 100, 10)
+    item = session.add_length([Point(0, 0), Point(100, 0)], page=1)
+    saved = app.save_drawing_takeoff_session("ai-identity", session)
+    proposal = _proposal(saved["session_id"], saved["revision"], session, item)
+    proposal["candidates"][0]["source_id"] = "entity-1"
+    with pytest.raises(ValueError, match="ناپایدار"):
+        app.commit_ai_takeoff_proposal("ai-identity", proposal, user_confirmed=True)
+    state = app.open_project("ai-identity")
+    assert state["takeoffs"] == []
+    assert state["boq"] == []
+    assert state["drawing_sessions"][saved["session_id"]]["revision"] == saved["revision"]
+
+
+def test_persisted_ai_commit_rejects_reused_geometry_in_one_proposal(tmp_path):
+    app = StructuralProApp(tmp_path)
+    app.create_project("پروژه بازبینی AI", "ai-repeated")
+    session = DrawingTakeoffSession("project/A102.pdf")
+    session.calibrate(1, 100, 10)
+    item = session.add_length([Point(0, 0), Point(100, 0)], page=1)
+    saved = app.save_drawing_takeoff_session("ai-repeated", session)
+    proposal = _proposal(saved["session_id"], saved["revision"], session, item)
+    other = copy.deepcopy(proposal["candidates"][0])
+    other["source_id"] = "page-1:line-2"
+    proposal["candidates"].append(other)
+    with pytest.raises(ValueError, match="متره هندسی تکراری"):
+        app.commit_ai_takeoff_proposal("ai-repeated", proposal, user_confirmed=True)
+    assert app.open_project("ai-repeated")["takeoffs"] == []
