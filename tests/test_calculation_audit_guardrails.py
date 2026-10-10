@@ -77,3 +77,31 @@ def test_valid_wall_opening_subtraction_remains_deterministic():
 def test_valid_backfill_deduction_remains_deterministic():
     result = calculate_civil_item("backfill", excavation=10, deductions=2)
     assert result.quantity == pytest.approx(8.0)
+
+
+def test_wall_count_multiplies_net_area_for_each_identical_wall():
+    result = calculate_building_item("wall", length=4, height=3, openings=2, count=3)
+    assert result.quantity == pytest.approx(30)
+
+
+@pytest.mark.parametrize("count", [True, 1.5])
+def test_building_rejects_ambiguous_element_count(count):
+    with pytest.raises(ValueError):
+        calculate_building_item("column", width=.3, depth=.4, height=3, count=count)
+
+
+def test_engine_rejects_overflowing_calculated_quantity():
+    from core.takeoff.engine import TakeoffEngine
+    with pytest.raises(ValueError, match="متناهی"):
+        TakeoffEngine().calculate("building", "column", width=1e200, depth=1e200, height=3)
+
+
+@pytest.mark.parametrize("calculator,item,params", [
+    (calculate_advanced_item, "footing_concrete", {"length": True, "width": 2, "thickness": .5}),
+    (calculate_civil_item, "excavation", {"length": True, "width": 2, "depth": 1}),
+    (calculate_mechanical_item, "pipe", {"length": True}),
+    (calculate_electrical_item, "cable", {"length": True}),
+])
+def test_all_existing_disciplines_reject_boolean_dimensions(calculator, item, params):
+    with pytest.raises(ValueError, match="numeric"):
+        calculator(item, **params)

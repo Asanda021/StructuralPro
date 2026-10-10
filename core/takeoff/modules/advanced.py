@@ -5,10 +5,13 @@ from typing import Any
 import math
 
 def _n(v: Any, name: str, minimum: float = 0.0) -> float:
+    if isinstance(v, bool): raise ValueError(f"{name} must be numeric")
     try: x=float(v)
-    except (TypeError, ValueError): raise ValueError(f"{name} must be numeric")
+    except (TypeError, ValueError, OverflowError): raise ValueError(f"{name} must be numeric")
     if not math.isfinite(x): raise ValueError(f"{name} must be finite")
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
+    if name in {"count", "joist_count"} and not x.is_integer():
+        raise ValueError(f"{name} must be an integer")
     return x
 
 @dataclass(frozen=True)

@@ -58,13 +58,24 @@ def _extract_named(text: str) -> dict[str, float]:
         "وزن واحد":"unit_weight","وزن":"unit_weight",
     }
     out = {}
-    for label,key in sorted(aliases.items(), key=lambda x:-len(x[0])):
-        match = re.search(rf"{re.escape(label)}\s*[:=]?\s*({_NUMBER})", text)
-        if match:
-            value = _number(match.group(1))
-            if value < 0:
-                raise ValueError(f"مقدار «{label}» نمی‌تواند منفی باشد")
-            out[key] = value
+    labels = "|".join(re.escape(label) for label in sorted(aliases, key=len, reverse=True))
+    pattern = rf"(?<!\w)({labels})\s*[:=]?\s*({_NUMBER})(?![\d.eE])\s*(mm|cm|m|میلی‌متر|سانتی‌متر|متر)?(?!\w)"
+    for match in re.finditer(pattern, text, re.IGNORECASE):
+        label, token, unit = match.groups()
+        key = aliases[label]
+        if "," in token:
+            raise ValueError("جداکننده عدد مبهم است؛ برای اعشار از نقطه یا ممیز فارسی استفاده کنید")
+        value = _number(token)
+        if value < 0:
+            raise ValueError(f"مقدار «{label}» نمی‌تواند منفی باشد")
+        if unit:
+            if key in {"count", "unit_weight", "openings"}:
+                raise ValueError(f"واحد طول برای «{label}» معتبر نیست")
+            value *= {"mm": .001, "cm": .01, "m": 1,
+                      "میلی‌متر": .001, "سانتی‌متر": .01, "متر": 1}[unit.lower()]
+        if key in out and out[key] != value:
+            raise ValueError(f"مقادیر متعارض برای «{label}» ثبت شده است")
+        out[key] = value
     return out
 
 def _extract_code(text: str):
@@ -81,20 +92,27 @@ def parse_manual_entry(text: str) -> ManualEntry:
     params = _extract_named(normalized)
     # Compact column syntax: «12 ستون 50x50 ارتفاع 3» (cm is detected from the text).
     if code == "column":
-        dims = re.search(rf"({_NUMBER})\s*(?:cm)?\s*x\s*({_NUMBER})\s*(?:cm)?", normalized)
-        nums = [_number(x) for x in re.findall(_NUMBER, normalized)]
+        dims = re.search(rf"({_NUMBER})\s*(mm|cm|m)?\s*x\s*({_NUMBER})\s*(mm|cm|m)?(?!\w)", normalized, re.IGNORECASE)
         if dims:
-            factor = 100 if ("cm" in normalized.lower() or "سانت" in raw) else 1
-            params.setdefault("count", nums[0] if nums else 1)
-            params.setdefault("width", _number(dims.group(1))/factor)
-            params.setdefault("depth", _number(dims.group(2))/factor)
-        elif "count" not in params and nums:
-            params["count"] = nums[0]
+            count_match = re.search(rf"({_NUMBER})\s+(?:ستون|column)\b", normalized, re.IGNORECASE)
+            if count_match:
+                params.setdefault("count", _number(count_match.group(1)))
+            first, first_unit, second, second_unit = dims.groups()
+            shared_unit = first_unit or second_unit or "m"
+            for key, token, unit in (("width", first, first_unit), ("depth", second, second_unit)):
+                if "," in token:
+                    raise ValueError("جداکننده ابعاد مبهم است؛ از ممیز فارسی یا نقطه استفاده کنید")
+                value = _number(token) * {"mm": .001, "cm": .01, "m": 1}[(unit or shared_unit).lower()]
+                if key in params and params[key] != value:
+                    raise ValueError("ابعاد کوتاه و ورودی نام‌گذاری‌شده متعارض هستند")
+                params[key] = value
     for key, value in params.items():
         if not math.isfinite(value):
             raise ValueError(f"{key} باید متناهی باشد")
         if value < 0:
             raise ValueError(f"{key} نمی‌تواند منفی باشد")
+        if key == "count" and not value.is_integer():
+            raise ValueError("تعداد باید عدد صحیح باشد")
     missing = tuple(name for name in fields if name not in params or (params[name] < 0 if name == "openings" else params[name] <= 0))
     return ManualEntry(code, params, missing, raw)
 

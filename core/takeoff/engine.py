@@ -5,6 +5,7 @@ Stage 1: one normalized interface for all current construction domains.
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import Any, Iterable
+import math
 from .modules import calculate_building_item, calculate_mechanical_item, calculate_electrical_item, calculate_civil_item
 from .modules.advanced import calculate_advanced_item
 
@@ -33,6 +34,8 @@ class TakeoffEngine:
         elif d=="civil": result=calculate_civil_item(item,**params)
         elif d=="advanced": result=calculate_advanced_item(item,**params)
         else: raise KeyError(f"unsupported takeoff domain: {domain}")
+        if not math.isfinite(float(result.quantity)) or result.quantity < 0:
+            raise ValueError("نتیجه متره باید متناهی و نامنفی باشد")
         return TakeoffRow(d,item,description or item,float(result.quantity),result.unit,result.formula,
                           source,price_code,";".join(getattr(result,"warnings",()) or ()))
     def batch(self, rows: Iterable[dict[str,Any]]) -> list[TakeoffRow]:

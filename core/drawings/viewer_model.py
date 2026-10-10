@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+import math
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,10 @@ class DrawingViewport:
     height: float
 
     def normalized(self) -> "DrawingViewport":
+        if any(not math.isfinite(value) for value in (self.left, self.top, self.width, self.height)):
+            raise ValueError("مختصات پنجره بزرگ‌نمایی باید متناهی باشند")
+        if self.width == 0 or self.height == 0:
+            raise ValueError("پنجره بزرگ‌نمایی باید عرض و ارتفاع مثبت داشته باشد")
         return DrawingViewport(min(self.left, self.left + self.width),
                                min(self.top, self.top + self.height),
                                abs(self.width), abs(self.height))

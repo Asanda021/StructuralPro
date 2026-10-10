@@ -9,6 +9,7 @@ import math
 from typing import Any, Iterable
 
 from core.drawings.takeoff_session import DrawingTakeoffSession
+from core.drawings.graphical_takeoff import Point, polygon_area, polyline_length
 
 
 _KIND_UNITS = {"length": "m", "area": "m2", "count": "عدد"}
@@ -45,6 +46,19 @@ def validate_session_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     break
             if item.kind == "count" and (item.quantity <= 0 or not float(item.quantity).is_integer()):
                 issues.append(f"تعداد متره {item.id} باید عدد صحیح مثبت باشد")
+            if item.kind in {"length", "area"} and item.page in session.calibrations:
+                factor = session.calibrations[item.page].meters_per_pixel
+                points = [Point(*point) for point in item.geometry]
+                if item.kind == "length":
+                    expected = polyline_length(points) * factor
+                else:
+                    holes = [[Point(*point) for point in hole] for hole in item.holes]
+                    if any(len(hole) < 3 for hole in holes):
+                        issues.append(f"هندسه بازشو متره {item.id} ناقص است")
+                    net = polygon_area(points) - sum(polygon_area(hole) for hole in holes)
+                    expected = net * factor * factor
+                if expected <= 0 or not math.isclose(item.quantity, expected, rel_tol=1e-9, abs_tol=1e-9):
+                    issues.append(f"مقدار متره {item.id} با هندسه و کالیبراسیون ثبت‌شده مطابقت ندارد")
     except Exception as exc:
         issues.append(f"نشست متره قابل بازیابی/اعتبارسنجی نیست: {exc}")
     return {"valid": not issues, "issues": list(dict.fromkeys(issues))}
@@ -94,6 +108,7 @@ def session_to_boq_rows(
             "unit_price": None,
             "formula": item.formula,
             "geometry": [list(point) for point in item.geometry],
+            "holes": [[list(point) for point in hole] for hole in item.holes],
             "confidence": float(item.confidence),
             "needs_confirmation": False,
         })
