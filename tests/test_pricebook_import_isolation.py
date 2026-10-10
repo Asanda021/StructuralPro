@@ -79,3 +79,22 @@ def test_import_preserves_existing_price_history(tmp_path):
     _write(path, [_item("ابنیه", "100", 30)])
     PricebookImportService(catalog).import_file(path, year=1404, replace_year=True)
     assert catalog.price_history("100", 1404) == previous
+
+
+def test_direct_csv_import_does_not_delete_other_discipline():
+    catalog = PriceCatalog([_item("برق", "200", 20), _item("ابنیه", "100", 10)])
+    csv_text = PriceCatalog([_item("ابنیه", "300", 30)]).export_csv()
+    assert catalog.import_csv(csv_text, replace_year=True) == 1
+    assert catalog.get("200", 1404).unit_price == 20
+    assert catalog.get("100", 1404) is None
+    assert catalog.get("300", 1404).unit_price == 30
+
+
+def test_direct_csv_import_rejects_conflicting_override_atomically():
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    catalog.set_custom_price("100", 1404, 77)
+    csv_text = PriceCatalog([_item("ابنیه", "100", 30)]).export_csv()
+    with pytest.raises(ValueError, match="custom prices"):
+        catalog.import_csv(csv_text, replace_year=True)
+    assert catalog.get("100", 1404).unit_price == 77
+    assert catalog._items[(1404, "100")].unit_price == 10
