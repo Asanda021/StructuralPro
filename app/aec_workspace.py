@@ -110,7 +110,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     def update_fields():
         active=set(specs[item.currentData()])
         is_assembly=assembly_mode.isChecked() and item.currentData() in ASSEMBLY_CODES
-        if is_assembly:
+        if is_assembly and item.currentData() in {"joist_foam_roof", "joist_block_roof"}:
             active.update({"foam_length","foam_width","foam_height","mesh_unit_weight"})
         floor.setVisible(is_assembly)
         grid.setRowVisible(floor,is_assembly)
