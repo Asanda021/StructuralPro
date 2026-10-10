@@ -50,8 +50,14 @@ class ProjectStore:
         pid=str(project_id)
         cached=self._cache.get(pid)
         if cached is not None:
-            _, data=cached
-            return deepcopy(data)
+            version = self.db.execute(
+                "SELECT version FROM projects WHERE id=?", (pid,)
+            ).fetchone()
+            if version is not None and int(version["version"]) == cached[0]:
+                return deepcopy(cached[1])
+            # An independent SQLite connection has updated or deleted this
+            # project. Never return a stale cached copy as current evidence.
+            self._cache.pop(pid, None)
         row=self.db.execute("SELECT * FROM projects WHERE id=?",(pid,)).fetchone()
         if not row: return None
         data=json.loads(row["payload"])
