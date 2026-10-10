@@ -8,6 +8,8 @@ def _read(r,name,default=None): return r.get(name,default) if isinstance(r,dict)
 def _text(value): return str(value or "").strip()
 def _number(value,field,*,allow_none=True):
     if value is None and allow_none: return None
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric, not boolean")
     number=float(value)
     if not math.isfinite(number): raise ValueError(f"{field} must be finite")
     return number

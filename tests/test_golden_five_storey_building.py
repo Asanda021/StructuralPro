@@ -92,3 +92,49 @@ def test_five_storey_golden_dataset_round_trips_through_persistent_project_and_b
     for code, quantity in expected.items():
         assert by_code[code] == pytest.approx(quantity, abs=1e-8), code
     assert all(row.get("unit_price") is None and row.get("total") is None for row in project["boq"])
+
+
+def test_five_storey_independent_oracle_estimate_and_export(tmp_path):
+    """Independent decimal arithmetic; no production prices or engineering acceptance."""
+    import csv
+    from decimal import Decimal as D
+    from core.platform.application import StructuralProApp
+    from core.reports.project_report import build_report
+
+    dataset = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    app = StructuralProApp(tmp_path / "data")
+    project_id = dataset["dataset_id"]
+    app.create_project(dataset["title"], project_id)
+    for case in dataset["cases"]:
+        for floor in range(case["repeat_count"]):
+            app.add_assembly_takeoff(project_id, case["assembly"], case["inputs"],
+                                    floor_id=str(floor + 1), description=case["id"])
+    reopened = StructuralProApp(tmp_path / "data")
+    project = reopened.open_project(project_id)
+    oracle = {
+        "excavation": D(20) * D('1.5') ** 2 * D('1.2'),
+        "concrete": D(5) * (D(20) * D('.4') ** 2 * D(3)
+                     + (D(20) * D(15) - D(10)) * D('.15')
+                     + D(2) * D(20) * D('.3') * D('.5')),
+        "formwork": D(5) * D(2) * D(20) * (D('.3') + D(2) * D('.5')),
+        "reinforcement": D(5) * D(2) * D(20) * D('.3') * D('.5') * D(120),
+        "wall_area": D(5) * (D(10) * D(3) - D(4)),
+        "finish_area": D(5) * (D(20) * D(15) - D(10)),
+    }
+    estimate = reopened.recalculate_estimate(project_id)
+    assert estimate["finalizable"] is False  # Missing prices cannot become a payable estimate.
+    report = build_report(project["name"], project["boq"], metadata={"نوع داده": dataset["status"]})
+    path = report.export(tmp_path / "five-storey.csv", "csv")
+    with path.open(encoding="utf-8-sig", newline="") as fh:
+        lines = list(csv.reader(fh))
+    header_index = next(i for i, row in enumerate(lines) if "کد آیتم" in row)
+    header = lines[header_index]
+    totals = {}
+    for row in lines[header_index + 1:]:
+        code = row[header.index("کد آیتم")]
+        totals[code] = totals.get(code, D(0)) + D(row[header.index("مقدار")])
+        assert row[header.index("بهای واحد")] == ""
+        assert row[header.index("مبلغ")] == ""
+    for code, expected in oracle.items():
+        assert float(totals[code]) == pytest.approx(float(expected), abs=1e-8)
+    assert reopened.project_reliability_status(project_id)["integrity"]["ok"] is True

@@ -1,4 +1,4 @@
-param([string]$Version="", [switch]$BuildInstaller, [switch]$SmokeTest)
+param([string]$Version="", [switch]$BuildInstaller, [switch]$SmokeTest, [switch]$WithIFC)
 $ErrorActionPreference="Stop"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
@@ -11,6 +11,13 @@ python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "pip upgrade failed with exit code $LASTEXITCODE" }
 python -m pip install -r requirements.txt pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed with exit code $LASTEXITCODE" }
+if ($WithIFC) {
+    python -m pip install -r requirements-bim.txt
+    if ($LASTEXITCODE -ne 0) { throw "IFC dependency installation failed with exit code $LASTEXITCODE" }
+    $env:STRUCTURALPRO_BUNDLE_IFC="1"
+} else {
+    Remove-Item Env:STRUCTURALPRO_BUNDLE_IFC -ErrorAction SilentlyContinue
+}
 python -m PyInstaller --noconfirm --clean packaging/structuralpro.spec --distpath dist/StructuralPro --workpath build
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller build failed with exit code $LASTEXITCODE" }
 

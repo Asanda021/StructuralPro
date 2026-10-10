@@ -1,0 +1,6 @@
+IfcOpenShell optional BIM dependency: version 0.9.0, LGPL-3.0-or-later.
+Upstream: https://github.com/IfcOpenShell/IfcOpenShell
+Documentation: https://docs.ifcopenshell.org/ifcopenshell.html
+License texts copied verbatim from upstream commit 79e17e5cbbeaa61b7742cc71dce56d80a89cd633.
+The Python wheel, native geometry libraries, and transitive licenses must be inventoried on the target Windows build before release.
+Source and replacement information must accompany an approved distribution; these notices alone do not prove release compliance.

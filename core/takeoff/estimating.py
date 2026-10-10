@@ -13,6 +13,8 @@ from core.takeoff.costing import cost_breakdown
 
 
 def _num(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be numeric, not boolean")
     x = float(value)
     if not math.isfinite(x) or x < 0:
         raise ValueError(f"{name} must be finite and non-negative")
@@ -27,6 +29,8 @@ def map_prices(rows: Iterable[dict[str, Any]], catalog, *, year: int | None = No
         out = dict(row)
         code = str(out.get("price_code") or out.get("item_code") or "").strip()
         if not code:
+            out["unit_price"] = None
+            out.pop("price_source", None)
             out["price_status"] = "missing_code"
             unresolved.append({"source": out.get("source", ""), "status": "missing_code"})
             mapped.append(out)
@@ -45,6 +49,19 @@ def map_prices(rows: Iterable[dict[str, Any]], catalog, *, year: int | None = No
                 "chapter": item.chapter, "unit": item.unit,
             }
         else:
+            # Explicit zero is an actual catalog value, not a missing price.
+            # Keep its provenance visible, but require user review before
+            # financial finalization. Unmatched rows must discard stale rates.
+            if result["status"] == "zero_price":
+                item = result["item"]
+                out["unit_price"] = 0.0
+                out["price_source"] = {
+                    "year": item.year, "code": item.code, "group": item.group,
+                    "chapter": item.chapter, "unit": item.unit,
+                }
+            else:
+                out["unit_price"] = None
+                out.pop("price_source", None)
             unresolved.append({
                 "source": out.get("source", ""), "price_code": code,
                 "status": result["status"],
@@ -121,6 +138,11 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
         raise ValueError(f"invalid BOQ: {validation['errors']}")
     factors = {str(k): _num(v, "factor rate") for k, v in (factors or {}).items()}
     cost = cost_breakdown(boq, factors)
+    unpriced = [row["item_no"] for row in boq
+                if row.get("status", "active") == "active"
+                and row.get("unit_price") is None]
+    pending = [row["item_no"] for row in boq
+               if row.get("status", "active") not in {"active", "cancelled"}]
     return {
         "boq": boq,
         "summary": boq_summary(boq),
@@ -128,6 +150,9 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
         "cost": cost,
         "price_mapping": price_result,
         "duplicate_review": duplicates,
-        "finalizable": not price_result["unresolved"] and not duplicates,
+        "unpriced_item_numbers": unpriced,
+        "pending_item_numbers": pending,
+        "finalizable": bool(validation["valid"] and not price_result["unresolved"]
+                            and not duplicates and not unpriced and not pending),
         "factors": factors,
     }

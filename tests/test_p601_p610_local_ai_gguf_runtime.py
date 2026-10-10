@@ -9,7 +9,7 @@ def write_manifest(tmp_path, model_name="model.gguf", digest=""):
     path=tmp_path/"model_manifest.json"; path.write_text(json.dumps(payload),encoding="utf-8"); return path
 
 def test_valid_artifact_is_verified(tmp_path):
-    artifact=tmp_path/"model.gguf"; artifact.write_bytes(b"deterministic-gguf-fixture")
+    artifact=tmp_path/"model.gguf"; artifact.write_bytes(b"GGUF" + (3).to_bytes(4, "little") + bytes(16))
     digest=hashlib.sha256(artifact.read_bytes()).hexdigest()
     result=GGUFProductionRuntime(write_manifest(tmp_path,digest=digest)).verify_artifact()
     assert result.ready is True and result.reason=="verified" and result.actual_sha256==digest
@@ -36,9 +36,22 @@ def test_manifest_requires_offline_operation(tmp_path):
     with pytest.raises(ValueError,match="internet"): GGUFProductionRuntime(path).load_manifest()
 
 def test_noncommercial_artifact_is_not_production_ready(tmp_path):
-    artifact=tmp_path/"model.gguf"; artifact.write_bytes(b"fixture")
+    artifact=tmp_path/"model.gguf"; artifact.write_bytes(b"GGUF" + (3).to_bytes(4, "little") + bytes(16))
     digest=hashlib.sha256(artifact.read_bytes()).hexdigest()
     manifest=json.loads(write_manifest(tmp_path,digest=digest).read_text()); manifest["model_files"][0]["commercial_use"]=False
     path=tmp_path/"model_manifest.json"; path.write_text(json.dumps(manifest),encoding="utf-8")
     result=GGUFProductionRuntime(path).verify_artifact()
     assert result.ready is False and result.reason=="commercial_use_not_verified"
+
+
+def test_matching_hash_does_not_make_non_gguf_ready(tmp_path):
+    artifact = tmp_path / "model.gguf"
+    artifact.write_bytes(b"not a model")
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    result = GGUFProductionRuntime(write_manifest(tmp_path, digest=digest)).verify_artifact()
+    assert not result.ready and result.reason == "invalid_gguf_header"
+
+
+def test_model_cannot_escape_artifact_root(tmp_path):
+    result = GGUFProductionRuntime(write_manifest(tmp_path, model_name="../outside.gguf", digest="a"*64)).verify_artifact()
+    assert not result.ready and result.reason == "model_path_outside_root"

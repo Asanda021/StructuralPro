@@ -31,7 +31,7 @@ jobs:
         shell: pwsh
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m pytest -q tests/test_priority_34_windows_validation.py tests/test_priority_41_ci_dependency_parity.py tests/test_priority_42_windows_runtime_smoke.py tests/test_release_surfaces.py
+        run: python -m pytest -q tests/test_priority_34_windows_validation.py tests/test_priority_41_ci_dependency_parity.py tests/test_priority_42_windows_runtime_smoke.py tests/test_release_surfaces.py tests/test_windows_build_native_failures.py tests/test_master13_desktop_shell_runtime.py tests/test_golden_five_storey_building.py tests/test_p601_p610_local_ai_gguf_runtime.py
       - name: Desktop application runtime smoke
         shell: pwsh
         env:
