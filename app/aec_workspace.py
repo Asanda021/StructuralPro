@@ -86,6 +86,9 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     grid.addRow("پروژه",project); grid.addRow("آیتم / نوع سقف",item); grid.addRow("کد فهرست‌بها (اختیاری)",price)
     assembly_mode=QCheckBox("متره به‌صورت Assembly (عملیات → اجزای مستقل)")
     grid.addRow("روش متره",assembly_mode)
+    floor=QLineEdit(); floor.setObjectName("TakeoffFloor")
+    floor.setPlaceholderText("طبقه یا تراز را صریح وارد کنید؛ برای مثال طبقه ۲")
+    grid.addRow("طبقه / تراز اسمبلی",floor)
     fields={}
     for name,label in FIELDS.items():
         w=QDoubleSpinBox(); w.setDecimals(4); w.setRange(0,1000000000); w.setSingleStep(.1)
@@ -101,8 +104,13 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     ASSEMBLY_CODES={"block_wall","joist_foam_roof","joist_block_roof"}
     def update_fields():
         active=set(specs[item.currentData()])
-        if assembly_mode.isChecked() and item.currentData() in ASSEMBLY_CODES:
+        is_assembly=assembly_mode.isChecked() and item.currentData() in ASSEMBLY_CODES
+        if is_assembly:
             active.update({"foam_length","foam_width","foam_height","mesh_unit_weight"})
+        floor.setVisible(is_assembly)
+        grid.setRowVisible(floor,is_assembly)
+        price.setEnabled(not is_assembly)
+        price.setToolTip("اجزای اسمبلی کدهای فهرست‌بهای مستقل دارند؛ قیمت مشترک اعمال نمی‌شود." if is_assembly else "")
         for n,w in fields.items():
             w.setEnabled(n in active)
             grid.setRowVisible(w,n in active)
@@ -114,40 +122,51 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
         try:
             p=service.open_project(pid)
             if not p:return
-            rows=[q for t in p.get("takeoffs",[]) for q in t.get("quantities",[]) if q.get("code")==item.currentData()]
+            rows=[(t,q) for t in p.get("takeoffs",[]) for q in t.get("quantities",[])
+                  if t.get("item")==item.currentData()
+                  or (t.get("params") or {}).get("assembly_code")==item.currentData()]
             table.setRowCount(0)
-            for i,q in enumerate(rows[-100:]):
+            for i,(takeoff,q) in enumerate(rows[-100:]):
                 table.insertRow(i)
-                vals=[q.get("id",""),q.get("title",""),q.get("amount",""),q.get("unit",""),q.get("formula",""),q.get("price_code","") or "—",q.get("source","manual"),q.get("warning","") or "—"]
+                vals=[takeoff.get("id",""),q.get("title",""),q.get("amount",""),q.get("unit",""),
+                      q.get("formula",""),q.get("price_code","") or "—",
+                      takeoff.get("source_id","") or "manual",q.get("warning","") or "—"]
                 for j,v in enumerate(vals): table.setItem(i,j,QTableWidgetItem(str(v)))
         except Exception: pass
     def calculate():
         pid=project.text().strip()
         if not pid: QMessageBox.warning(root,"متره","ابتدا شناسه پروژه را وارد کنید."); return
-        code=item.currentData(); params={n:float(w.value()) for n,w in fields.items() if w.isEnabled()}; params["member_code"]=code
+        code=item.currentData(); params={n:float(w.value()) for n,w in fields.items() if w.isEnabled()}
+        is_assembly=assembly_mode.isChecked() and code in ASSEMBLY_CODES
         pc=price.text().strip()
-        if pc:
-            resolved=catalog.resolve(pc)
-            if resolved.get("status")!="ok":
-                QMessageBox.warning(root,"فهرست‌بها","کد در فهرست‌بهای واردشده پیدا نشد."); return
-            params["price_code"]=pc; params["unit_price"]=resolved["unit_price"]
-        else: params["price_code"]=None
-        try:
-            p=service.open_project(pid); source_id=f"manual:{key}:{code}:{len(p.get('takeoffs',[]))+1}"
-            if assembly_mode.isChecked() and code in ASSEMBLY_CODES:
-                ar=calculate_assembly(code, **params)
-                if not ar.complete:
-                    QMessageBox.warning(root,"Assembly ناقص", "برای متره مرکب این مشخصات لازم است:\n" + "\n".join(ar.missing_inputs))
-                    return
-                saved=[]
-                for component in ar.components:
-                    row=service.add_takeoff(pid,domain,component.code,source_id=source_id,
-                                            description=component.title,amount=component.quantity,unit=component.unit,
-                                            formula=component.formula,warning=component.warning or "",assembly_code=ar.code,
-                                            price_code=params.get("price_code"),unit_price=params.get("unit_price"),inputs_used=ar.inputs_used)
-                    saved.append(row["quantities"][0])
-                result.setText(f"🟢 Assembly ثبت شد | {ar.title} | {len(saved)} جزء مستقل")
+        if is_assembly and pc:
+            QMessageBox.warning(root,"فهرست‌بها","برای اسمبلی نمی‌توان یک کد قیمت را به همه اجزا تخصیص داد؛ ابتدا کد قیمت را پاک کنید.")
+            return
+        if is_assembly and not floor.text().strip():
+            QMessageBox.warning(root,"متره اسمبلی","طبقه یا تراز اسمبلی باید صریح مشخص شود.")
+            return
+        if not is_assembly:
+            params["member_code"]=code
+            if pc:
+                resolved=catalog.resolve(pc)
+                if resolved.get("status")!="ok":
+                    QMessageBox.warning(root,"فهرست‌بها","کد در فهرست‌بهای واردشده پیدا نشد."); return
+                params["price_code"]=pc; params["unit_price"]=resolved["unit_price"]
             else:
+                params["price_code"]=None
+        try:
+            p=service.open_project(pid)
+            if p is None:
+                raise KeyError("پروژه انتخاب‌شده وجود ندارد")
+            if is_assembly:
+                # Use the single transactional application path. Each component
+                # gets an independent source ID and price mapping remains explicit.
+                saved=service.add_assembly_takeoff(
+                    pid,code,params,floor_id=floor.text().strip(),description=labels[code]
+                )
+                result.setText(f"🟢 اسمبلی ثبت شد | {labels[code]} | {len(saved['rows'])} جزء مستقل")
+            else:
+                source_id=f"manual:{key}:{code}:{len(p.get('takeoffs',[]))+1}"
                 effective_domain=ITEM_DOMAINS.get(code,domain)
                 row=service.add_takeoff(pid,effective_domain,code,source_id=source_id,description=labels[code],**params)
                 q=row["quantities"][0]
