@@ -18,6 +18,10 @@ def test_ifc_normalization_levels_duplicates_and_boq_mapping():
       {"global_id":"G1","ifc_type":"IfcWall","name":"Duplicate","properties":{"Level":"L1"},"quantities":{"Length":7}},
       {"global_id":"G2","ifc_type":"IfcSlab","name":"Slab","properties":{"Storey":"L2"},"quantities":{"Volume":3}},
     ]
+    import pytest
+    with pytest.raises(ValueError, match="GlobalId تکراری"):
+        normalize_ifc_rows(rows)
+    rows.pop(1)
     n=normalize_ifc_rows(rows)
     assert len(n)==2 and n[0]["level"]=="L1"
     a=aggregate_ifc_quantities(rows)
@@ -47,3 +51,4 @@ def test_statement_engine_previous_current_remaining_and_deductions():
     assert out["retention"]==200
     assert out["advance_recovery"]==100
     assert round(out["payable"],6)==1660
+

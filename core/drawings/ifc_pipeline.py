@@ -10,23 +10,31 @@ def normalize_ifc_rows(rows:Iterable[dict[str,Any]])->list[dict[str,Any]]:
     out=[]; seen=set()
     for r in rows:
         gid=str(r.get("global_id") or "")
-        if gid and gid in seen:
-            continue
-        if gid: seen.add(gid)
+        if not gid.strip():
+            raise ValueError("شناسه GlobalId عنصر IFC نامشخص است")
+        if gid in seen:
+            raise ValueError(f"شناسه GlobalId تکراری IFC: {gid}")
+        seen.add(gid)
         props=dict(r.get("properties") or {})
         quantities={}
         for k,v in dict(r.get("quantities") or {}).items():
+            name=str(k).strip()
+            if not name or name not in QUANTITY_UNITS:
+                raise ValueError(f"نوع یا واحد کمیت IFC پشتیبانی نمی‌شود: {name or '<empty>'}")
+            if isinstance(v, bool):
+                raise ValueError(f"مقدار کمیت IFC نامعتبر است: {name}")
             try:
                 value=float(v)
-                if not math.isfinite(value) or value < 0:
-                    continue
-                quantities[str(k)]=value
-            except (TypeError,ValueError): continue
+            except (TypeError,ValueError) as exc:
+                raise ValueError(f"مقدار کمیت IFC نامعتبر است: {name}") from exc
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"مقدار کمیت IFC باید متناهی و نامنفی باشد: {name}")
+            quantities[name]=value
         level=str(r.get("level") or props.get("Level") or props.get("Storey") or props.get("BuildingStorey") or "")
         out.append({"global_id":gid,"ifc_type":str(r.get("ifc_type") or ""),
                     "name":str(r.get("name") or ""), "level":level,
                     "properties":props,"quantities":quantities,
-                    "quantity_units":{k:QUANTITY_UNITS.get(k,"") for k in quantities}})
+                    "quantity_units":{k:QUANTITY_UNITS[k] for k in quantities}})
     return out
 
 def aggregate_ifc_quantities(rows:Iterable[dict[str,Any]])->dict[str,Any]:
@@ -48,3 +56,4 @@ def map_ifc_to_boq(rows:Iterable[dict[str,Any]],mapping:dict[str,str]):
                            "description":r["name"] or r["ifc_type"],"quantity":value,"unit":unit,
                            "source":f'ifc:{r["global_id"] or r["name"]}:{key}',"needs_confirmation":True})
     return {"rows":result,"unmapped":unmapped}
+

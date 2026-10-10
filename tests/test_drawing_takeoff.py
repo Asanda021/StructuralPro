@@ -96,14 +96,13 @@ def test_drawing_pipeline_normalizes_units_and_rejects_invalid_data():
     with pytest.raises(ValueError):
         p.normalize([{"source":"dwg:bad","description":"x","quantity":-1,"unit":"m"}])
 
-def test_ifc_duplicate_global_id_is_deduplicated_deterministically():
+def test_ifc_duplicate_global_id_fails_closed():
     from core.drawings.ifc_pipeline import normalize_ifc_rows
-    rows = normalize_ifc_rows([
-        {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5}},
-        {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":6}},
-    ])
-    assert len(rows) == 1
-    assert rows[0]["quantities"]["Length"] == 5
+    with pytest.raises(ValueError, match="GlobalId تکراری"):
+        normalize_ifc_rows([
+            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5}},
+            {"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":6}},
+        ])
 
 def test_dwg_metric_rejects_nonfinite_and_preserves_units():
     from core.drawings.dwg_takeoff import DWGTakeoffEngine
@@ -116,9 +115,16 @@ def test_dwg_metric_rejects_nonfinite_and_preserves_units():
         DWGTakeoffEngine().layer_takeoff(bad, {"WALL": {"metric": "length", "unit": "m"}})
 
 
-def test_ifc_multi_quantity_rows_have_unique_sources_and_reject_invalid_values():
+@pytest.mark.parametrize("name,value", [("Volume", -1), ("Volume", float("nan")), ("Bad", 1)])
+def test_ifc_quantities_fail_closed_for_invalid_value_or_unknown_unit(name, value):
+    from core.drawings.ifc_pipeline import normalize_ifc_rows
+    with pytest.raises(ValueError, match="کمیت IFC"):
+        normalize_ifc_rows([{"global_id":"G1","ifc_type":"IfcWall","quantities":{name:value}}])
+
+
+def test_ifc_multi_quantity_rows_have_unique_sources():
     from core.drawings.ifc_pipeline import normalize_ifc_rows, map_ifc_to_boq
-    rows = normalize_ifc_rows([{"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5,"Area":12,"Volume":-1,"Bad":float("nan")}}])
+    rows = normalize_ifc_rows([{"global_id":"G1","ifc_type":"IfcWall","quantities":{"Length":5,"Area":12}}])
     assert set(rows[0]["quantities"]) == {"Length","Area"}
     mapped = map_ifc_to_boq(rows, {"IfcWall":"W1"})
     assert {r["source"] for r in mapped["rows"]} == {"ifc:G1:Length","ifc:G1:Area"}
@@ -150,3 +156,4 @@ def test_unified_confirmation_can_explicitly_reject_safe_candidate():
         {"source":"dwg:1","description":"beam","quantity":5,"unit":"m","needs_confirmation":False},
     ]}
     assert u.candidates_to_rows(inspection, {1: False}) == []
+
