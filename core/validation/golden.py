@@ -80,6 +80,12 @@ def _rows(rows: Iterable[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
     return result
 
 def _equal(expected: Any, actual: Any, tolerance: float) -> tuple[bool, float | None]:
+    if isinstance(expected, bool) or isinstance(actual, bool):
+        return type(expected) is bool and type(actual) is bool and expected == actual, None
+    for value in (expected, actual):
+        try: numeric = float(value)
+        except (TypeError, ValueError, OverflowError): continue
+        if not math.isfinite(numeric): return False, None
     a,b = _num(expected),_num(actual)
     if a is not None or b is not None:
         if a is None or b is None: return False,None

@@ -10,7 +10,11 @@ def payload_checksum(payload: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 def backup_database(db_path: str | Path, backup_path: str | Path) -> dict[str, Any]:
-    source=sqlite3.connect(str(db_path))
+    source_path=Path(db_path)
+    if not source_path.is_file(): raise RecoveryError("source database does not exist")
+    if source_path.resolve() == Path(backup_path).resolve():
+        raise RecoveryError("backup must not overwrite its source database")
+    source=sqlite3.connect(source_path.resolve().as_uri()+"?mode=ro", uri=True)
     target_path=Path(backup_path); target_path.parent.mkdir(parents=True,exist_ok=True)
     target=sqlite3.connect(str(target_path))
     try:
@@ -21,7 +25,9 @@ def backup_database(db_path: str | Path, backup_path: str | Path) -> dict[str, A
     return {"path":str(target_path),"size":target_path.stat().st_size,"created_at":time.time()}
 
 def verify_database(db_path: str | Path) -> dict[str, Any]:
-    con=sqlite3.connect(str(db_path))
+    source_path=Path(db_path)
+    if not source_path.is_file(): raise RecoveryError("database does not exist")
+    con=sqlite3.connect(source_path.resolve().as_uri()+"?mode=ro", uri=True)
     try:
         row=con.execute("PRAGMA integrity_check").fetchone()
         result=str(row[0]) if row else ""

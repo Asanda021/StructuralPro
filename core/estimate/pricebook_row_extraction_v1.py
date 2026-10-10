@@ -27,7 +27,9 @@ def _row(r,year,discipline,digest,name):
     code=_text(r.get("item_code") or r.get("code") or r.get("ردیف"))
     desc=_text(r.get("description") or r.get("شرح"))
     unit=_text(r.get("unit") or r.get("واحد"))
-    price=_price(r.get("unit_price") or r.get("price") or r.get("بهای واحد"))
+    raw_price=next((r[key] for key in ("unit_price", "price", "بهای واحد")
+                    if key in r and r[key] is not None and r[key] != ""), None)
+    price=_price(raw_price)
     return NormalizedPriceRow(year,discipline,code,desc,unit,price,digest,name)
 
 def extract_csv(path,year,discipline):

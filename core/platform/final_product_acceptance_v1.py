@@ -28,6 +28,10 @@ def evaluate_final_product_acceptance(checks: Mapping[str, bool]) -> FinalAccept
         errors.append("checks must be a non-empty mapping")
         canonical = {}
     else:
+        invalid_names = [name for name in checks if not isinstance(name, str) or not name.strip()]
+        if invalid_names:
+            return FinalAcceptance(False, ("check name must be a non-empty string",),
+                                   sha256(b"invalid-check-names").hexdigest())
         unknown = sorted(set(checks) - set(REQUIRED_CHECKS))
         missing = sorted(set(REQUIRED_CHECKS) - set(checks))
         errors.extend(f"unknown check: {name}" for name in unknown)

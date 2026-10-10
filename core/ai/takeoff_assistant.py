@@ -3,6 +3,7 @@ No network calls are made here.
 """
 from __future__ import annotations
 from typing import Any
+import math
 
 class LocalTakeoffAssistant:
     def suggest_mapping(self, entities:list[dict[str,Any]], catalog:list[dict[str,Any]])->list[dict[str,Any]]:
@@ -21,8 +22,11 @@ class LocalTakeoffAssistant:
     def qa(self, rows:list[dict[str,Any]])->list[dict[str,Any]]:
         issues=[]
         for i,r in enumerate(rows,1):
-            try: q=float(r.get("quantity"))
-            except (TypeError,ValueError):
+            try:
+                if isinstance(r.get("quantity"), bool): raise ValueError("boolean quantity")
+                q=float(r.get("quantity"))
+                if not math.isfinite(q): raise ValueError("non-finite quantity")
+            except (TypeError,ValueError,OverflowError):
                 issues.append({"row":i,"severity":"error","code":"invalid_quantity"}); continue
             if q<0: issues.append({"row":i,"severity":"error","code":"negative_quantity"})
             if not str(r.get("unit","")).strip(): issues.append({"row":i,"severity":"warning","code":"missing_unit"})
