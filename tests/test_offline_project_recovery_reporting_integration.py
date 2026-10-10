@@ -79,7 +79,9 @@ def test_five_floor_persian_csv_and_excel_reports_remain_unpriced_and_rtl(tmp_pa
     header_idx = next(i for i, cells in enumerate(data) if "شرح" in cells and "مقدار" in cells)
     header = data[header_idx]
     rows = [cells for cells in data[header_idx + 1:] if cells]
-    assert len(rows) == 5
+    # Identical BOQ codes are aggregated, but all five source IDs must remain.
+    assert len(rows) == 1
+    assert len(project["boq"][0]["source_ids"]) == 5
     q_index = header.index("مقدار")
     assert sum(float(row[q_index]) for row in rows) == pytest.approx(9.6)
     assert all(row[header.index("بهای واحد")] == "" for row in rows)
