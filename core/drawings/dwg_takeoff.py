@@ -112,6 +112,11 @@ class DWGTakeoffEngine:
                     data["start"] = _xy(e.dxf.start)
                     data["end"] = _xy(e.dxf.end)
                     data["length"] = math.dist(data["start"], data["end"])
+                elif typ == "POLYLINE" and (e.is_polygon_mesh or e.is_poly_face_mesh):
+                    # Mesh topology is not a 2D polyline. Keep its provenance and
+                    # vertices, but never fabricate chord lengths or planar area.
+                    data["mesh_vertices"] = [tuple(float(c) for c in v.dxf.location) for v in e.vertices]
+                    data["unsupported_measurement"] = "شبکه سه‌بعدی به متره سطحی دوبعدی تبدیل نمی‌شود"
                 elif typ in {"LWPOLYLINE", "POLYLINE"}:
                     pts = [_xy(p) for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [_xy(v.dxf.location) for v in e.vertices]
                     bulges = [p[2] for p in e.get_points("xyb")] if typ == "LWPOLYLINE" else [float(getattr(v.dxf, "bulge", 0)) for v in e.vertices]
@@ -146,7 +151,7 @@ class DWGTakeoffEngine:
 
                 if typ in {"CIRCLE", "ARC"}:
                     data["center"] = _xy(e.dxf.center)
-                if typ in {"LWPOLYLINE", "POLYLINE", "ARC"}:
+                if typ in {"LWPOLYLINE", "POLYLINE", "ARC"} and not data.get("unsupported_measurement"):
                     from ezdxf.path import make_path
                     path = make_path(e)
                     control = list(path.control_vertices())
@@ -243,6 +248,7 @@ class DWGTakeoffEngine:
             "units": doc.units,
             "source": doc.source,
             "format": doc.format,
+            "unsupported_geometry_count": sum(bool(e.data.get("unsupported_measurement")) for e in doc.entities),
         }
 
     def layer_takeoff(self, doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -261,6 +267,8 @@ class DWGTakeoffEngine:
                 )
             values = []
             for entity in ents:
+                if metric != "count" and entity.data.get("unsupported_measurement"):
+                    raise ValueError(entity.data["unsupported_measurement"])
                 raw = entity.data.get(metric, 1 if metric == "count" else None)
                 if raw is None:
                     raise ValueError(f"هندسه لازم برای متریک {metric} در لایه {layer} وجود ندارد.")

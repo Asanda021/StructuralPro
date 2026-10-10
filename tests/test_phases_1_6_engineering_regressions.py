@@ -94,3 +94,23 @@ def test_actual_qt_viewer_does_not_close_open_cad_paths(tmp_path, monkeypatch):
     finally:
         dialog.close()
         app.processEvents()
+
+
+def test_polyface_mesh_is_preserved_without_inventing_planar_measurement(tmp_path):
+    import ezdxf
+    path = tmp_path / "mesh.dxf"
+    doc = ezdxf.new("R2018")
+    doc.units = 6
+    mesh = doc.modelspace().add_polyface(dxfattribs={"layer": "MESH"})
+    mesh.append_faces([[(0, 0, 0), (1, 0, 1), (1, 1, 2), (0, 1, 1)]])
+    doc.modelspace().add_line((0, 0), (2, 0))
+    doc.saveas(path)
+    engine = DWGTakeoffEngine()
+    parsed = engine.import_file(path)
+    item = next(e for e in parsed.entities if e.entity_type == "POLYLINE")
+    assert item.data["mesh_vertices"]
+    assert item.data["unsupported_measurement"]
+    assert "length" not in item.data and "area" not in item.data
+    assert engine.summarize(parsed)["unsupported_geometry_count"] == 1
+    with pytest.raises(ValueError, match="شبکه سه‌بعدی"):
+        engine.layer_takeoff(parsed, {"MESH": {"metric": "area"}})
