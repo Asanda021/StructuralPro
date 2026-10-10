@@ -170,6 +170,9 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             for name,value in first.params.items():
                 if name in fields:
                     fields[name].setValue(value)
+            for name in first.missing:
+                if name in fields:
+                    fields[name].setValue(0)
             missing=", ".join(first.missing)
             quick_hint.setText("🟢 ورودی سریع اعمال شد" + (f" | موارد لازم: {missing}" if missing else " | کامل و آماده محاسبه"))
         except Exception as exc:

@@ -58,6 +58,8 @@ def test_new_incomplete_quick_draft_does_not_reuse_previous_dimensions(workspace
     apply_quick(workspace, "ستون: تعداد=2، عرض=0.4، عمق=0.4")
     assert field(workspace, "height").value() == 0
     assert field(workspace, "width").value() == .4
+    apply_quick(workspace, "ستون: عرض=0.4، عمق=0.4، ارتفاع=3")
+    assert field(workspace, "count").value() == 0
 
 
 def test_batch_is_rejected_without_partially_applying_first_row(workspace):
