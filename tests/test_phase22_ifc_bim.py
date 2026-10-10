@@ -31,6 +31,7 @@ def test_ifc_extracts_elements_properties_quantities():
     assert result.element_count == 1
     assert result.elements[0].ifc_type == "IfcWall"
     assert dict(result.elements[0].quantities)["NetVolume"] == 12.5
+    assert dict(result.elements[0].quantity_kinds)["NetVolume"] == "VOLUME"
     assert result.units == "LENGTHUNIT:MILLIMETRE"
 
 
@@ -41,6 +42,7 @@ def test_quantity_bridge_and_fingerprint():
     takeoff = element_to_takeoff(result)
     assert takeoff[0]["element_id"]
     assert takeoff[0]["quantities"]["NetVolume"] == 12.5
+    assert takeoff[0]["quantity_kinds"]["NetVolume"] == "VOLUME"
     assert takeoff[0]["unit_basis"] == "LENGTHUNIT:MILLIMETRE"
     assert result.export_payload()["source_fingerprint"] == fingerprint(raw)
 

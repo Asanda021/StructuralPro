@@ -24,6 +24,7 @@ class IFCElement:
     name: str
     properties: tuple[tuple[str, str], ...]
     quantities: tuple[tuple[str, float], ...]
+    quantity_kinds: tuple[tuple[str, str], ...] = ()
     source: str = "ifc"
 
 
@@ -86,6 +87,16 @@ def _validate_quantities(quantities: tuple[tuple[str, float], ...]) -> None:
             raise IFCError(f"IFC quantity must be finite and non-negative: {name}")
 
 
+def _validate_quantity_kinds(element: IFCElement) -> None:
+    kinds = dict(element.quantity_kinds)
+    names = {name for name, _ in element.quantities}
+    if set(kinds) != names:
+        raise IFCError("IFC quantity kind coverage mismatch")
+    supported = {"LENGTH", "AREA", "VOLUME", "COUNT", "WEIGHT"}
+    if any(kind not in supported for kind in kinds.values()):
+        raise IFCError("IFC quantity kind unsupported")
+
+
 def _extract_units(project: Any) -> str:
     assignments = getattr(project, "UnitsInContext", None)
     assigned = getattr(assignments, "Units", None) if assignments else None
@@ -110,6 +121,7 @@ def _extract_element(entity: Any) -> IFCElement:
         raise IFCError("IFC element without GlobalId")
     props: list[tuple[str, str]] = []
     quantities: list[tuple[str, float]] = []
+    quantity_kinds: list[tuple[str, str]] = []
     for definition in getattr(entity, "IsDefinedBy", ()) or ():
         pset = getattr(definition, "RelatingPropertyDefinition", None)
         for prop in getattr(pset, "HasProperties", ()) or ():
@@ -126,6 +138,7 @@ def _extract_element(entity: Any) -> IFCElement:
                 value = getattr(quantity, field, None)
                 if value is not None and name:
                     quantities.append((name, float(value)))
+                    quantity_kinds.append((name, field.removesuffix("Value").upper()))
                     break
     _validate_quantities(tuple(quantities))
     return IFCElement(
@@ -134,6 +147,7 @@ def _extract_element(entity: Any) -> IFCElement:
         name=str(getattr(entity, "Name", "") or ""),
         properties=tuple(sorted(props)),
         quantities=tuple(sorted(quantities)),
+        quantity_kinds=tuple(sorted(quantity_kinds)),
     )
 
 
@@ -182,6 +196,7 @@ def validate_model(model: IFCModel) -> None:
         if not element.global_id.strip():
             raise IFCError("IFC element without GlobalId")
         _validate_quantities(element.quantities)
+        _validate_quantity_kinds(element)
 
 
 def element_to_takeoff(model: IFCModel) -> list[dict[str, Any]]:
@@ -192,6 +207,7 @@ def element_to_takeoff(model: IFCModel) -> list[dict[str, Any]]:
             "element_type": e.ifc_type,
             "name": e.name,
             "quantities": dict(e.quantities),
+            "quantity_kinds": dict(e.quantity_kinds),
             "unit_basis": model.units,
             "source": "IFC",
         }
