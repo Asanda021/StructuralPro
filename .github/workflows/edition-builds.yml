@@ -2,35 +2,20 @@ name: StructuralPro Edition Builds
 on:
   workflow_dispatch:
     inputs:
+      build_approved:
+        description: "Owner explicitly approved creating executable and installer artifacts"
+        required: true
+        type: boolean
+        default: false
       release_version:
         description: "Version to build (must match VERSION)"
         required: true
         type: string
-  pull_request:
-    paths:
-      - "core/platform/product.py"
-      - "core/ai/**"
-      - "packaging/fetch_embedded_ai_assets.ps1"
-      - "packaging/build_windows_edition.ps1"
-      - "packaging/installer-edition.iss"
-      - "tests/test_product_editions_runtime.py"
-      - ".github/workflows/edition-builds.yml"
-  push:
-    branches: [main]
-    paths:
-      - "core/platform/product.py"
-      - "core/ai/**"
-      - "packaging/fetch_embedded_ai_assets.ps1"
-      - "packaging/build_windows_edition.ps1"
-      - "packaging/installer-edition.iss"
-      - "tests/test_product_editions_runtime.py"
-      - "tests/test_ai_edition_models.py"
-      - "tests/test_local_ai_engine.py"
-      - ".github/workflows/edition-builds.yml"
 permissions:
   contents: read
 jobs:
   contract:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_approved == true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
