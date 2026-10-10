@@ -13,6 +13,8 @@ from core.takeoff.costing import cost_breakdown
 
 
 def _num(value: Any, name: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be numeric, not boolean")
     x = float(value)
     if not math.isfinite(x) or x < 0:
         raise ValueError(f"{name} must be finite and non-negative")
