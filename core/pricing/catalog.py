@@ -176,5 +176,14 @@ class PriceCatalog:
                    if self._items.get(key) != candidate.get(key)}
         if changed.intersection(self._overrides):
             raise ValueError("import conflicts with existing custom prices")
+        previous = self._items
         self._items = candidate
+        for item in validated:
+            key = (item.year, item.code)
+            old = previous.get(key)
+            if old is not None and old.unit_price != item.unit_price:
+                self._history.setdefault(key, []).append({
+                    "year": item.year, "code": item.code,
+                    "old_price": old.unit_price, "new_price": item.unit_price,
+                })
         return len(validated)
