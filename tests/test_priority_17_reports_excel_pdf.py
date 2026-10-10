@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from core.reports import build_report
+from core.reports.exporters import _pdf_text
 
 
 def _rows():
@@ -33,9 +34,29 @@ def test_pdf_export_is_non_empty_and_valid(tmp_path):
     assert path.read_bytes().startswith(b"%PDF")
 
 
+def test_pdf_persian_text_is_shaped_and_visual_rtl():
+    shaped = _pdf_text("گزارش متره & برآورد")
+    assert shaped != "گزارش متره & برآورد"
+    assert "&amp;" in shaped
+    assert any("\ufb50" <= char <= "\ufeff" for char in shaped)
+
+
+def test_report_ci_jobs_install_canonical_pdf_dependencies():
+    root = Path(__file__).resolve().parents[1]
+    workflows = (
+        "priority-9-qa.yml",
+        "priority-111-115-production-release.yml",
+        "priority-116-120-production-acceptance.yml",
+    )
+    for name in workflows:
+        source = (root / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        assert "python -m pip install -r requirements.txt" in source, name
+
+
 def test_csv_export_keeps_persian_bom_and_named_headers(tmp_path):
     report = build_report("پروژه نمونه", _rows())
     path = report.export(tmp_path / "report.csv", "csv")
     data = path.read_bytes()
     assert data.startswith(b"\xef\xbb\xbf")
     assert "شرح".encode("utf-8") in data
+

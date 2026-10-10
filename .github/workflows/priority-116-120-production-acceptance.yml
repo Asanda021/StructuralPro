@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: python -m pip install -U pip pytest
+      - run: python -m pip install -U pip && python -m pip install -r requirements.txt
       - run: python -m pytest -q tests/test_p116_p120_production_acceptance.py
       - run: python -m compileall -q core
   regression:
@@ -26,5 +26,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: python -m pip install -U pip pytest pypdf PyMuPDF openpyxl reportlab python-docx ezdxf
+      - run: python -m pip install -U pip && python -m pip install -r requirements.txt
       - run: python -m pytest -q tests/test_p106_p110_acceptance.py tests/test_p97_p105_production_completion.py tests/test_p95_golden_suite.py tests/test_p111_p115_production_release.py tests/test_p116_p120_production_acceptance.py
+

@@ -20,7 +20,7 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install pytest pypdf PyMuPDF ezdxf openpyxl python-docx reportlab
+          python -m pip install -r requirements.txt
       - name: Compile all Python
         run: python -m compileall -q core tests app
       - name: Full regression suite
@@ -29,3 +29,4 @@ jobs:
         run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests
       - name: Production gates
         run: PYTHONPATH="$GITHUB_WORKSPACE" python -m pytest -q tests/test_drawing_takeoff.py tests/test_production_pipeline.py tests/test_product_gates.py tests/test_five_pass.py
+
