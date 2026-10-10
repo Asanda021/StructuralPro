@@ -235,13 +235,32 @@ class PricebookImportService:
                 unit_price=item.unit_price, analysis=item.analysis, notes=item.notes,
             ) for item in items
         ]
+        # Validate the complete incoming batch before mutating the catalog.
+        # A rejected row must not partially replace existing pricebook data.
+        validated = [self.catalog._validate_item(item) for item in normalized]
+        incoming_keys = [(item.year, item.code) for item in validated]
+        if len(set(incoming_keys)) != len(incoming_keys):
+            raise ValueError("کد تکراری در فهرست‌بهای ورودی برای یک سال وجود دارد.")
+        existing = dict(self.catalog._items)
         if replace_year:
-            years = {x.year for x in normalized}
-            self.catalog._items = {
-                k: v for k, v in self.catalog._items.items() if k[0] not in years
+            # Replacing an imported discipline must not erase other disciplines
+            # from the same year. The legacy catalog key is (year, code),
+            # so cross-discipline collisions must fail closed until migration.
+            scopes = {(item.year, item.group) for item in validated}
+            existing = {
+                key: item for key, item in existing.items()
+                if (item.year, item.group) not in scopes
             }
-        for item in normalized:
-            self.catalog.add(item)
+        for item in validated:
+            key = (item.year, item.code)
+            prior = existing.get(key)
+            if prior is not None and prior.group != item.group:
+                raise ValueError(
+                    "کد یکسان در رشته‌های متفاوت وجود دارد؛ ورود برای جلوگیری از جایگزینی ناخواسته متوقف شد."
+                )
+            existing[key] = item
+        # Commit atomically after every row and cross-discipline conflict passes.
+        self.catalog._items = existing
         return ImportReceipt(
             source_id=source_id, year=year, discipline=discipline, filename=p.name,
             sha256=info["sha256"], rows=len(normalized),
