@@ -49,10 +49,19 @@ def map_prices(rows: Iterable[dict[str, Any]], catalog, *, year: int | None = No
                 "chapter": item.chapter, "unit": item.unit,
             }
         else:
-            # Never retain a stale price when the selected catalog rejects the
-            # code, year or unit. An unresolved row is not a priced estimate.
-            out["unit_price"] = None
-            out.pop("price_source", None)
+            # Explicit zero is an actual catalog value, not a missing price.
+            # Keep its provenance visible, but require user review before
+            # financial finalization. Unmatched rows must discard stale rates.
+            if result["status"] == "zero_price":
+                item = result["item"]
+                out["unit_price"] = 0.0
+                out["price_source"] = {
+                    "year": item.year, "code": item.code, "group": item.group,
+                    "chapter": item.chapter, "unit": item.unit,
+                }
+            else:
+                out["unit_price"] = None
+                out.pop("price_source", None)
             unresolved.append({
                 "source": out.get("source", ""), "price_code": code,
                 "status": result["status"],
