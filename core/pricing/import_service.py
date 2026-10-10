@@ -114,7 +114,8 @@ class PricebookImportService:
                     desc = str(val("description") or "").strip()
                     unit = str(val("unit") or "").strip()
                     price_value = val("unit_price")
-                    if not any(str(value or "").strip() for value in (code, desc, unit, price_value)):
+                    if (not code and not desc and not unit and
+                            (price_value is None or str(price_value).strip() == "")):
                         continue  # genuinely empty spreadsheet row
                     if not code or not desc or not unit:
                         raise ValueError("ردیف ناقص Excel: کد، شرح و واحد باید مشخص باشند.")
