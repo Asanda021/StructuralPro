@@ -5,6 +5,7 @@ import math
 from core.takeoff.boq import build_boq,validate_boq_structure,boq_summary
 from core.takeoff.costing import cost_breakdown
 def _num(value,name):
+    if isinstance(value, bool): raise ValueError(f"{name} must be numeric, not boolean")
     x=float(value)
     if not math.isfinite(x) or x<0: raise ValueError(f"{name} must be finite and non-negative")
     return x
