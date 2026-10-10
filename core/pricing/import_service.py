@@ -198,9 +198,14 @@ class PricebookImportService:
         raw_bytes = p.read_bytes()
         items, file_format = self._load_items(p, fallback_year=year)
         errors: list[str] = []
+        seen_keys: set[tuple[int, str]] = set()
         for item in items:
             try:
-                self.catalog._validate_item(item)
+                validated = self.catalog._validate_item(item)
+                key = (validated.year, validated.code)
+                if key in seen_keys:
+                    errors.append(f"{validated.code}: کد تکراری برای سال {validated.year}")
+                seen_keys.add(key)
             except (ValueError, TypeError) as exc:
                 errors.append(f"{item.code or '?'}: {exc}")
         if not items:
