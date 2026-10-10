@@ -44,7 +44,11 @@ class PriceCatalog:
 
     @staticmethod
     def _validate_item(item: PriceItem) -> PriceItem:
+        if isinstance(item.year, bool) or isinstance(item.unit_price, bool):
+            raise ValueError("pricebook year and unit price must be numeric, not boolean")
         year = int(item.year)
+        if year <= 0 or float(item.year) != year:
+            raise ValueError("pricebook year must be a positive integer")
         code = str(item.code).strip()
         unit = str(item.unit).strip()
         price = float(item.unit_price)
@@ -82,6 +86,8 @@ class PriceCatalog:
         base = self.get(code, year)
         if base is None:
             raise KeyError(code)
+        if isinstance(unit_price, bool):
+            raise ValueError("custom price must be numeric, not boolean")
         price = float(unit_price)
         if not math.isfinite(price) or price < 0:
             raise ValueError("custom price must be finite and non-negative")
