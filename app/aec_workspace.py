@@ -101,7 +101,12 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
     note.setObjectName("DashboardNotice"); note.setWordWrap(True); outer.addWidget(note)
     result=QLabel("نتیجه پس از محاسبه در پروژه و BOQ ثبت می‌شود."); result.setWordWrap(True); outer.addWidget(result)
     table=QTableWidget(0,8); table.setHorizontalHeaderLabels(["شناسه","آیتم","مقدار","واحد","فرمول","کد فهرست‌بها","منبع","هشدار"]); table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch); outer.addWidget(table,1)
-    ASSEMBLY_CODES={"block_wall","joist_foam_roof","joist_block_roof"}
+    ASSEMBLY_TEMPLATES={
+        "block_wall":"block_wall",
+        "joist_foam_roof":"joist_foam_roof_assembly",
+        "joist_block_roof":"joist_block_roof_assembly",
+    }
+    ASSEMBLY_CODES=set(ASSEMBLY_TEMPLATES)
     def update_fields():
         active=set(specs[item.currentData()])
         is_assembly=assembly_mode.isChecked() and item.currentData() in ASSEMBLY_CODES
@@ -124,7 +129,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
             if not p:return
             rows=[(t,q) for t in p.get("takeoffs",[]) for q in t.get("quantities",[])
                   if t.get("item")==item.currentData()
-                  or (t.get("params") or {}).get("assembly_code")==item.currentData()]
+                  or (t.get("params") or {}).get("assembly_code")==ASSEMBLY_TEMPLATES.get(item.currentData())]
             table.setRowCount(0)
             for i,(takeoff,q) in enumerate(rows[-100:]):
                 table.insertRow(i)
@@ -162,7 +167,7 @@ def build_aec_workspace(service,catalog,*,title,description,domain,key,status_ca
                 # Use the single transactional application path. Each component
                 # gets an independent source ID and price mapping remains explicit.
                 saved=service.add_assembly_takeoff(
-                    pid,code,params,floor_id=floor.text().strip(),description=labels[code]
+                    pid,ASSEMBLY_TEMPLATES[code],params,floor_id=floor.text().strip(),description=labels[code]
                 )
                 result.setText(f"🟢 اسمبلی ثبت شد | {labels[code]} | {len(saved['rows'])} جزء مستقل")
             else:
