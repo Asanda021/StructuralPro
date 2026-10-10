@@ -20,8 +20,11 @@ def build_estimate(rows:Iterable[Any],*,factors=None,aggregate=True)->dict[str,A
     cost=cost_breakdown(boq,normalized)
     unpriced = [row["item_no"] for row in boq
                 if row.get("status", "active") == "active" and row.get("unit_price") is None]
+    pending = [row["item_no"] for row in boq
+               if row.get("status", "active") not in {"active", "cancelled"}]
     return {"boq":boq,"summary":boq_summary(boq),"validation":validation,"cost":cost,"factors":normalized,
-            "unpriced_item_numbers": unpriced, "finalizable":bool(validation["valid"] and not unpriced)}
+            "unpriced_item_numbers": unpriced, "pending_item_numbers": pending,
+            "finalizable": bool(validation["valid"] and not unpriced and not pending)}
 
 def compare_estimates(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     """Compare all BOQ lines without collapsing equal price codes.
