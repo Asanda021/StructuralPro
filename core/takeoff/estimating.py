@@ -27,6 +27,8 @@ def map_prices(rows: Iterable[dict[str, Any]], catalog, *, year: int | None = No
         out = dict(row)
         code = str(out.get("price_code") or out.get("item_code") or "").strip()
         if not code:
+            out["unit_price"] = None
+            out.pop("price_source", None)
             out["price_status"] = "missing_code"
             unresolved.append({"source": out.get("source", ""), "status": "missing_code"})
             mapped.append(out)
@@ -45,6 +47,10 @@ def map_prices(rows: Iterable[dict[str, Any]], catalog, *, year: int | None = No
                 "chapter": item.chapter, "unit": item.unit,
             }
         else:
+            # Never retain a stale price when the selected catalog rejects the
+            # code, year or unit. An unresolved row is not a priced estimate.
+            out["unit_price"] = None
+            out.pop("price_source", None)
             unresolved.append({
                 "source": out.get("source", ""), "price_code": code,
                 "status": result["status"],
@@ -121,6 +127,9 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
         raise ValueError(f"invalid BOQ: {validation['errors']}")
     factors = {str(k): _num(v, "factor rate") for k, v in (factors or {}).items()}
     cost = cost_breakdown(boq, factors)
+    unpriced = [row["item_no"] for row in boq
+                if row.get("status", "active") == "active"
+                and row.get("unit_price") is None]
     return {
         "boq": boq,
         "summary": boq_summary(boq),
@@ -128,6 +137,8 @@ def build_professional_estimate(rows: Iterable[dict[str, Any]], *, catalog=None,
         "cost": cost,
         "price_mapping": price_result,
         "duplicate_review": duplicates,
-        "finalizable": not price_result["unresolved"] and not duplicates,
+        "unpriced_item_numbers": unpriced,
+        "finalizable": bool(validation["valid"] and not price_result["unresolved"]
+                            and not duplicates and not unpriced),
         "factors": factors,
     }
