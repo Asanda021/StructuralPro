@@ -115,3 +115,11 @@ def test_engineering_boolean_inputs_are_rejected_in_boq(field):
 def test_boolean_financial_factors_are_rejected(builder):
     with pytest.raises(ValueError, match="boolean"):
         builder([_row("floor-1", 3, price=10)], factors={"ضریب": True})
+
+
+def test_direct_costing_rejects_false_boolean_as_price_or_quantity():
+    from core.takeoff.costing import cost_breakdown
+    with pytest.raises(ValueError, match="boolean"):
+        cost_breakdown([{"quantity": False, "unit_price": 10}])
+    with pytest.raises(ValueError, match="boolean"):
+        cost_breakdown([{"quantity": 1, "unit_price": False}])
