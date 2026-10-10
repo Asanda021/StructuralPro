@@ -228,3 +228,26 @@ def test_direct_catalog_add_does_not_detach_custom_price():
         catalog.add(_item("ابنیه", "100", 30))
     assert catalog.get("100", 1404).unit_price == 77
     assert catalog._items[(1404, "100")].unit_price == 10
+
+
+def test_import_rejects_row_year_different_from_selected_year(tmp_path):
+    catalog = PriceCatalog([_item("ابنیه", "100", 10)])
+    path = tmp_path / "wrong-year.csv"
+    _write(path, [PriceItem(1403, "ابنیه", "01", "200", "test", "m2", 20)])
+    with pytest.raises(ValueError, match="سال ردیف"):
+        PricebookImportService(catalog).import_file(path, year=1404)
+    assert catalog.get("100", 1404).unit_price == 10
+    assert catalog.get("200", 1403) is None
+
+
+def test_blank_excel_year_uses_explicit_import_year(tmp_path):
+    from openpyxl import Workbook
+    catalog = PriceCatalog()
+    path = tmp_path / "no-year.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["year", "group", "chapter", "code", "description", "unit", "unit_price"])
+    ws.append([None, "ابنیه", "01", "100", "test", "m2", 10])
+    wb.save(path)
+    PricebookImportService(catalog).import_file(path, year=1404)
+    assert catalog.get("100", 1404).unit_price == 10
