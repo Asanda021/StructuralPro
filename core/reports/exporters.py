@@ -2,6 +2,8 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
+import re
+from xml.sax.saxutils import escape
 
 
 def _summary_items(summary):
@@ -197,7 +199,25 @@ def _pdf_font():
                 return "StructuralProUnicode"
             except Exception:
                 pass
-    return "Helvetica"
+    raise RuntimeError("فونت Unicode فارسی برای خروجی PDF در دسترس نیست")
+
+
+_PERSIAN_TEXT = re.compile(r"[\u0600-\u06ff]")
+
+
+def _pdf_text(value):
+    """Return safe, visually ordered Persian text for ReportLab paragraphs."""
+    text = _cell(value)
+    if _PERSIAN_TEXT.search(text):
+        try:
+            import arabic_reshaper
+            from bidi.algorithm import get_display
+        except ImportError as exc:
+            raise RuntimeError(
+                "موتور شکل‌دهی و راست‌به‌چپ فارسی برای خروجی PDF نصب نیست"
+            ) from exc
+        text = get_display(arabic_reshaper.reshape(text), base_dir="R")
+    return escape(text)
 
 
 def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, columns=None):
@@ -221,24 +241,25 @@ def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, c
     # Landscape keeps professional BOQ tables readable while remaining printable on A4.
     doc = SimpleDocTemplate(str(path), pagesize=landscape(A4),
                             rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
-    story = [Paragraph(title, title_style), Spacer(1, 10), Paragraph("خلاصه تجاری", heading)]
+    story = [Paragraph(_pdf_text(title), title_style), Spacer(1, 10),
+             Paragraph(_pdf_text("خلاصه تجاری"), heading)]
     summary_rows = _summary_items(summary)
     if summary_rows:
-        data = [[Paragraph("شرح", body), Paragraph("مقدار", body)]]
-        data += [[Paragraph(_cell(a), body), Paragraph(_cell(b), body)] for a, b in summary_rows]
+        data = [[Paragraph(_pdf_text("شرح"), body), Paragraph(_pdf_text("مقدار"), body)]]
+        data += [[Paragraph(_pdf_text(a), body), Paragraph(_pdf_text(b), body)] for a, b in summary_rows]
         table = Table(data, repeatRows=1)
         table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), .4, colors.grey),
                                    ("ALIGN", (0,0), (-1,-1), "RIGHT"),
                                    ("VALIGN", (0,0), (-1,-1), "TOP")]))
         story += [table, Spacer(1, 12)]
-    story.append(Paragraph("ریز متره و برآورد", heading))
+    story.append(Paragraph(_pdf_text("ریز متره و برآورد"), heading))
     # Reverse display order for RTL so the first logical field is on the right.
     display_cols = list(reversed(cols))
-    data = [[Paragraph(label, body) for _, label in display_cols]]
+    data = [[Paragraph(_pdf_text(label), body) for _, label in display_cols]]
     for row in rows:
-        data.append([Paragraph(_cell(row.get(key)), body) for key, _ in display_cols])
+        data.append([Paragraph(_pdf_text(row.get(key)), body) for key, _ in display_cols])
     if not rows:
-        data.append([Paragraph("ردیفی برای نمایش وجود ندارد", body)])
+        data.append([Paragraph(_pdf_text("ردیفی برای نمایش وجود ندارد"), body)])
     table = Table(data, repeatRows=1)
     table.setStyle(TableStyle([("GRID", (0,0), (-1,-1), .35, colors.grey),
                                ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
@@ -247,3 +268,4 @@ def export_pdf(rows, path, title="StructuralPro", summary=None, metadata=None, c
     story.append(table)
     doc.build(story)
     return path
+
