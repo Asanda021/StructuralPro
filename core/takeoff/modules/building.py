@@ -19,10 +19,13 @@ class QuantityResult:
     warnings: tuple[str, ...] = ()
 
 def _n(v: Any, name: str, *, minimum: float = 0.0) -> float:
+    if isinstance(v, bool): raise ValueError(f"{name} must be numeric")
     try: x=float(v)
-    except (TypeError, ValueError): raise ValueError(f"{name} must be numeric")
+    except (TypeError, ValueError, OverflowError): raise ValueError(f"{name} must be numeric")
     if not math.isfinite(x): raise ValueError(f"{name} must be finite")
     if x < minimum: raise ValueError(f"{name} must be >= {minimum}")
+    if name in {"count", "void_count", "joist_count", "layers"} and not x.is_integer():
+        raise ValueError(f"{name} must be an integer")
     return x
 
 def _rect_area(length,width): return _n(length,"length")*_n(width,"width")
@@ -36,7 +39,7 @@ def _wall_area(length,height,openings=0):
 def calculate_building_item(item: str, **p: Any) -> QuantityResult:
     k=item.strip().casefold().replace(" ","_")
     if k in {"wall","wall_area","دیوار"}:
-        q=_wall_area(p["length"],p["height"],p.get("openings",0)); return QuantityResult("ابنیه","دیوار",q,"m2","L×H−بازشو")
+        q=_wall_area(p["length"],p["height"],p.get("openings",0))*_n(p.get("count",1),"count"); return QuantityResult("ابنیه","دیوار",q,"m2","(L×H−بازشو)×تعداد")
     if k in {"slab","slab_area","floor","کف"}:
         q=_rect_area(p["length"],p["width"]); return QuantityResult("ابنیه","سطح سقف/کف",q,"m2","L×W")
     if k in {"solid_slab_roof","solid_slab","flat_slab"}:

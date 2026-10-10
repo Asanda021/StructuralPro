@@ -38,7 +38,7 @@ def cad_unit_factor(unit: str) -> float | None:
     return _UNIT_FACTORS.get(str(unit or "unknown").lower())
 
 
-def _poly_metrics(points, closed=False):
+def _poly_metrics(points, closed=False, bulges=None):
     pts = [_xy(p) for p in points]
     if any(not math.isfinite(v) for p in pts for v in p):
         raise ValueError("CAD geometry contains non-finite coordinates")
@@ -48,6 +48,28 @@ def _poly_metrics(points, closed=False):
     area = 0.0
     if len(pts) > 2 and closed:
         area = abs(sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts))) / 2)
+    if bulges is not None:
+        signed_area = sum(pts[i][0] * pts[(i + 1) % len(pts)][1]
+                          - pts[(i + 1) % len(pts)][0] * pts[i][1]
+                          for i in range(len(pts))) / 2 if closed and len(pts) > 2 else 0.0
+        # DXF bulge is tan(signed sweep / 4); use the actual circular arc,
+        # never its chord, for engineering length and enclosed area.
+        for i in range(len(pts) if closed else max(0, len(pts) - 1)):
+            bulge = float(bulges[i])
+            if not math.isfinite(bulge):
+                raise ValueError("CAD bulge must be finite")
+            if bulge == 0:
+                continue
+            chord = math.dist(pts[i], pts[(i + 1) % len(pts)])
+            if chord == 0:
+                raise ValueError("CAD arc has coincident endpoints")
+            sweep = 4 * math.atan(bulge)
+            radius = chord / (2 * abs(math.sin(sweep / 2)))
+            length += radius * abs(sweep) - chord
+            signed_area += radius * radius * (sweep - math.sin(sweep)) / 2
+        area = abs(signed_area) if closed else 0.0
+    if not math.isfinite(length) or not math.isfinite(area):
+        raise ValueError("CAD geometry result must be finite")
     return length, area
 
 
@@ -90,10 +112,17 @@ class DWGTakeoffEngine:
                     data["start"] = _xy(e.dxf.start)
                     data["end"] = _xy(e.dxf.end)
                     data["length"] = math.dist(data["start"], data["end"])
+                elif typ == "POLYLINE" and (e.is_polygon_mesh or e.is_poly_face_mesh):
+                    # Mesh topology is not a 2D polyline. Keep its provenance and
+                    # vertices, but never fabricate chord lengths or planar area.
+                    data["mesh_vertices"] = [tuple(float(c) for c in v.dxf.location) for v in e.vertices]
+                    data["unsupported_measurement"] = "شبکه سه‌بعدی به متره سطحی دوبعدی تبدیل نمی‌شود"
                 elif typ in {"LWPOLYLINE", "POLYLINE"}:
                     pts = [_xy(p) for p in e.get_points("xy")] if typ == "LWPOLYLINE" else [_xy(v.dxf.location) for v in e.vertices]
-                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "is_closed", getattr(e, "closed", False))))
+                    bulges = [p[2] for p in e.get_points("xyb")] if typ == "LWPOLYLINE" else [float(getattr(v.dxf, "bulge", 0)) for v in e.vertices]
+                    data["length"], data["area"] = _poly_metrics(pts, bool(getattr(e, "is_closed", getattr(e, "closed", False))), bulges)
                     data["points"] = pts
+                    data["bulges"] = bulges
                 elif typ == "CIRCLE":
                     r = float(e.dxf.radius)
                     data.update(radius=r, length=2 * math.pi * r, area=math.pi * r * r)
@@ -103,6 +132,8 @@ class DWGTakeoffEngine:
                     data.update(radius=r, length=2 * math.pi * r * sweep / 360)
                 elif typ in {"TEXT", "MTEXT"}:
                     data["text"] = str(e.dxf.text if hasattr(e.dxf, "text") else e.text)
+                    data["insert"] = _xy(e.dxf.insert)
+                    data["height"] = float(getattr(e.dxf, "height", getattr(e.dxf, "char_height", 1)))
                     out.text_labels.append(data["text"])
                 elif typ == "INSERT":
                     name = str(e.dxf.name)
@@ -118,6 +149,22 @@ class DWGTakeoffEngine:
                             except Exception:
                                 pass
 
+                if typ in {"CIRCLE", "ARC"}:
+                    data["center"] = _xy(e.dxf.center)
+                if typ in {"LWPOLYLINE", "POLYLINE", "ARC"} and not data.get("unsupported_measurement"):
+                    from ezdxf.path import make_path
+                    path = make_path(e)
+                    control = list(path.control_vertices())
+                    span = max((max(p.x for p in control) - min(p.x for p in control)),
+                               (max(p.y for p in control) - min(p.y for p in control)), 1e-6)
+                    # Display approximation only; takeoff uses analytic metrics above.
+                    display = []
+                    for point in path.flattening(distance=span * 1e-4):
+                        display.append(_xy(point))
+                        if len(display) > 20000:
+                            raise ValueError("هندسه CAD برای نمایش بسیار پیچیده است")
+                    data["display_points"] = display
+                    data["closed"] = bool(path.is_closed)
                 out.entities.append(DWGEntity(typ, layer, getattr(e.dxf, "handle", None), data))
         except Exception as exc:
             raise RuntimeError(f"تحلیل عناصر CAD شکست خورد: {exc}") from exc
@@ -127,7 +174,7 @@ class DWGTakeoffEngine:
             normalized = []
             for entity in out.entities:
                 data = dict(entity.data)
-                for key in ("length", "radius"):
+                for key in ("length", "radius", "height"):
                     if key in data:
                         data[key] = float(data[key]) * factor
                 if "area" in data:
@@ -137,6 +184,8 @@ class DWGTakeoffEngine:
                         data[key] = (float(data[key][0]) * factor, float(data[key][1]) * factor)
                 if "points" in data:
                     data["points"] = [(float(p[0]) * factor, float(p[1]) * factor) for p in data["points"]]
+                if "display_points" in data:
+                    data["display_points"] = [(float(p[0]) * factor, float(p[1]) * factor) for p in data["display_points"]]
                 normalized.append(DWGEntity(entity.entity_type, entity.layer, entity.handle, data))
             out.entities = normalized
 
@@ -199,6 +248,7 @@ class DWGTakeoffEngine:
             "units": doc.units,
             "source": doc.source,
             "format": doc.format,
+            "unsupported_geometry_count": sum(bool(e.data.get("unsupported_measurement")) for e in doc.entities),
         }
 
     def layer_takeoff(self, doc: DWGDocument, rules: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
@@ -217,6 +267,8 @@ class DWGTakeoffEngine:
                 )
             values = []
             for entity in ents:
+                if metric != "count" and entity.data.get("unsupported_measurement"):
+                    raise ValueError(entity.data["unsupported_measurement"])
                 raw = entity.data.get(metric, 1 if metric == "count" else None)
                 if raw is None:
                     raise ValueError(f"هندسه لازم برای متریک {metric} در لایه {layer} وجود ندارد.")

@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 
 from PySide6.QtCore import Qt, QPoint, QPointF, QRect, QRectF, QByteArray
-from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF, QFont, QTextOption
+from PySide6.QtGui import QPen, QBrush, QColor, QPixmap, QPolygonF, QFont, QTextOption, QPainterPath
 from core.cad.persian_text_v1 import normalize_cad_text, is_rtl_cad_text, cad_text_height
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QComboBox,
@@ -542,7 +542,10 @@ class GraphicalTakeoffDialog(QDialog):
         coords=[]
         for entity in doc.entities:
             data=entity.data
-            coords.extend((float(x),float(y)) for x,y in data.get("points",[]))
+            coords.extend((float(x),float(y)) for x,y in data.get("display_points", data.get("points",[])))
+            if entity.entity_type == "CIRCLE" and data.get("center") and data.get("radius"):
+                x, y = data["center"]; r = data["radius"]
+                coords.extend([(x-r, y-r), (x+r, y+r)])
             for key in ("start","end","center","insert"):
                 if key in data and data[key] is not None:
                     coords.append((float(data[key][0]),float(data[key][1])))
@@ -562,10 +565,14 @@ class GraphicalTakeoffDialog(QDialog):
             if entity.entity_type=="LINE" and d.get("start") and d.get("end"):
                 a,b=d["start"],d["end"]
                 self.canvas.scene.addLine(sx(a[0]),sy(a[1]),sx(b[0]),sy(b[1]),pen)
-            elif entity.entity_type in {"LWPOLYLINE","POLYLINE"} and len(d.get("points",[]))>=2:
-                pts=[QPointF(sx(x),sy(y)) for x,y in d["points"]]
-                if len(pts)>=3: self.canvas.scene.addPolygon(QPolygonF(pts),pen)
-                else: self.canvas.scene.addLine(pts[0].x(),pts[0].y(),pts[-1].x(),pts[-1].y(),pen)
+            elif entity.entity_type in {"LWPOLYLINE","POLYLINE", "ARC"} and len(d.get("display_points", d.get("points",[])))>=2:
+                pts=[QPointF(sx(x),sy(y)) for x,y in d.get("display_points", d.get("points",[]))]
+                path = QPainterPath(pts[0])
+                for point in pts[1:]:
+                    path.lineTo(point)
+                if d.get("closed", False):
+                    path.closeSubpath()
+                self.canvas.scene.addPath(path, pen)
             elif entity.entity_type=="CIRCLE" and d.get("center") and d.get("radius"):
                 x,y=d["center"]; r=float(d["radius"])
                 self.canvas.scene.addEllipse(sx(x-r),sy(y+r),2*r,2*r,pen)

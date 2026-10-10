@@ -30,6 +30,7 @@ class TakeoffItem:
     geometry: tuple[tuple[float, float], ...] = ()
     formula: str = ""
     confidence: float = 1.0
+    holes: tuple[tuple[tuple[float, float], ...], ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -70,7 +71,7 @@ class DrawingTakeoffSession:
         return bool(self._redo)
 
     def set_page(self, page: int) -> int:
-        page = int(page)
+        page = self._page_number(page)
         if page < 1:
             raise ValueError("page must be positive")
         self.current_page = page
@@ -78,11 +79,18 @@ class DrawingTakeoffSession:
         return page
 
     def calibrate(self, page: int, reference_pixels: float, reference_meters: float) -> Calibration:
-        page = int(page)
+        page = self._page_number(page)
+        if isinstance(reference_pixels, bool) or isinstance(reference_meters, bool):
+            raise ValueError("مرجع کالیبراسیون باید عددی باشد")
         px = float(reference_pixels)
         meters = float(reference_meters)
         if page < 1 or not math.isfinite(px) or not math.isfinite(meters) or px <= 0 or meters <= 0:
             raise ValueError("calibration values must be positive and finite")
+        previous = self.calibrations.get(page)
+        if previous and not math.isclose(previous.meters_per_pixel, meters / px, rel_tol=1e-12) and any(
+            item.page == page and item.kind in {"length", "area"} for item in self.items
+        ):
+            raise ValueError("این صفحه متره ثبت‌شده دارد؛ پیش از تغییر مقیاس، متره‌های وابسته را حذف و با مقیاس جدید اندازه‌گیری کنید")
         self._record()
         calibration = Calibration(meters / px, page, px, meters)
         self.calibrations[page] = calibration
@@ -135,6 +143,7 @@ class DrawingTakeoffSession:
                 source_ref=str(x.get("source_ref", "")),
                 geometry=tuple(tuple(p) for p in x.get("geometry", ())),
                 formula=str(x.get("formula", "")), confidence=float(x.get("confidence", 1.0)),
+                holes=tuple(tuple(tuple(p) for p in hole) for hole in x.get("holes", ())),
             )
             for x in state.get("items", [])
         ]
@@ -154,7 +163,18 @@ class DrawingTakeoffSession:
         return f"{source}#page={page}&takeoff={item_id}"
 
     @staticmethod
+    def _page_number(value) -> int:
+        if isinstance(value, bool):
+            raise ValueError("شماره صفحه باید عدد صحیح مثبت باشد")
+        number = float(value)
+        if not math.isfinite(number) or not number.is_integer() or number < 1:
+            raise ValueError("شماره صفحه باید عدد صحیح مثبت باشد")
+        return int(number)
+
+    @staticmethod
     def _ensure_finite(value: float) -> float:
+        if isinstance(value, bool):
+            raise ValueError("مقدار متره نمی‌تواند مقدار منطقی باشد")
         value = float(value)
         if not math.isfinite(value) or value < 0:
             raise ValueError("quantity must be finite and non-negative")
@@ -181,7 +201,7 @@ class DrawingTakeoffSession:
         pts = tuple(points)
         if len(pts) < 2:
             raise ValueError("طول حداقل به دو نقطه نیاز دارد")
-        page = self.current_page if page is None else int(page)
+        page = self.current_page if page is None else self._page_number(page)
         factor = self._factor_for(page)
         px = polyline_length(pts)
         quantity = self._ensure_finite(px * factor)
@@ -206,21 +226,26 @@ class DrawingTakeoffSession:
         pts = tuple(points)
         if len(pts) < 3:
             raise ValueError("مساحت حداقل به سه نقطه نیاز دارد")
-        page = self.current_page if page is None else int(page)
+        page = self.current_page if page is None else self._page_number(page)
         factor = self._factor_for(page)
         gross_px = polygon_area(pts)
-        holes_px = sum(polygon_area(tuple(h)) for h in holes)
+        hole_points = tuple(tuple(h) for h in holes)
+        if any(len(hole) < 3 for hole in hole_points):
+            raise ValueError("هندسه هر بازشو حداقل به سه نقطه نیاز دارد")
+        holes_px = sum(polygon_area(h) for h in hole_points)
         net_px = gross_px - holes_px
         if net_px < -1e-9:
             raise ValueError("مجموع بازشوها از مساحت اصلی بیشتر است")
         quantity = self._ensure_finite(max(0.0, net_px) * factor * factor)
         self._ensure_source_unique(source)
+        confidence = self._ensure_confidence(confidence)
         self._record()
         item_id = self._next_id()
         item = TakeoffItem(
             item_id, "area", quantity, "m2", page, label, takeoff_code, source,
             self._source_ref(page, item_id), tuple((p.x, p.y) for p in pts),
             f"{max(0.0, net_px):g} px² × {factor:g}²", self._ensure_confidence(confidence),
+            tuple(tuple((p.x, p.y) for p in hole) for hole in hole_points),
         )
         self.items.append(item)
         self._commit()
@@ -230,13 +255,14 @@ class DrawingTakeoffSession:
         self, count: int = 1, *, page: int | None = None, label: str = "",
         takeoff_code: str = "", source: str = "", confidence: float = 1.0,
     ) -> TakeoffItem:
-        page = self.current_page if page is None else int(page)
+        page = self.current_page if page is None else self._page_number(page)
         quantity = self._ensure_finite(count)
         if quantity <= 0:
             raise ValueError("count must be positive")
         if not quantity.is_integer():
             raise ValueError("count must be an integer")
         self._ensure_source_unique(source)
+        confidence = self._ensure_confidence(confidence)
         self._record()
         item_id = self._next_id()
         item = TakeoffItem(
@@ -321,6 +347,8 @@ class DrawingTakeoffSession:
     def validate(self) -> dict[str, Any]:
         issues: list[str] = []
         ids = [x.id for x in self.items]
+        if any(not str(value).strip() for value in ids):
+            issues.append("شناسه متره خالی است")
         if len(ids) != len(set(ids)):
             issues.append("شناسه متره تکراری است")
         sources = [x.source for x in self.items if x.source]
@@ -332,6 +360,9 @@ class DrawingTakeoffSession:
                     or not math.isfinite(calibration.reference_pixels) or calibration.reference_pixels <= 0
                     or not math.isfinite(calibration.reference_meters) or calibration.reference_meters <= 0):
                 issues.append(f"کالیبراسیون صفحه {page} نامعتبر است")
+            elif not math.isclose(calibration.meters_per_pixel,
+                                  calibration.reference_meters / calibration.reference_pixels, rel_tol=1e-12):
+                issues.append(f"مقیاس صفحه {page} با مرجع کالیبراسیون مطابقت ندارد")
         for item in self.items:
             if item.page < 1 or not math.isfinite(item.quantity) or item.quantity < 0:
                 issues.append(f"متره {item.id} مقدار نامعتبر دارد")
@@ -342,7 +373,13 @@ class DrawingTakeoffSession:
         return {"valid": not issues, "issues": issues, "item_count": len(self.items)}
 
     def boq_rows(self, selected_ids: Iterable[str] | None = None) -> list[dict[str, Any]]:
+        from core.drawings.takeoff_bridge import validate_session_payload
+        validation = validate_session_payload(self.to_dict())
+        if not validation["valid"]:
+            raise ValueError("نشست نقشه معتبر نیست: " + "؛ ".join(validation["issues"]))
         selected = None if selected_ids is None else set(selected_ids)
+        if selected is not None and (not selected or selected - {item.id for item in self.items}):
+            raise ValueError("انتخاب متره خالی است یا شناسه متره در نشست وجود ندارد")
         rows = []
         for item in self.items:
             if selected is not None and item.id not in selected:
@@ -391,7 +428,7 @@ class DrawingTakeoffSession:
         raw_calibrations = data.get("calibrations")
         if isinstance(raw_calibrations, dict):
             for page_key, value in raw_calibrations.items():
-                page_number = int(page_key)
+                page_number = cls._page_number(page_key)
                 calibration = Calibration(**value)
                 if calibration.page != page_number:
                     raise ValueError("شماره صفحه کالیبراسیون با کلید ذخیره‌شده مطابقت ندارد")
@@ -405,18 +442,19 @@ class DrawingTakeoffSession:
             values = (calibration.meters_per_pixel, calibration.reference_pixels, calibration.reference_meters)
             if page_number < 1 or any(not math.isfinite(float(v)) or float(v) <= 0 for v in values):
                 raise ValueError("فایل متره دارای کالیبراسیون نامعتبر است")
-        session.current_page = int(data.get("current_page", 1))
+        session.current_page = cls._page_number(data.get("current_page", 1))
         if session.current_page < 1:
             raise ValueError("شماره صفحه جاری باید مثبت باشد")
         session.calibration = session.calibrations.get(session.current_page)
         session.items = [
             TakeoffItem(
                 id=str(x["id"]), kind=str(x["kind"]), quantity=float(x["quantity"]),
-                unit=str(x["unit"]), page=int(x["page"]), label=str(x.get("label", "")),
+                unit=str(x["unit"]), page=cls._page_number(x["page"]), label=str(x.get("label", "")),
                 takeoff_code=str(x.get("takeoff_code", "")), source=str(x.get("source", "")),
                 source_ref=str(x.get("source_ref", "")),
                 geometry=tuple(tuple(p) for p in x.get("geometry", ())),
                 formula=str(x.get("formula", "")), confidence=float(x.get("confidence", 1.0)),
+                holes=tuple(tuple(tuple(p) for p in hole) for hole in x.get("holes", ())),
             )
             for x in data.get("items", [])
         ]

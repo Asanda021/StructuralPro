@@ -108,7 +108,12 @@ class ManualTakeoffWorkbench:
         return record
 
     def add_batch(self, text: str, *, floor_id: str) -> tuple[ManualTakeoffRecord | ManualTakeoffDraft, ...]:
-        return tuple(self.add_text(entry.source_text, floor_id=floor_id) for entry in parse_manual_batch(text))
+        previous = (list(self._records), list(self._undo), list(self._redo), self._next_id)
+        try:
+            return tuple(self.add_text(entry.source_text, floor_id=floor_id) for entry in parse_manual_batch(text))
+        except Exception:
+            self._records, self._undo, self._redo, self._next_id = previous
+            raise
 
     def undo(self) -> tuple[ManualTakeoffRecord, ...]:
         if self._undo: self._redo.append(tuple(self._records)); self._records = list(self._undo.pop())

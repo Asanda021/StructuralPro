@@ -82,7 +82,11 @@ class PDFDrawingEngine:
     def render(self, page: int, dpi: int = 120) -> bytes:
         if isinstance(dpi, bool) or not isinstance(dpi, int) or not 36 <= dpi <= 600:
             raise ValueError("وضوح نمایش PDF باید عدد صحیح بین ۳۶ و ۶۰۰ باشد.")
-        pix = self._page(page).get_pixmap(dpi=dpi, alpha=False)
+        pdf_page = self._page(page)
+        pixels = math.ceil(pdf_page.rect.width * dpi / 72) * math.ceil(pdf_page.rect.height * dpi / 72)
+        if pixels > 40_000_000:
+            raise ValueError("ابعاد نقشه برای نمایش کامل در این وضوح بسیار بزرگ است؛ وضوح پایین‌تر انتخاب کنید")
+        pix = pdf_page.get_pixmap(dpi=dpi, alpha=False)
         return pix.tobytes("png")
 
     def text(self, page: int) -> str:
