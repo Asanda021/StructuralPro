@@ -6,6 +6,7 @@ passed schema validation; an explicit human confirmation flag is required.
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 
@@ -19,8 +20,8 @@ def validate_ai_takeoff_proposal(
     if not isinstance(proposal, dict):
         return {"valid": False, "approved": False, "issues": ["پیشنهاد هوش مصنوعی باید ساختار معتبر داشته باشد"], "rows": []}
     try:
-        threshold = float(minimum_confidence)
-    except (TypeError, ValueError):
+        threshold = float(minimum_confidence) if not isinstance(minimum_confidence, bool) else float("nan")
+    except (TypeError, ValueError, OverflowError):
         threshold = float("nan")
     if not math.isfinite(threshold) or not 0.0 < threshold <= 1.0:
         issues.append("حد اطمینان باید عددی بین صفر و یک باشد")
@@ -35,6 +36,7 @@ def validate_ai_takeoff_proposal(
         issues.append("پیشنهاد باید دست‌کم یک نامزد متره داشته باشد")
         candidates = []
     seen: set[str] = set()
+    seen_session_items: set[str] = set()
     normalized: list[dict[str, Any]] = []
     for index, candidate in enumerate(candidates, 1):
         prefix = f"نامزد {index}"
@@ -49,8 +51,16 @@ def validate_ai_takeoff_proposal(
             issues.append(f"{prefix}: شناسه منبع تکراری است")
         if source_id:
             seen.add(source_id)
+            # List-order placeholders are not stable identities across CAD
+            # revisions and must never be promoted to a priced takeoff.
+            if re.fullmatch(r"entity-\\d+", source_id, flags=re.IGNORECASE):
+                issues.append(f"{prefix}: شناسه منبع ترتیبی و ناپایدار است")
         if not session_item_id:
             issues.append(f"{prefix}: شناسه متره هندسی ذخیره‌شده الزامی است")
+        elif session_item_id in seen_session_items:
+            issues.append(f"{prefix}: شناسه متره هندسی تکراری است")
+        else:
+            seen_session_items.add(session_item_id)
         page = candidate.get("page")
         if isinstance(page, bool) or not isinstance(page, int) or page < 1:
             issues.append(f"{prefix}: شماره صفحه معتبر الزامی است")
@@ -62,16 +72,18 @@ def validate_ai_takeoff_proposal(
         elif unit != expected_unit:
             issues.append(f"{prefix}: واحد با نوع متره سازگار نیست")
         try:
-            quantity = float(candidate.get("quantity"))
-        except (TypeError, ValueError):
+            raw_quantity = candidate.get("quantity")
+            quantity = float(raw_quantity) if not isinstance(raw_quantity, bool) else float("nan")
+        except (TypeError, ValueError, OverflowError):
             quantity = float("nan")
         if not math.isfinite(quantity) or quantity <= 0:
             issues.append(f"{prefix}: مقدار باید مثبت و متناهی باشد")
         if kind == "count" and math.isfinite(quantity) and not quantity.is_integer():
             issues.append(f"{prefix}: تعداد باید عدد صحیح باشد")
         try:
-            confidence = float(candidate.get("confidence"))
-        except (TypeError, ValueError):
+            raw_confidence = candidate.get("confidence")
+            confidence = float(raw_confidence) if not isinstance(raw_confidence, bool) else float("nan")
+        except (TypeError, ValueError, OverflowError):
             confidence = float("nan")
         if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
             issues.append(f"{prefix}: سطح اطمینان نامعتبر است")
@@ -88,8 +100,9 @@ def validate_ai_takeoff_proposal(
             if not scale_ref:
                 issues.append(f"{prefix}: مرجع کالیبراسیون/مقیاس الزامی است")
             try:
-                meters_per_pixel = float(evidence.get("meters_per_pixel"))
-            except (TypeError, ValueError):
+                raw_scale = evidence.get("meters_per_pixel")
+                meters_per_pixel = float(raw_scale) if not isinstance(raw_scale, bool) else float("nan")
+            except (TypeError, ValueError, OverflowError):
                 meters_per_pixel = float("nan")
             if not math.isfinite(meters_per_pixel) or meters_per_pixel <= 0:
                 issues.append(f"{prefix}: ضریب مقیاس معتبر و مثبت الزامی است")
