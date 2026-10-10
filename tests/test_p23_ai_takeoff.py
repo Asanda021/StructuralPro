@@ -53,7 +53,7 @@ def test_p23_payload_is_deterministic_and_fingerprinted():
     entity = DWGEntity("LWPOLYLINE", "SLAB", "s1", {"area": 20, "source_id": "A-101:s1"})
     row = propose_takeoff([entity])[0]
     assert candidate_fingerprint(row) == candidate_fingerprint(row)
-    payload = build_takeoff_payload([row], source_fingerprint="a".repeat(64))
+    payload = build_takeoff_payload([row], source_fingerprint="a" * 64)
     assert payload["kind"] == "ai_takeoff_v1"
     assert payload["fail_closed"] is True
     assert payload["review_required"] == 1
