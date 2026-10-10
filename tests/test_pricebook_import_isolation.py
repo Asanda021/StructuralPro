@@ -251,3 +251,18 @@ def test_blank_excel_year_uses_explicit_import_year(tmp_path):
     wb.save(path)
     PricebookImportService(catalog).import_file(path, year=1404)
     assert catalog.get("100", 1404).unit_price == 10
+
+
+def test_excel_zero_price_without_row_identity_is_not_skipped(tmp_path):
+    from openpyxl import Workbook
+    catalog = PriceCatalog()
+    path = tmp_path / "zero-without-code.xlsx"
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["year", "group", "chapter", "code", "description", "unit", "unit_price"])
+    ws.append([1404, "ابنیه", "01", "100", "test", "m2", 10])
+    ws.append([1404, "ابنیه", "01", None, None, None, 0])
+    wb.save(path)
+    with pytest.raises(ValueError, match="ردیف ناقص Excel"):
+        PricebookImportService(catalog).import_file(path, year=1404)
+    assert catalog.get("100", 1404) is None
